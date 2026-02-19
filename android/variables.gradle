@@ -1,0 +1,28 @@
+ext {
+    minSdkVersion = 24
+    compileSdkVersion = 35
+    targetSdkVersion = 35
+    
+    // Explicitly set these for plugins that might use different names
+    androidCompileSdkVersion = 35
+    androidTargetSdkVersion = 35
+    androidMinSdkVersion = 24
+
+    kotlinVersion = '1.9.23'
+    kotlin_version = '1.9.23' // Added to match what some plugins expect
+
+    androidxActivityVersion = '1.9.3'
+    androidxAppCompatVersion = '1.7.1'
+    androidxCoordinatorLayoutVersion = '1.3.0'
+    androidxCoreVersion = '1.15.0'
+    androidxFragmentVersion = '1.8.5'
+    coreSplashScreenVersion = '1.2.0'
+    androidxWebkitVersion = '1.12.1'
+    junitVersion = '4.13.2'
+    androidxJunitVersion = '1.2.1'
+    androidxEspressoCoreVersion = '3.6.1'
+    cordovaAndroidVersion = '14.0.1'
+    
+    // Downgrade coroutines if they are pulling in Kotlin 2.1
+    kotlinxCoroutinesVersion = '1.8.1'
+}

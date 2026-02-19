@@ -1,0 +1,8 @@
+# Tự động phát hiện file văn bản và chuẩn hóa xuống dòng
+* text=auto
+
+# Ép buộc các file shell script luôn dùng LF (để chạy được trên Linux/Mac)
+*.sh text eol=lf
+
+# Đảm bảo các file batch trên Windows luôn dùng CRLF
+*.bat text eol=crlf

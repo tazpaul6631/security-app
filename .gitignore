@@ -1,0 +1,49 @@
+# Hệ thống & Editor
+.DS_Store
+Thumbs.db
+$RECYCLE.BIN/
+*.sw[mnpcod]
+*~
+.idea/
+.vscode/*
+!/.vscode/extensions.json
+*.sublime-project
+*.sublime-workspace
+
+# Logs & Tạm
+*.log
+log.txt
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.tmp/
+.sourcemaps/
+
+# Web / Ionic / Capacitor
+/node_modules/
+/platforms/
+/plugins/
+/www/
+/dist/
+/dist-ssr/
+/coverage/
+/.ionic/
+/.sass-cache/
+/.versions/
+
+# BẢO MẬT (Quan trọng)
+.env
+.env.local
+.env.*.local
+local.properties
+
+# ANDROID OPTIMIZATION
+.gradle/
+**/build/
+*.apk
+*.aab
+captures/
+
+# Giữ lại các file fix lỗi cụ thể trong node_modules (nếu bạn thực sự cần)
+!node_modules/@capacitor/filesystem/android/src/main/kotlin/com/capacitorjs/plugins/filesystem/FilesystemErrors.kt
+!node_modules/@capacitor/filesystem/android/build.gradle
