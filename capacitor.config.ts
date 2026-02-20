@@ -6,7 +6,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     // 10.0.2.2 là địa chỉ IP máy tính host khi nhìn từ Emulator
-    url: 'http://192.168.100.62:8100', 
+    url: 'http://192.168.100.62:8101', 
     cleartext: true // Cho phép chạy HTTP (không cần HTTPS)
   }
 };

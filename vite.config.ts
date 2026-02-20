@@ -22,6 +22,6 @@ export default defineConfig({
   },
   server: {
     host: '192.168.100.62', // Cho phép truy cập từ IP bên ngoài (quan trọng)
-    port: 8100,      // Port mặc định của Vite (hoặc port bạn đang dùng)
+    port: 8101,      // Port mặc định của Vite (hoặc port bạn đang dùng)
   }
 })
