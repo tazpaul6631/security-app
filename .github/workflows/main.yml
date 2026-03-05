@@ -15,7 +15,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22 # Cập nhật phiên bản mới nhất để chạy Capacitor
           cache: 'npm'
 
       - name: Set up JDK 17
@@ -24,14 +24,12 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      # BƯỚC QUAN TRỌNG: Cài đặt thư viện để có thư mục node_modules
       - name: Install Dependencies
         run: npm install
 
       - name: Build Web Assets (Vue.js)
         run: npm run build
 
-      # BƯỚC QUAN TRỌNG: Đồng bộ plugin SQLite vào project Android
       - name: Sync with Capacitor
         run: npx cap sync android
 
@@ -56,3 +54,4 @@ jobs:
         with:
           name: Security-App-V1
           path: ${{ steps.sign_app.outputs.signedReleaseFile }}
+          retention-days: 7
