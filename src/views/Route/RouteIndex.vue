@@ -69,8 +69,7 @@
                                                 HỦY BỎ
                                             </ion-button>
 
-                                            <ion-button color="success"
-                                                @click="scannerService.startScanning(store, router, route.routeId)"
+                                            <ion-button color="success" @click="handleContinueScanning(route.routeId)"
                                                 class="btn-continue">
                                                 <ion-icon slot="start" :icon="qrCodeOutline"></ion-icon>
                                                 QUÉT TIẾP
@@ -141,6 +140,20 @@ const handleRouteSelected = (id: number, name: string) => {
     nameRoute.value = name;
     isAlertOpen.value = true;
 }
+
+const handleContinueScanning = async (routeId: number) => {
+    try {
+        console.log("Đang khởi động trình quét cho route:", routeId);
+        // Gọi service và đợi kết quả
+        await scannerService.startScanning(store, router, routeId);
+    } catch (error) {
+        // Đây là nơi bạn "tóm" lỗi lại để không bị văng ra console
+        console.error("Lỗi khi mở scanner:", error);
+
+        // (Tùy chọn) Hiển thị thông báo cho người dùng biết
+        // alert("Không thể mở máy ảnh. Vui lòng kiểm tra quyền truy cập.");
+    }
+};
 
 const isNextRequired = (details: RouteDetail[], index: number) => {
     // Tìm điểm đầu tiên trong mảng có status !== 1
