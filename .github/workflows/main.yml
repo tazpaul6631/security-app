@@ -40,6 +40,14 @@ jobs:
           chmod +x gradlew
           ./gradlew assembleRelease
 
+      - name: Set up Android SDK
+        run: |
+          # Tìm phiên bản build-tools mới nhất có sẵn trên máy ảo GitHub
+          BUILD_TOOLS_VERSION=$(ls $ANDROID_HOME/build-tools | sort -V | tail -n 1)
+          echo "Using Build Tools Version: $BUILD_TOOLS_VERSION"
+          # Thêm đường dẫn vào PATH để action sau này tìm thấy zipalign
+          echo "$ANDROID_HOME/build-tools/$BUILD_TOOLS_VERSION" >> $GITHUB_PATH
+
       - name: Sign APK
         uses: r0adkll/sign-android-release@v1
         id: sign_app
@@ -49,7 +57,6 @@ jobs:
           alias: ${{ secrets.ANDROID_KEY_ALIAS }}
           keyStorePassword: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.ANDROID_KEY_PASSWORD }}
-          buildToolsVersion: "34.0.0" # Sửa lỗi không tìm thấy zipalign 29.0.3
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
