@@ -1,7 +1,7 @@
 <template>
   <ion-page>
     <ion-header>
-      <ion-toolbar>
+      <ion-toolbar class="none-padding">
         <ion-buttons slot="start">
           <ion-back-button default-href="/checkpoint"></ion-back-button>
         </ion-buttons>
@@ -51,9 +51,13 @@
           <ion-list lines="none">
             <ion-item>
               <ion-label>
-                <h2>Thời gian dự kiến: <strong>{{ getPrIdData.planTimeStr }}</strong></h2>
+                <h2>Thời gian dự kiến: <strong>{{ getPrIdData.planHours ? `${getPrIdData.planHours} giờ` : '' }} {{
+                  getPrIdData.planSeconds ? `${getPrIdData.planSeconds} giây` : '' }} {{ getPrIdData.planMinutes ?
+                      `${getPrIdData.planMinutes} phút` : '' }}</strong></h2>
                 <h3 :class="getPrIdData.timeProblem ? 'time-problem' : ''">Thời gian thực tế: {{
-                  getPrIdData.realityTimeStr }}
+                  getPrIdData.realityHours ? `${getPrIdData.realityHours} giờ` : '' }} {{
+                    getPrIdData.realityMinutes ? `${getPrIdData.realityMinutes} phút` : '' }} {{
+                    getPrIdData.realitySeconds ? `${getPrIdData.realitySeconds} giây` : '' }}
                 </h3>
               </ion-label>
             </ion-item>
@@ -227,10 +231,6 @@ const closeModal = () => {
 </script>
 
 <style scoped>
-ion-toolbar {
-  padding: 0 !important;
-}
-
 .image-grid {
   padding: 10px;
 }

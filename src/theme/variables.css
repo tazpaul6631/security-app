@@ -30,3 +30,7 @@ http://ionicframework.com/docs/theming/ */
 .no-route-container {
     margin-top: 100px;
 }
+
+.none-padding {
+    padding-top: 0 !important;
+}

@@ -28,51 +28,45 @@ let networkHandler: PluginListenerHandle | null = null;
 
 onMounted(async () => {
   try {
-    // 1. Khởi tạo Database cơ sở
     await initDatabase();
 
-    // 2. Phục hồi session người dùng
+    // 1. Chỉ khôi phục Token/User trước để biết có cần chạy initApp sâu hơn không
     await Promise.all([
       store.dispatch('restoreToken'),
       store.dispatch('restoreUser')
     ]);
 
-    // 3. Thiết lập trạng thái mạng ban đầu
+    // 2. Lấy trạng thái mạng hiện tại và GÁN NGAY vào biến chặn
     const status = await Network.getStatus();
     lastNetworkStatus = status.connected;
     store.commit('SET_NETWORK_STATUS', status.connected);
 
-    // 4. Nếu đã đăng nhập, chuẩn bị dữ liệu và đồng bộ ngay
+    // 3. Nếu đã đăng nhập, mới khởi tạo toàn bộ dữ liệu offline
     if (store.state.token) {
       await store.dispatch('initApp');
 
+      // Chỉ đồng bộ nếu ĐANG online và CÓ dữ liệu chờ
       if (status.connected) {
-        console.log('[App] Khởi tạo: Đang có mạng, thử đồng bộ hàng chờ...');
         syncData();
       }
     }
-  } catch (e) {
-    console.error('[App] Lỗi khởi tạo hệ thống:', e);
   } finally {
     isAppReady.value = true;
   }
 
-  // 5. Lắng nghe thay đổi mạng (Chống dội - Debounce logic)
+  // 4. Lắng nghe thay đổi (Sử dụng flag lastNetworkStatus để chặn)
   networkHandler = await Network.addListener('networkStatusChange', status => {
-    const isOnline = status.connected;
+    // QUAN TRỌNG: Chỉ xử lý nếu trạng thái THỰC SỰ thay đổi (ví dụ: đang lướt mạng thì mất, hoặc đang mất thì có lại)
+    if (status.connected === lastNetworkStatus) return;
 
-    // Chỉ xử lý nếu trạng thái thực sự thay đổi (ví dụ từ False -> True)
-    if (isOnline !== lastNetworkStatus) {
-      console.log(`[App] Mạng thay đổi: ${isOnline ? 'ONLINE' : 'OFFLINE'}`);
+    const isComingOnline = status.connected && lastNetworkStatus === false;
 
-      store.commit('SET_NETWORK_STATUS', isOnline);
-      lastNetworkStatus = isOnline;
+    store.commit('SET_NETWORK_STATUS', status.connected);
+    lastNetworkStatus = status.connected;
 
-      // Chỉ kích hoạt sync khi chuyển từ mất mạng sang có mạng
-      if (isOnline && store.state.token) {
-        // Gọi syncData ngay, biến isInternalProcessing trong hook sẽ lo việc chặn trùng lặp
-        syncData();
-      }
+    if (isComingOnline && store.state.token) {
+      console.log("Mạng vừa khôi phục, chuẩn bị đồng bộ...");
+      syncData();
     }
   });
 });

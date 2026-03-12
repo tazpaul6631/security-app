@@ -111,6 +111,9 @@ const store = createStore({
     // Hàm bơm báo cáo Offline giả vào Store (Đã fix lỗi gạch chân)
     ADD_OFFLINE_REPORT(state: any, report: any) {
       // 1. Nhét vào kho tổng CheckpointsId (Bây giờ nó chắc chắn là Mảng)
+      console.log(state);
+      console.log(report);
+
       let allReports = Array.isArray(state.dataCheckpointsId) ? state.dataCheckpointsId : [];
 
       // Đẩy báo cáo mới lên đầu mảng và gán thẳng lại (Không cần .data nữa)
@@ -120,14 +123,19 @@ const store = createStore({
       let currentCPList = [];
       if (Array.isArray(state.dataListCP)) {
         currentCPList = state.dataListCP[0]?.data || state.dataListCP;
+        console.log(currentCPList);
       } else {
         currentCPList = state.dataListCP?.data || [];
+        console.log(currentCPList);
       }
+
+      console.log(currentCPList);
 
       // Nếu danh sách rỗng hoặc cpId trùng với màn hình đang xem thì bơm vào UI
       if (currentCPList.length === 0 || String(currentCPList[0]?.cpId) === String(report.cpId)) {
         currentCPList = [report, ...currentCPList];
 
+        console.log(currentCPList);
         // Trả về đúng cấu trúc [{ data: [...] }] mà giao diện CPIndex đang mong đợi
         state.dataListCP = [{ data: currentCPList }];
       }
@@ -310,29 +318,40 @@ const store = createStore({
       commit('SET_SYNC_STATUS', { progress: 100, message: 'Đồng bộ hoàn tất!', isSyncing: false });
     },
 
+    // Trong store/index.ts
     async initApp({ dispatch, commit }) {
-      console.log('initApp running...');
+      console.log('--- [START] Khởi tạo ứng dụng ---');
       try {
-        // Khôi phục tất cả dữ liệu cùng lúc
+        // Bước 1: Khôi phục các thông tin trọng yếu trước (Token, User) để App biết trạng thái Login
         await Promise.all([
-          dispatch('restoreScanQr'),
-          dispatch('restoreUser'),
-          dispatch('restoreCurrentTime'),
-          dispatch('restoreLastCheckpoint'),
           dispatch('restoreToken'),
-          dispatch('restoreMenu'),
-          dispatch('restoreCheckpoints'),
-          dispatch('restoreCheckpointsId'),
-          dispatch('restoreAreaBU'),
-          dispatch('restoreListRoute'),
-          dispatch('restoreRouteId'),
-          dispatch('restoreReportNoteCategory'),
-          dispatch('restoreBasePointReportView')
+          dispatch('restoreUser'),
         ]);
+
+        // Bước 2: Khôi phục dữ liệu nghiệp vụ (Chạy ngầm, không chặn luồng chính quá lâu)
+        // Thay vì dùng Promise.all cho tất cả, hãy chia nhỏ hoặc chạy tuần tự các mảng lớn
+        const businessData = [
+          'restoreMenu',
+          'restoreCheckpoints',
+          'restoreCheckpointsId',
+          'restoreAreaBU',
+          'restoreListRoute',
+          'restoreRouteId',
+          'restoreReportNoteCategory',
+          'restoreBasePointReportView',
+          'restoreScanQr'
+        ];
+
+        for (const action of businessData) {
+          await dispatch(action);
+        }
+
       } catch (e) {
         console.error("Lỗi khi khởi tạo Store:", e);
       } finally {
+        // Bước 3: Chỉ khi xong xuôi mới bật cờ Hydrated
         commit('SET_HYDRATED', true);
+        console.log('--- [END] Khởi tạo ứng dụng hoàn tất ---');
       }
     },
 

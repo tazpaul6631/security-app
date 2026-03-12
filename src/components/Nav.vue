@@ -19,7 +19,7 @@
               </ion-text>
             </div>
 
-            <ion-badge :color="isOnline ? 'success' : 'danger'" class="ion-margin-horizontal">
+            <ion-badge :class="isOnline ? 'status-online' : 'status-offline'" class="ion-margin-horizontal">
               {{ isOnline ? 'Online' : 'Offline' }}
             </ion-badge>
 
@@ -159,10 +159,6 @@ div[slot='content'] {
   background: rgba(var(--ion-color-rose-rgb), 0.25);
 }
 
-.nav-header {
-  padding-top: 15px;
-}
-
 .icon-footer {
   display: flex;
   justify-content: center;
@@ -250,5 +246,20 @@ div[slot='content'] {
     transform: scale(1);
     opacity: 0.7;
   }
+}
+
+.status-online {
+  background: #d4fcc7;
+  color: #3c9441;
+}
+
+.status-offline {
+  background: #ffdada;
+  color: #7a1b1b;
+}
+
+.ion-margin-horizontal {
+  width: fit-content;
+  border-radius: 10px;
 }
 </style>

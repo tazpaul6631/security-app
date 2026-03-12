@@ -1,7 +1,7 @@
 <template>
   <ion-page>
     <ion-header>
-      <ion-toolbar>
+      <ion-toolbar class="none-padding">
         <ion-buttons slot="start">
           <ion-button @click="handleGoBack">
             <ion-icon slot="icon-only" :icon="arrowBackOutline"></ion-icon>
@@ -17,6 +17,10 @@
           <ion-card-title>{{ currentRoute?.routeName }}</ion-card-title>
           <ion-card-subtitle>
             Mã: {{ currentActiveRoute.routeCode }} | Giờ trực: {{ currentActiveRoute.psHourFrom }}h
+            <br />
+            <span class="timer-display" :class="timerColorClass" v-if="currentActiveRoute.planSecond !== undefined">
+              <ion-icon class="icon-clock" :icon="timeOutline"></ion-icon> Thời gian: {{ formattedTime }}
+            </span>
           </ion-card-subtitle>
         </ion-card-header>
 
@@ -210,7 +214,10 @@
       <div v-if="pendingItems.length > 0" class="ion-margin-top">
         <ion-list-header>
           <ion-label>Đang chờ đồng bộ ({{ pendingItems?.length }})</ion-label>
-          <ion-button @click="syncData">Thử lại ngay</ion-button>
+          <ion-button @click="syncData" :disabled="isSyncing">
+            <ion-spinner v-if="isSyncing" name="dots"></ion-spinner>
+            <span v-else>Thử lại ngay</span>
+          </ion-button>
         </ion-list-header>
 
         <ion-list lines="full">
@@ -248,7 +255,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, onMounted, watch, onUnmounted } from 'vue';
+import { computed, reactive, ref, onMounted, watch } from 'vue';
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonList, IonItem, IonTextarea,
   IonCheckbox, IonButton, IonIcon, IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle,
@@ -258,7 +265,7 @@ import {
   IonSelect, IonModal, IonSelectOption, IonAccordion, IonAccordionGroup,
   alertController
 } from '@ionic/vue';
-import { sendOutline, camera, images, trash, arrowBackOutline, calendarOutline, cloudOfflineOutline, trashOutline } from 'ionicons/icons';
+import { sendOutline, camera, images, trash, arrowBackOutline, calendarOutline, cloudOfflineOutline, trashOutline, timeOutline } from 'ionicons/icons'; // Thêm timeOutline
 import { Camera, CameraResultType, CameraDirection, CameraSource } from '@capacitor/camera';
 import { useStore } from 'vuex';
 import { useOfflineManager } from '@/composables/useOfflineManager';
@@ -268,6 +275,9 @@ import router from '@/router';
 import storageService from '@/services/storage.service';
 import { App } from '@capacitor/app';
 import CardRoutePoints from '@/components/CardRoutePoints.vue';
+import { useRouteTimer } from '@/composables/useRouteTimer';
+
+const { formattedTime, timerColorClass, startTimer, clearTimer } = useRouteTimer();
 
 const store = useStore();
 const isReady = ref(false);
@@ -286,6 +296,7 @@ interface Route {
   routeCode: string;
   psHourFrom: number;
   psHourTo: number;
+  planSecond?: number;
   routeDetails: RouteDetail[];
   areaId: number;
   roleId: number;
@@ -299,14 +310,13 @@ interface Photo {
   [key: string]: any;
 }
 
-// Cấu trúc mới dùng để tạo ra giao diện Card và Payload
 interface GroupedNote {
   id: string;
   prGroup: number;
   priImageNote: string;
   reportImages: Photo[];
   type: 'label' | 'note';
-  rncId?: string; // Lưu Id để đồng bộ ngược với Modal Select
+  rncId?: string;
 }
 
 interface QueueItem {
@@ -328,6 +338,7 @@ interface ReportNode {
 ///////////////////////////////////
 
 const currentHour = ref(new Date().getHours());
+
 const currentActiveRoute = computed<Route | null>(() => {
   const routes = store.state.dataListRoute;
   const userData = store.state.dataUser;
@@ -338,6 +349,15 @@ const currentActiveRoute = computed<Route | null>(() => {
   const hNow = currentHour.value;
 
   const foundRoute = routes.find((r: any) => {
+    // Để giữ nguyên mạch Logic bên RouteIndex, nếu route đã được bắt đầu quét
+    // thì vẫn giữ lại trên màn hình
+    const isStarted = r.routeDetails && r.routeDetails.some((p: any) => p.status === 1);
+    const isFinished = r.routeDetails && r.routeDetails.every((p: any) => p.status === 1);
+
+    if (isStarted && !isFinished && Number(r.areaId) === uArea && Number(r.roleId) === uRole) {
+      return true;
+    }
+
     const areaMatch = Number(r.areaId) === uArea;
     const roleMatch = Number(r.roleId) === uRole;
     const hourMatch = hNow >= Number(r.psHourFrom) && hNow <= Number(r.psHourTo);
@@ -350,6 +370,21 @@ const currentActiveRoute = computed<Route | null>(() => {
   }
   return null;
 });
+
+// ==========================================
+// THÊM LOGIC ĐẾM NGƯỢC THỜI GIAN (TIMER)
+// ==========================================
+
+// Khởi tạo và chạy Timer
+watch(() => currentActiveRoute.value, async (newRoute) => {
+  // Chỉ bắt đầu chạy giờ khi người dùng đã có lộ trình hợp lệ
+  // và (tuỳ chọn của bạn) có thể check thêm xem đã quét điểm nào chưa nếu muốn
+  if (newRoute && newRoute.routeId && newRoute.planSecond) {
+    await startTimer(newRoute.routeId, newRoute.planSecond);
+  }
+}, { immediate: true, deep: true });
+// ==========================================
+
 
 const currentRouteId = computed(() => store.state.routeId);
 
@@ -413,7 +448,6 @@ const handleChecked = () => {
 const { sendData, pendingItems, loadPendingItems, syncData, isSyncing } = useOfflineManager();
 const displayItems = ref<QueueItem[]>([]);
 
-// TRẠNG THÁI MỚI THAY THẾ CHO PHOTOS CHUNG
 const groupedNotes = ref<GroupedNote[]>([]);
 const apiCategories = ref<ReportNode[]>([]);
 const selectedSubCategory = ref<ReportNode | null>(null);
@@ -425,19 +459,17 @@ const openNoteModal = ref(false);
 const selectedValues = ref<string[]>([]);
 const allSelectedMap = ref<Record<string, string[]>>({});
 const tempNoteInput = ref('');
-const tempNoteList = ref<string[]>([]); // Giữ lại để đối soát
+const tempNoteList = ref<string[]>([]);
 
 const currentIssues = computed(() => selectedSubCategory.value?.childs || []);
 
-// --- HÀM HELPER SINH ID VÀ ĐÁNH SỐ LẠI ---
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
 const updatePrGroups = () => {
   groupedNotes.value.forEach((group, index) => {
-    group.prGroup = index + 1; // Gán lại prGroup tự động từ 1 trở đi
+    group.prGroup = index + 1;
   });
 };
-// ----------------------------------------
 
 const convertBlobToBase64 = (blob: Blob): Promise<string> => {
   return new Promise((resolve, reject) => {
@@ -452,7 +484,6 @@ const formatDate = (timestamp: number | string): string => {
   return new Date(timestamp).toLocaleTimeString();
 };
 
-// --- HÀM XỬ LÝ CHỤP ẢNH THEO TỪNG GROUP CARD ---
 const addGroupPhoto = async (groupIndex: number): Promise<void> => {
   try {
     const image = await Camera.getPhoto({
@@ -493,12 +524,10 @@ const pickGroupImages = async (groupIndex: number): Promise<void> => {
 const removeGroupPhoto = (groupIndex: number, photoIndex: number) => {
   groupedNotes.value[groupIndex].reportImages.splice(photoIndex, 1);
 };
-// ------------------------------------------------
 
-// --- XỬ LÝ LOGIC MODAL VÀ ĐỒNG BỘ GROUPED NOTES ---
 const selectSubCategory = (sub: ReportNode) => {
   selectedSubCategory.value = sub;
-  selectedValues.value = allSelectedMap.value[sub.rncId] || [];
+  selectedValues.value = [];
   openDetailModal.value = true;
 };
 
@@ -506,44 +535,31 @@ const handleDetailChange = (event: any) => {
   const values = event.detail.value;
   const subId = selectedSubCategory.value?.rncId;
 
-  if (subId) {
-    const oldValues = allSelectedMap.value[subId] || [];
-
-    // Lọc ra các mục mới thêm và bị xóa
-    const added = values.filter((v: string) => !oldValues.includes(v) && v !== 'note');
-    const removed = oldValues.filter((v: string) => !values.includes(v) && v !== 'note');
-
-    // Thêm các thẻ Card mới
-    added.forEach((val: string) => {
-      groupedNotes.value.push({
-        id: generateId(),
-        prGroup: groupedNotes.value.length + 1,
-        priImageNote: val,
-        reportImages: [],
-        type: 'label',
-        rncId: String(subId)
-      });
+  if (subId && values && values.length > 0) {
+    values.forEach((val: string) => {
+      if (val === 'note') return;
+      const isExist = groupedNotes.value.some(
+        g => g.type === 'label' && g.rncId === String(subId) && g.priImageNote === val
+      );
+      if (!isExist) {
+        groupedNotes.value.push({
+          id: generateId(),
+          prGroup: groupedNotes.value.length + 1,
+          priImageNote: val,
+          reportImages: [],
+          type: 'label',
+          rncId: String(subId)
+        });
+      }
     });
-
-    // Rút các thẻ Card bị bỏ chọn
-    removed.forEach((val: string) => {
-      const index = groupedNotes.value.findIndex(g => g.type === 'label' && g.rncId === String(subId) && g.priImageNote === val);
-      if (index !== -1) groupedNotes.value.splice(index, 1);
-    });
-
-    if (values.length > 0) {
-      allSelectedMap.value[subId] = values;
-    } else {
-      delete allSelectedMap.value[subId];
-    }
 
     updatePrGroups();
+    syncToMainForm();
   }
 
   if (values.includes('note')) {
     openNoteModal.value = true;
   }
-  syncToMainForm();
 };
 
 const handleSelectDismiss = () => {
@@ -551,6 +567,7 @@ const handleSelectDismiss = () => {
     if (!openNoteModal.value) {
       openDetailModal.value = false;
     }
+    selectedValues.value = [];
   }, 100);
 };
 
@@ -559,7 +576,6 @@ const confirmNote = () => {
     const noteText = tempNoteInput.value.trim();
     tempNoteList.value.push(noteText);
 
-    // Tạo thẻ Card cho Ghi chú tự nhập
     groupedNotes.value.push({
       id: generateId(),
       prGroup: groupedNotes.value.length + 1,
@@ -601,18 +617,15 @@ const removeGroup = (index: number) => {
     }
   }
 
-  // Xóa khỏi danh sách Card và đánh lại số tự động prGroup
   groupedNotes.value.splice(index, 1);
   updatePrGroups();
   syncToMainForm();
 };
 
 const syncToMainForm = () => {
-  // Đồng bộ chuỗi prNote (Nối tất cả text lại theo yêu cầu cũ nếu API cần string)
   const allTexts = groupedNotes.value.map(g => g.priImageNote);
   formData.prNote = allTexts.join(', ');
 };
-// ------------------------------------------------
 
 const handleSubmit = async (): Promise<void> => {
   const now = new Date();
@@ -629,7 +642,6 @@ const handleSubmit = async (): Promise<void> => {
   await loading.present();
 
   try {
-    // 1. Build cấu trúc JSON MỚI cho noteGroups kèm theo ảnh
     const noteGroupsPayload = await Promise.all(groupedNotes.value.map(async (group) => {
       const mappedImages = await Promise.all(group.reportImages.map(async (item) => {
         let base64Data = item.rawBase64;
@@ -649,7 +661,6 @@ const handleSubmit = async (): Promise<void> => {
       };
     }));
 
-    // Cắt toàn bộ chuỗi base64 ra mảng riêng cho Logic Offline nếu `sendData` cần 
     const base64ImagesOnly: string[] = [];
     noteGroupsPayload.forEach(ng => {
       ng.reportImages.forEach(img => base64ImagesOnly.push(img.priImage));
@@ -667,7 +678,6 @@ const handleSubmit = async (): Promise<void> => {
     const currentTime_scanQr = await storageService.get('currentTime_scanqr');
     const psId = store.state.psId;
 
-    // Build Form Data cuối cùng (Gắn list noteGroups vào payload)
     const formSubmitData = {
       psId: psId,
       routeId: routeId,
@@ -678,12 +688,18 @@ const handleSubmit = async (): Promise<void> => {
       cpId: currentCpId,
       createdBy: userId,
       scanAt: currentTime_scanQr,
-      noteGroups: formData.prHasProblem ? noteGroupsPayload : [] // Gắn cấu trúc mới vào đây
+      noteGroups: formData.prHasProblem ? noteGroupsPayload : [],
     };
 
     console.log("PAYLOAD GỬI ĐI:", JSON.stringify(formSubmitData, null, 2));
 
     await sendData(groupedNotes.value[0]?.reportImages[0]?.preview, formSubmitData, base64ImagesOnly);
+
+    const areaCode = currentActiveRoute.value?.routeCode;
+
+    if (areaCode && psId) {
+      store.commit('MARK_ROUTE_OFFLINE_DONE', { areaCode, psId });
+    }
 
     store.commit('UPDATE_POINT_STATUS', {
       routeId: routeId,
@@ -704,6 +720,7 @@ const handleSubmit = async (): Promise<void> => {
 
         if (allDone) {
           await showToast('Chúc mừng! Bạn đã hoàn thành toàn bộ lộ trình.', 'success');
+          await clearTimer(routeId);
           store.commit('RESET_SPECIFIC_ROUTE', routeId);
           store.commit('SET_DATASCANQR', null);
           store.commit('SET_ROUTE_ID', null);
@@ -727,7 +744,7 @@ const handleSubmit = async (): Promise<void> => {
 
     formData.prNote = '';
     formData.prHasProblem = false;
-    groupedNotes.value = []; // Clear
+    groupedNotes.value = [];
     await storageService.remove('currentTime_scanqr');
     await loadPendingItemsWithImages();
 
@@ -818,16 +835,46 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-ion-toolbar {
-  padding: 0 !important;
-}
-
-/* .toolbar-modal {
-  padding-top: var(--ion-safe-area-top, 0) !important;
-} */
-
 .pad-0 {
   padding: 0;
+}
+
+/* CSS cho Timer */
+.timer-display {
+  display: flex;
+  margin-top: 5px;
+  font-size: 0.9rem;
+  color: #666;
+  transition: color 0.3s ease;
+}
+
+.icon-clock {
+  padding-right: 5px;
+}
+
+.text-success {
+  color: var(--ion-color-success, #2dd36f);
+  font-weight: bold;
+}
+
+.text-danger {
+  color: var(--ion-color-danger, #eb445a);
+  font-weight: bold;
+  animation: pulse-red 1s infinite;
+}
+
+@keyframes pulse-red {
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+
+  100% {
+    opacity: 1;
+  }
 }
 
 /* CSS Mới cho Card Ghi chú */
@@ -841,7 +888,6 @@ ion-toolbar {
 .note-card-header {
   position: relative;
   padding-right: 50px;
-  /* Chừa chỗ cho nút xóa */
 }
 
 .btn-delete-group {
@@ -851,7 +897,6 @@ ion-toolbar {
   margin: 0;
 }
 
-/*CSS thêm và chụp hình*/
 ion-list-header {
   --background: #f4f5f8;
   border-radius: 8px;
@@ -940,6 +985,5 @@ ion-list-header {
 
 .inspection-grid-card {
   margin: 10px;
-  border-radius: 12px;
 }
 </style>

@@ -1,7 +1,7 @@
 <template>
     <ion-page>
         <ion-header>
-            <ion-toolbar>
+            <ion-toolbar class="none-padding">
                 <ion-buttons slot="start">
                     <ion-back-button default-href="/home"></ion-back-button>
                 </ion-buttons>
@@ -20,8 +20,4 @@ import {
 
 </script>
 
-<style scoped>
-ion-toolbar {
-    padding: 0 !important;
-}
-</style>
+<style scoped></style>

@@ -19,7 +19,7 @@
     "@capacitor/android": "^8.1.0",
     "@capacitor/app": "8.0.1",
     "@capacitor/camera": "^8.0.1",
-    "@capacitor/core": "^8.1.0",
+    "@capacitor/core": "8.2.0",
     "@capacitor/filesystem": "^8.1.2",
     "@capacitor/haptics": "8.0.0",
     "@capacitor/ios": "^8.1.0",
@@ -37,7 +37,7 @@
     "vuex": "^4.0.2"
   },
   "devDependencies": {
-    "@capacitor/cli": "^8.1.0",
+    "@capacitor/cli": "8.2.0",
     "@types/crypto-js": "^4.2.2",
     "@types/node": "^25.3.0",
     "@vitejs/plugin-legacy": "^5.0.0",

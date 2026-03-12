@@ -1,7 +1,7 @@
 <template>
     <ion-page>
         <ion-header>
-            <ion-toolbar>
+            <ion-toolbar class="none-padding">
                 <ion-buttons slot="start">
                     <ion-back-button default-href="/home"></ion-back-button>
                 </ion-buttons>
@@ -22,6 +22,12 @@
                             <ion-card-title>{{ currentActiveRoute.routeName }}</ion-card-title>
                             <ion-card-subtitle>
                                 Mã: {{ currentActiveRoute.routeCode }} | Giờ trực: {{ currentActiveRoute.psHourFrom }}h
+                                <br />
+                                <span class="timer-display" :class="timerColorClass"
+                                    v-if="currentActiveRoute.planSecond !== undefined">
+                                    <ion-icon class="icon-clock" :icon="timeOutline"></ion-icon> Thời gian: {{
+                                        formattedTime }}
+                                </span>
                             </ion-card-subtitle>
                         </ion-card-header>
 
@@ -45,9 +51,17 @@
 
                 <div v-else :key="'none-' + currentHour" class="ion-padding ion-text-center no-route-container">
                     <div class="no-route-content">
-                        <ion-icon :icon="calendarOutline" class="big-icon"></ion-icon>
-                        <h3>Không có lộ trình</h3>
-                        <p>Hiện không có lộ trình nào vào khung giờ <strong>{{ currentHour }}h</strong>.</p>
+                        <div v-if="userRoleIsAdmin && shiftDataList">
+                            <ion-icon :icon="calendarOutline" class="big-icon"></ion-icon>
+                            <h3>Bạn không có lộ trình phù hợp</h3>
+                        </div>
+                        <div v-else class="no-route-content">
+                            <ion-icon :icon="calendarOutline" class="big-icon"></ion-icon>
+                            <h3>{{ !shiftDataList ? 'Không có lộ trình' : `Lộ trình ${currentHour}h đã hoàn thành` }}
+                            </h3>
+                            <p>Hiện không có lộ trình nào cần thực hiện vào khung giờ <strong>{{ currentHour
+                            }}h</strong>.</p>
+                        </div>
                         <ion-button fill="outline" @click="router.replace('/home')" class="ion-margin-top">
                             Quay lại trang chủ
                         </ion-button>
@@ -69,11 +83,19 @@ import { useRouter } from 'vue-router';
 import {
     IonPage, IonHeader, IonToolbar, IonTitle, IonIcon, IonButtons, IonBackButton,
     IonCardContent, IonContent, IonAlert, IonButton, IonCard, IonCardHeader,
-    IonCardSubtitle, IonCardTitle, IonSpinner
+    IonCardSubtitle, IonCardTitle, IonSpinner, onIonViewWillEnter
 } from '@ionic/vue';
-import { qrCodeOutline, calendarOutline, trashOutline } from 'ionicons/icons';
+import { qrCodeOutline, calendarOutline, trashOutline, timeOutline } from 'ionicons/icons';
 import CardRoutePoints from '@/components/CardRoutePoints.vue';
 import { scannerService } from '@/services/scanner.service';
+
+import PatrolShiftView from '@/api/PatrolShiftView';
+
+// IMPORT GLOBAL TIMER
+import { useRouteTimer } from '@/composables/useRouteTimer';
+
+// Lấy biến và hàm từ Global Timer ra sử dụng
+const { formattedTime, timerColorClass, clearTimer, restoreTimer } = useRouteTimer();
 
 // --- Interfaces ---
 interface RouteDetail {
@@ -89,10 +111,12 @@ interface Route {
     routeCode: string;
     psHourFrom: number;
     psHourTo: number;
+    planSecond?: number;
     routeDetails: RouteDetail[];
     areaId: number;
     roleId: number;
     psId: number;
+    isComplete?: boolean;
 }
 
 const store = useStore();
@@ -100,93 +124,157 @@ const router = useRouter();
 const isCancelAlertOpen = ref(false);
 const isLoading = ref(true);
 const isScanning = ref(false);
+const userRoleIsAdmin = ref();
 
-// Giờ hiện tại - Reactive
+const shiftDataList = ref<Route[]>([]);
 const currentHour = ref(new Date().getHours());
 let timer: any = null;
 
-// --- Logic Cập nhật Giờ & Lộ trình ---
+// ==========================================
+// 1. KHAI BÁO LỘ TRÌNH HIỆN TẠI
+// ==========================================
+const currentActiveRoute = computed<Route | null>(() => {
+    const routes = shiftDataList.value;
+    const userData = store.state.dataUser;
 
+    if (!Array.isArray(routes) || !userData) return null;
+
+    const uRole = Number(userData.userRoleId);
+    const uArea = Number(userData.userAreaId);
+    const hNow = currentHour.value;
+
+    const foundRoute = routes.find((r: Route) => {
+        if (Number(r.areaId) !== uArea || Number(r.roleId) !== uRole) return false;
+
+        const isStarted = r.routeDetails.some(p => p.status === 1);
+        const isFinished = r.routeDetails.every(p => p.status === 1);
+
+        if (isStarted && !isFinished) {
+            return true;
+        }
+
+        const isMatchHour = hNow >= Number(r.psHourFrom) && hNow <= Number(r.psHourTo);
+        const isNotCompleted = !r.isComplete && !isFinished;
+
+        return isMatchHour && isNotCompleted;
+    });
+
+    if (foundRoute) {
+        store.commit('SET_PSID', foundRoute.psId);
+    }
+
+    return foundRoute ? { ...foundRoute } : null;
+});
+
+// ==========================================
+// 2. KHÔI PHỤC TIMER KHI RELOAD
+// ==========================================
+// Ngay khi load được routeId, tự động gọi hàm restoreTimer để lục trong SQLite xem có giờ đang chạy dở không
+watch(() => currentActiveRoute.value?.routeId, async (newId) => {
+    if (newId) {
+        await restoreTimer(newId);
+    }
+}, { immediate: true });
+
+// ==========================================
+// 3. CÁC HÀM XỬ LÝ API VÀ LIFECYCLE VUE
+// ==========================================
 const updateSystemTime = () => {
     const now = new Date();
     const hourNow = now.getHours();
     if (hourNow !== currentHour.value) {
-        console.log("Đã sang giờ mới hoặc phát hiện giờ hệ thống thay đổi:", hourNow);
         currentHour.value = hourNow;
     }
 };
 
-// Xử lý khi người dùng mở lại App từ chế độ nền (Background)
 const handleAppWakeUp = () => {
     if (document.visibilityState === 'visible') {
         updateSystemTime();
     }
 };
 
-onMounted(async () => {
-    try {
-        // Khôi phục dữ liệu từ Store
-        const tasks = [];
-        if (!store.state.dataListRoute?.length) tasks.push(store.dispatch('restoreListRoute'));
-        if (!store.state.dataUser) tasks.push(store.dispatch('restoreUser'));
+onIonViewWillEnter(async () => {
+    isLoading.value = true;
 
-        if (tasks.length > 0) await Promise.all(tasks);
-    } catch (e) {
-        console.error("Lỗi khởi tạo dữ liệu:", e);
+    if (!store.state.isHydrated) {
+        await store.dispatch('initApp');
+    }
+
+    updateSystemTime();
+
+    const areaId = store.state.dataUser?.userAreaId;
+    userRoleIsAdmin.value = store.state.dataUser?.userRoleIsAdmin;
+
+    const now = new Date();
+    const dateInfo = {
+        psDay: now.getDate(),
+        psMonth: now.getMonth() + 1,
+        psYear: now.getFullYear(),
+        psHour: now.getHours(),
+        isComplete: false,
+        areaId: areaId
+    };
+
+    try {
+        if (navigator.onLine) {
+            const response: any = await PatrolShiftView.postPatrolShiftView(dateInfo);
+            const responseData = response?.data;
+            let apiData: any[] = [];
+
+            if (Array.isArray(responseData)) {
+                apiData = responseData;
+            } else if (responseData && Array.isArray(responseData.data)) {
+                apiData = responseData.data;
+            } else if (responseData?.data && Array.isArray(responseData.data.data)) {
+                apiData = responseData.data.data;
+            }
+
+            const localRoutes = store.state.dataListRoute || [];
+
+            apiData = apiData.map((apiRoute: any) => {
+                const localRoute = localRoutes.find((r: any) => r.routeId === apiRoute.routeId);
+                if (localRoute && localRoute.routeDetails && apiRoute.routeDetails) {
+                    apiRoute.routeDetails = apiRoute.routeDetails.map((apiPoint: any) => {
+                        const localPoint = localRoute.routeDetails.find((p: any) => p.cpId === apiPoint.cpId);
+                        if (localPoint && localPoint.status === 1) {
+                            apiPoint.status = 1;
+                        }
+                        return apiPoint;
+                    });
+                }
+                return apiRoute;
+            });
+
+            shiftDataList.value = apiData;
+            store.commit('SET_DATA_LIST_ROUTE', shiftDataList.value);
+        } else {
+            shiftDataList.value = store.state.dataListRoute || [];
+        }
+    } catch (error) {
+        console.error("Lỗi khi tải dữ liệu ca trực:", error);
+        shiftDataList.value = store.state.dataListRoute || [];
     } finally {
         isLoading.value = false;
     }
+});
 
-    // Kiểm tra giờ ngay lập tức
+onMounted(async () => {
     updateSystemTime();
-
-    // Lắng nghe sự kiện "Wake up" (Rất quan trọng cho Mobile)
     window.addEventListener('visibilitychange', handleAppWakeUp);
     window.addEventListener('focus', updateSystemTime);
-
-    // Timer dự phòng check mỗi 5 giây (Cân bằng giữa chính xác và tiết kiệm pin)
     timer = setInterval(updateSystemTime, 5000);
 });
 
 onUnmounted(() => {
-    // Dọn dẹp sạch sẽ tránh Memory Leak
     if (timer) clearInterval(timer);
     window.removeEventListener('visibilitychange', handleAppWakeUp);
     window.removeEventListener('focus', updateSystemTime);
-});
-
-// --- Computed & Methods ---
-const currentActiveRoute = computed<Route | null>(() => {
-    const routes = store.state.dataListRoute;
-    const userData = store.state.dataUser;
-    console.log("Trang Cha: dataListRoute vừa thay đổi tham chiếu, đang tính lại Route...");
-    if (!routes || !routes.length || !userData) return null;
-
-    const uRole = Number(userData.userRoleId);
-    const uArea = Number(userData.userAreaId);
-    const hNow = currentHour.value;
-
-    console.log(routes);
-
-    const foundRoute = routes.find((r: any) => {
-        const areaMatch = Number(r.areaId) === uArea;
-        const roleMatch = Number(r.roleId) === uRole;
-        const hourMatch = hNow >= Number(r.psHourFrom) && hNow <= Number(r.psHourTo);
-        return areaMatch && roleMatch && hourMatch;
-    });
-    console.log(foundRoute);
-    store.commit('SET_PSID', foundRoute?.psId)
-    console.log("Lộ trình hiện tại:", foundRoute?.routeName, "Chi tiết:", foundRoute?.routeDetails);
-
-    // Quan trọng: Trả về một bản sao sâu (Deep copy) nếu cần để cắt đứt tham chiếu cũ
-    return foundRoute ? { ...foundRoute } : null;
 });
 
 const handleContinueScanning = async (routeId: number) => {
     if (isScanning.value) return;
     isScanning.value = true;
     try {
-        // Giả sử sau khi quét xong, scannerService trả về cpId vừa quét
         await scannerService.startScanning(store, router, routeId);
     } catch (error) {
         console.error("Lỗi scanner:", error);
@@ -205,14 +293,53 @@ const cancelButtons = [
         text: 'Đồng ý hủy',
         role: 'confirm',
         cssClass: 'alert-button-confirm',
-        handler: () => store.dispatch('resetCurrentRoute')
+        handler: () => {
+            if (currentActiveRoute.value) {
+                clearTimer(currentActiveRoute.value.routeId);
+            }
+            store.dispatch('resetCurrentRoute');
+        }
     }
 ];
 </script>
 
 <style scoped>
-ion-toolbar {
-    padding: 0 !important;
+/* Thêm CSS cho Timer */
+.timer-display {
+    display: flex;
+    margin-top: 5px;
+    font-size: 0.9rem;
+    color: #666;
+    transition: color 0.3s ease;
+}
+
+.icon-clock {
+    padding-right: 5px;
+}
+
+.text-success {
+    color: var(--ion-color-success, #2dd36f);
+    font-weight: bold;
+}
+
+.text-danger {
+    color: var(--ion-color-danger, #eb445a);
+    font-weight: bold;
+    animation: pulse-red 1s infinite;
+}
+
+@keyframes pulse-red {
+    0% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
 }
 
 /* Layout */
@@ -269,5 +396,6 @@ ion-toolbar {
 .inspection-grid-card {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     border-radius: 12px;
+    background-color: floralwhite;
 }
 </style>

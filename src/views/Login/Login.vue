@@ -63,7 +63,6 @@ import PointReport from '@/api/PointReport';
 import AreaBU from '@/api/AreaBU';
 import ReportNoteCategory from '@/api/ReportNoteCategory';
 import PatrolShiftView from '@/api/PatrolShiftView';
-import RouteDetailView from '@/api/RouteDetailView';
 
 const router = useRouter();
 const store = useStore();
@@ -99,6 +98,7 @@ const handleLogin = async () => {
     if (isButtonDisabled.value) return;
 
     let psId = null;
+    let payload = null;
     isLoading.value = true;
     errorMessage.value = '';
 
@@ -143,7 +143,7 @@ const handleLogin = async () => {
                 const apiList = {
                     checkpoints: () => CheckPointScanQr.postCheckPointView(),
                     checkpoints_id: () => PointReport.postPointReportView(),
-                    area_bu: () => AreaBU.postAreaBU(),
+                    area_bu: () => AreaBU.postAreaBU(payload),
                     list_route: () => PatrolShiftView.postPatrolShiftView(userData),
                     report_note_category: () => ReportNoteCategory.getReportNoteCategory(),
                     base_point_report: () => PointReport.postBasePointReportView(psId),

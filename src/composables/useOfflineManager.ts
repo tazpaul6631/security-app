@@ -2,11 +2,11 @@ import { ref, computed } from 'vue';
 import storage from '@/services/storage.service';
 import { ImageService } from '@/services/image.service';
 import PointReport from '@/api/PointReport';
+import PatrolShiftView from '@/api/PatrolShiftView'; // Import API kiểm tra lộ trình
 import store from '@/composables/useVuex';
 import { toastController } from '@ionic/vue';
 
 // --- TRẠNG THÁI GLOBAL (Singleton) ---
-// pendingItems và isSyncing dùng để hiển thị UI
 const pendingItems = ref<PendingItem[]>([]);
 const isSyncing = ref(false);
 
@@ -23,8 +23,9 @@ const presentToast = async (message: string) => {
   await toast.present();
 };
 
+// Đổi id thành kiểu string | number để dùng ID ngẫu nhiên an toàn hơn
 interface PendingItem {
-  id: number;
+  id: string | number;
   url: string;
   data: any;
   imageFiles: string[];
@@ -37,8 +38,17 @@ export function useOfflineManager() {
     pendingItems.value = (data as PendingItem[]) || [];
   };
 
+  // Helper function để xóa item khỏi SQLite và state cho gọn code
+  const removeQueueItem = async (id: string | number) => {
+    const currentQueue: PendingItem[] = await storage.get('offline_api_queue') || [];
+    const updatedQueue = currentQueue.filter(q => q.id !== id);
+    await storage.set('offline_api_queue', updatedQueue);
+    pendingItems.value = updatedQueue;
+  };
+
   const sendData = async (url: string, data: any, imagesBase64: string[] = []): Promise<void> => {
-    const id = Date.now();
+    // 1. FIX LỖI ID TRÙNG: Sinh ID kết hợp random để chống dội (Race Condition)
+    const id = Date.now().toString() + '_' + Math.random().toString(36).substring(2, 9);
     const imageFiles: string[] = [];
 
     // Lưu ảnh vào bộ nhớ máy
@@ -56,7 +66,15 @@ export function useOfflineManager() {
     // Kiểm tra mạng từ Vuex
     if (store.state.isOnline) {
       try {
-        await uploadToServer(newItem);
+        const result = await uploadToServer(newItem);
+        console.log("Gửi trực tiếp thành công:", result);
+
+        // Đắp data THẬT vào màn hình danh sách điểm (nếu user đang xem)
+        const realReport = result?.data?.data || result?.data || result;
+        if (realReport) {
+          store.commit('ADD_OFFLINE_REPORT', realReport);
+        }
+
         // Thành công: Xóa ảnh ngay
         for (const f of imageFiles) await ImageService.deleteImage(f);
       } catch (error) {
@@ -71,10 +89,10 @@ export function useOfflineManager() {
   const addToQueue = async (item: PendingItem): Promise<void> => {
     const queue: PendingItem[] = await storage.get('offline_api_queue') || [];
     queue.push(item);
+
     await storage.set('offline_api_queue', queue);
     await loadPendingItems();
 
-    // Cập nhật UI ngay lập tức bằng báo cáo ảo
     const actualUser: any = store.state.dataUser;
     const userData = actualUser?.data ? actualUser.data : actualUser;
     const scanData: any = store.state.dataScanQr || {};
@@ -112,20 +130,62 @@ export function useOfflineManager() {
 
     try {
       await loadPendingItems();
-      if (pendingItems.value.length === 0) {
+      const queue = [...pendingItems.value];
+
+      if (queue.length === 0) {
         console.log("--- Hàng chờ trống, dừng Sync ---");
         return;
       }
 
-      // Tạo bản sao queue để xử lý
-      const queue = [...pendingItems.value];
+      // --- 3. FIX LỖI DUPLICATE: CHECK BEFORE SYNC ---
+      // Kéo danh sách Server về xem có điểm nào đã hoàn thành rồi không
+      let serverCompletedCpIds: string[] = [];
+      try {
+        const actualUser: any = store.state.dataUser;
+        const userData = actualUser?.data ? actualUser.data : actualUser;
+        const now = new Date();
+        const dateInfo = {
+          psDay: now.getDate(),
+          psMonth: now.getMonth() + 1,
+          psYear: now.getFullYear(),
+          psHour: now.getHours(), // Lấy theo giờ hiện tại
+          isComplete: false,
+          areaId: userData?.userAreaId
+        };
+        const res: any = await PatrolShiftView.postPatrolShiftView(dateInfo);
+        const routes = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+
+        routes.forEach((r: any) => {
+          r.routeDetails?.forEach((rd: any) => {
+            if (rd.status === 1) serverCompletedCpIds.push(String(rd.cpId));
+          });
+        });
+      } catch (e) {
+        console.warn("Cảnh báo: Không thể check trạng thái Server trước khi Sync", e);
+      }
+      // ----------------------------------------------
 
       for (const item of queue) {
-        // Kiểm tra mạng lại trong từng vòng lặp (đề phòng rớt mạng giữa chừng)
         if (!store.state.isOnline) break;
 
+        // KIỂM TRA TRƯỚC KHI GỬI
+        const targetCpId = String(item.data.cpId);
+        if (serverCompletedCpIds.includes(targetCpId)) {
+          console.log(`[Check-Before-Sync] Điểm ${targetCpId} đã ghi nhận trên Server. Bỏ qua gửi đúp.`);
+
+          store.commit('REMOVE_OFFLINE_REPORT', item.id);
+          await removeQueueItem(item.id);
+          if (item.imageFiles?.length > 0) {
+            for (const fileName of item.imageFiles) {
+              await ImageService.deleteImage(fileName).catch(() => { });
+            }
+          }
+          continue; // Bỏ qua phần uploadToServer, đi tới item tiếp theo
+        }
+
         try {
-          await uploadToServer(item);
+          const result = await uploadToServer(item);
+          const realReport = result?.data?.data || result?.data || result; // Lấy dữ liệu thật API trả về
 
           // Thành công: Xóa ảnh vật lý
           if (item.imageFiles?.length > 0) {
@@ -134,14 +194,14 @@ export function useOfflineManager() {
             }
           }
 
-          // Xóa khỏi Vuex và Storage
+          // FIX LỖI MẤT GIAO DIỆN: Thay báo cáo Mock bằng báo cáo Thật
           store.commit('REMOVE_OFFLINE_REPORT', item.id);
-          const currentQueue: PendingItem[] = await storage.get('offline_api_queue') || [];
-          const updatedQueue = currentQueue.filter(q => q.id !== item.id);
-          await storage.set('offline_api_queue', updatedQueue);
+          if (realReport) {
+            store.commit('ADD_OFFLINE_REPORT', realReport);
+          }
 
-          // Cập nhật state nội bộ để UI biết đã xử lý xong 1 item
-          pendingItems.value = updatedQueue;
+          // Xóa khỏi SQLite Queue
+          await removeQueueItem(item.id);
 
         } catch (error: any) {
           const statusCode = error.response?.status || error.status;
@@ -149,14 +209,9 @@ export function useOfflineManager() {
           if (statusCode === 400 || statusCode === 422) {
             console.error(`Dữ liệu sai (Lỗi ${statusCode}), xóa bỏ item:`, item.id);
             store.commit('REMOVE_OFFLINE_REPORT', item.id);
-
-            const currentQueue: PendingItem[] = await storage.get('offline_api_queue') || [];
-            const updatedQueue = currentQueue.filter(q => q.id !== item.id);
-            await storage.set('offline_api_queue', updatedQueue);
-            pendingItems.value = updatedQueue;
+            await removeQueueItem(item.id);
             continue;
           } else {
-            // Lỗi hệ thống/mạng: Dừng vòng lặp để lần sau thử lại
             console.error(`Lỗi kết nối Server, tạm dừng Sync.`);
             break;
           }
@@ -165,10 +220,10 @@ export function useOfflineManager() {
     } catch (e) {
       console.error("Lỗi tổng quát Sync:", e);
     } finally {
-      // 3. GIẢI PHÓNG KHÓA
+      // 4. GIẢI PHÓNG KHÓA
+      await loadPendingItems();
       isInternalProcessing = false;
       isSyncing.value = false;
-      await loadPendingItems();
       console.log("--- [END] KẾT THÚC TIẾN TRÌNH ĐỒNG BỘ ---");
     }
   };
