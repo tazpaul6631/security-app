@@ -68,7 +68,10 @@ export function useRouteTimer() {
     };
 
     const stopTimer = () => {
-        if (intervalId) clearInterval(intervalId);
+        if (intervalId) {
+            clearInterval(intervalId);
+            intervalId = null;
+        }
         isTimerRunning.value = false;
     };
 
@@ -81,6 +84,9 @@ export function useRouteTimer() {
 
     // Format thời gian MM:SS
     const formattedTime = computed(() => {
+        // Nếu không có lộ trình nào hoặc đã dọn dẹp, trả về chuỗi trống hoặc "--:--"
+        if (!currentTimerRouteId && remainingSeconds.value === 0) return '';
+
         const m = Math.floor(remainingSeconds.value / 60);
         const s = remainingSeconds.value % 60;
         return `${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
@@ -89,7 +95,7 @@ export function useRouteTimer() {
     // Màu sắc chung
     const timerColorClass = computed(() => {
         if (!isTimerRunning.value && currentTimerRouteId === null) return ''; // Chưa chạy -> Xám
-        if (remainingSeconds.value <= 1500) {
+        if (remainingSeconds.value <= 600) {
             return 'text-danger'; // Dưới 10 phút -> Đỏ
         }
         return 'text-success'; // Đang chạy -> Xanh

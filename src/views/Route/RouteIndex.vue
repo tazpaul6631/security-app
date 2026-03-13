@@ -49,18 +49,17 @@
                     </ion-card>
                 </div>
 
-                <div v-else :key="'none-' + currentHour" class="ion-padding ion-text-center no-route-container">
+                <div v-else class="ion-padding ion-text-center no-route-container">
                     <div class="no-route-content">
-                        <div v-if="userRoleIsAdmin && shiftDataList">
-                            <ion-icon :icon="calendarOutline" class="big-icon"></ion-icon>
-                            <h3>Bạn không có lộ trình phù hợp</h3>
+                        <ion-icon :icon="calendarOutline" class="big-icon"></ion-icon>
+
+                        <div v-if="hasDataButFinished">
+                            <h3>Lộ trình {{ currentHour }}h đã hoàn thành</h3>
+                            <p>Bạn đã hoàn tất tất cả các điểm quét trong khung giờ này.</p>
                         </div>
-                        <div v-else class="no-route-content">
-                            <ion-icon :icon="calendarOutline" class="big-icon"></ion-icon>
-                            <h3>{{ !shiftDataList ? 'Không có lộ trình' : `Lộ trình ${currentHour}h đã hoàn thành` }}
-                            </h3>
-                            <p>Hiện không có lộ trình nào cần thực hiện vào khung giờ <strong>{{ currentHour
-                            }}h</strong>.</p>
+                        <div v-else>
+                            <h3>Không tìm thấy lộ trình {{ currentHour }}h</h3>
+                            <p>Dữ liệu ca trực chưa được tải hoặc không có ca trực trong khung giờ này.</p>
                         </div>
                         <ion-button fill="outline" @click="router.replace('/home')" class="ion-margin-top">
                             Quay lại trang chủ
@@ -83,16 +82,17 @@ import { useRouter } from 'vue-router';
 import {
     IonPage, IonHeader, IonToolbar, IonTitle, IonIcon, IonButtons, IonBackButton,
     IonCardContent, IonContent, IonAlert, IonButton, IonCard, IonCardHeader,
-    IonCardSubtitle, IonCardTitle, IonSpinner, onIonViewWillEnter
+    IonCardSubtitle, IonCardTitle, IonSpinner, onIonViewWillEnter, loadingController
 } from '@ionic/vue';
 import { qrCodeOutline, calendarOutline, trashOutline, timeOutline } from 'ionicons/icons';
 import CardRoutePoints from '@/components/CardRoutePoints.vue';
 import { scannerService } from '@/services/scanner.service';
-
+import storageService from '@/services/storage.service';
 import PatrolShiftView from '@/api/PatrolShiftView';
 
 // IMPORT GLOBAL TIMER
 import { useRouteTimer } from '@/composables/useRouteTimer';
+import PatrolShift from '@/api/PatrolShift';
 
 // Lấy biến và hàm từ Global Timer ra sử dụng
 const { formattedTime, timerColorClass, clearTimer, restoreTimer } = useRouteTimer();
@@ -129,39 +129,38 @@ const userRoleIsAdmin = ref();
 const shiftDataList = ref<Route[]>([]);
 const currentHour = ref(new Date().getHours());
 let timer: any = null;
+const lockedRouteId = computed(() => store.state.unfinishedRouteId);
 
 // ==========================================
 // 1. KHAI BÁO LỘ TRÌNH HIỆN TẠI
 // ==========================================
-const currentActiveRoute = computed<Route | null>(() => {
+const currentActiveRoute = computed(() => {
     const routes = shiftDataList.value;
     const userData = store.state.dataUser;
-
-    if (!Array.isArray(routes) || !userData) return null;
+    if (!userData || !Array.isArray(routes)) return null;
 
     const uRole = Number(userData.userRoleId);
     const uArea = Number(userData.userAreaId);
     const hNow = currentHour.value;
 
-    const foundRoute = routes.find((r: Route) => {
+    // ƯU TIÊN 1: Lộ trình đang làm dở (Locked) - Dù quá giờ vẫn phải hiện ca này
+    if (lockedRouteId.value !== null) {
+        const lockedRoute = routes.find(r => Number(r.routeId) === Number(lockedRouteId.value));
+        if (lockedRoute) {
+            const isFinished = lockedRoute.routeDetails.every((p: any) => p.status === 1);
+            if (!isFinished) return { ...lockedRoute };
+        }
+    }
+
+    // ƯU TIÊN 2: Tìm lộ trình mới theo khung giờ hiện tại
+    const foundRoute = routes.find((r: any) => {
         if (Number(r.areaId) !== uArea || Number(r.roleId) !== uRole) return false;
 
-        const isStarted = r.routeDetails.some(p => p.status === 1);
-        const isFinished = r.routeDetails.every(p => p.status === 1);
-
-        if (isStarted && !isFinished) {
-            return true;
-        }
-
         const isMatchHour = hNow >= Number(r.psHourFrom) && hNow <= Number(r.psHourTo);
-        const isNotCompleted = !r.isComplete && !isFinished;
+        const isFinished = r.routeDetails.every((p: any) => p.status === 1);
 
-        return isMatchHour && isNotCompleted;
+        return isMatchHour && !isFinished && !r.isComplete;
     });
-
-    if (foundRoute) {
-        store.commit('SET_PSID', foundRoute.psId);
-    }
 
     return foundRoute ? { ...foundRoute } : null;
 });
@@ -169,15 +168,113 @@ const currentActiveRoute = computed<Route | null>(() => {
 // ==========================================
 // 2. KHÔI PHỤC TIMER KHI RELOAD
 // ==========================================
-// Ngay khi load được routeId, tự động gọi hàm restoreTimer để lục trong SQLite xem có giờ đang chạy dở không
-watch(() => currentActiveRoute.value?.routeId, async (newId) => {
-    if (newId) {
-        await restoreTimer(newId);
+watch(() => currentActiveRoute.value, async (newRoute) => {
+    if (newRoute && newRoute.psId) {
+        console.log("Đã cập nhật psId mới cho ca trực:", newRoute.psId);
+        store.commit('SET_PSID', newRoute.psId);
+        // Có thể lưu thêm vào storage nếu cần dự phòng reload page
+        storageService.set('current_ps_id', newRoute.psId);
+    }
+
+    if (newRoute) {
+        await restoreTimer(newRoute.routeId);
     }
 }, { immediate: true });
 
 // ==========================================
-// 3. CÁC HÀM XỬ LÝ API VÀ LIFECYCLE VUE
+// 3. CÁC HÀM XỬ LÝ QUÉT MÃ (Sắp xếp lên trên)
+// ==========================================
+// Hàm xử lý kết quả quét chung (Cả Camera và Unitech đều gọi hàm này)
+const processScannedData = async (qrCodeString: string, routeId: number) => {
+    if (!qrCodeString) return;
+
+    // 1. Khởi tạo Loading
+    const loading = await loadingController.create({
+        message: 'Đang kiểm tra điểm quét...',
+        spinner: 'crescent',
+        cssClass: 'custom-loading' // Nếu bạn muốn style riêng
+    });
+
+    await loading.present();
+
+    try {
+        // Cập nhật khóa vào Store và Storage
+        store.commit('SET_UNFINISHED_ROUTE_ID', routeId);
+
+        // 2. Gọi logic xử lý nặng (Check lộ trình, API, SQLite)
+        await scannerService.processQRString(store, router, routeId, qrCodeString);
+
+    } catch (error) {
+        console.error("Lỗi xử lý dữ liệu quét:", error);
+    } finally {
+        // 3. Quan trọng: Luôn tắt loading dù thành công hay lỗi
+        // Lưu ý: Nếu processQRString chuyển trang thành công, loading vẫn sẽ đóng
+        await loading.dismiss();
+    }
+};
+
+let scanBuffer = '';
+let scanTimeout: any = null;
+
+const handleHardwareScan = (e: KeyboardEvent) => {
+    console.log(e);
+
+    if (e.key === 'Enter') {
+        if (scanBuffer.length > 3 && currentActiveRoute.value) {
+            processScannedData(scanBuffer, currentActiveRoute.value.routeId);
+        }
+        scanBuffer = '';
+        return;
+    }
+
+    if (e.ctrlKey || e.altKey || e.metaKey || e.key.length !== 1) return;
+
+    scanBuffer += e.key;
+
+    clearTimeout(scanTimeout);
+    scanTimeout = setTimeout(() => {
+        scanBuffer = '';
+    }, 50);
+};
+
+// Nút bấm cho Điện thoại thường (Mở Camera)
+const handleContinueScanning = async (routeId: number) => {
+    if (isScanning.value) return;
+    isScanning.value = true;
+    try {
+        const result: any = await scannerService.startScanning(store, router, routeId);
+
+        if (result && typeof result === 'string') {
+            await processScannedData(result, routeId);
+        }
+    } catch (error: any) {
+        console.error("Lỗi scanner:", error);
+        alert("Để quét mã trên thiết bị này, vui lòng bấm nút cứng (vật lý) bên hông hoặc đầu máy!");
+    } finally {
+        isScanning.value = false;
+    }
+};
+
+const hasDataButFinished = computed(() => {
+    const routes = shiftDataList.value;
+    if (!Array.isArray(routes)) return false;
+
+    // Tìm xem có ca trực nào khớp với giờ hiện tại không
+    const routeInHour = routes.find(r =>
+        currentHour.value >= Number(r.psHourFrom) &&
+        currentHour.value <= Number(r.psHourTo)
+    );
+
+    // Nếu tìm thấy ca đó và tất cả điểm đã status = 1 thì mới là "Đã hoàn thành"
+    if (routeInHour) {
+        return routeInHour.routeDetails.every(p => p.status === 1);
+    }
+
+    return false; // Không tìm thấy ca trực nào cho giờ này trong Store
+});
+
+// ==========================================
+// 4. LIFECYCLE VÀ API (onMounted để bên dưới các hàm trên)
 // ==========================================
 const updateSystemTime = () => {
     const now = new Date();
@@ -196,72 +293,63 @@ const handleAppWakeUp = () => {
 onIonViewWillEnter(async () => {
     isLoading.value = true;
 
+    // Đảm bảo Store đã khôi phục dữ liệu từ SQLite (bao gồm cả unfinishedRouteId)
     if (!store.state.isHydrated) {
         await store.dispatch('initApp');
     }
 
     updateSystemTime();
-
-    const areaId = store.state.dataUser?.userAreaId;
     userRoleIsAdmin.value = store.state.dataUser?.userRoleIsAdmin;
 
-    const now = new Date();
-    const dateInfo = {
-        psDay: now.getDate(),
-        psMonth: now.getMonth() + 1,
-        psYear: now.getFullYear(),
-        psHour: now.getHours(),
-        isComplete: false,
-        areaId: areaId
-    };
+    if (!navigator.onLine) {
+        shiftDataList.value = store.state.dataListRoute || [];
+    } else {
+        try {
+            const areaId = store.state.dataUser?.userAreaId;
+            const now = new Date();
+            const dateInfo = {
+                psDay: now.getDate(),
+                psMonth: now.getMonth() + 1,
+                psYear: now.getFullYear(),
+                psHour: now.getHours(),
+                isComplete: false,
+                areaId: areaId
+            };
 
-    try {
-        if (navigator.onLine) {
             const response: any = await PatrolShiftView.postPatrolShiftView(dateInfo);
-            const responseData = response?.data;
-            let apiData: any[] = [];
+            const apiDataRaw = response?.data?.data || response?.data || [];
 
-            if (Array.isArray(responseData)) {
-                apiData = responseData;
-            } else if (responseData && Array.isArray(responseData.data)) {
-                apiData = responseData.data;
-            } else if (responseData?.data && Array.isArray(responseData.data.data)) {
-                apiData = responseData.data.data;
-            }
+            // Store sẽ tự động thực hiện Merge Status và giữ ca dở dang trong mutation này
+            store.commit('SET_DATA_LIST_ROUTE', apiDataRaw);
 
-            const localRoutes = store.state.dataListRoute || [];
+            // Cập nhật lại biến hiển thị từ dữ liệu đã được Store xử lý xong
+            shiftDataList.value = store.state.dataListRoute;
 
-            apiData = apiData.map((apiRoute: any) => {
-                const localRoute = localRoutes.find((r: any) => r.routeId === apiRoute.routeId);
-                if (localRoute && localRoute.routeDetails && apiRoute.routeDetails) {
-                    apiRoute.routeDetails = apiRoute.routeDetails.map((apiPoint: any) => {
-                        const localPoint = localRoute.routeDetails.find((p: any) => p.cpId === apiPoint.cpId);
-                        if (localPoint && localPoint.status === 1) {
-                            apiPoint.status = 1;
-                        }
-                        return apiPoint;
-                    });
-                }
-                return apiRoute;
-            });
-
-            shiftDataList.value = apiData;
-            store.commit('SET_DATA_LIST_ROUTE', shiftDataList.value);
-        } else {
+            // Lưu bản sao xuống máy
+            await storageService.set('list_route', store.state.dataListRoute);
+        } catch (error) {
             shiftDataList.value = store.state.dataListRoute || [];
         }
-    } catch (error) {
-        console.error("Lỗi khi tải dữ liệu ca trực:", error);
-        shiftDataList.value = store.state.dataListRoute || [];
-    } finally {
-        isLoading.value = false;
     }
+    isLoading.value = false;
 });
 
 onMounted(async () => {
     updateSystemTime();
     window.addEventListener('visibilitychange', handleAppWakeUp);
     window.addEventListener('focus', updateSystemTime);
+
+    // 1. Lắng nghe Keyboard Wedge từ tia Laser
+    window.addEventListener('keydown', handleHardwareScan);
+
+    // 2. Lắng nghe từ Android Bridge
+    (window as any).returnResult = (data: any) => {
+        if (currentActiveRoute.value && data) {
+            let qrString = typeof data === 'string' ? data : JSON.stringify(data);
+            processScannedData(qrString, currentActiveRoute.value.routeId);
+        }
+    };
+
     timer = setInterval(updateSystemTime, 5000);
 });
 
@@ -269,20 +357,15 @@ onUnmounted(() => {
     if (timer) clearInterval(timer);
     window.removeEventListener('visibilitychange', handleAppWakeUp);
     window.removeEventListener('focus', updateSystemTime);
+
+    // Cleanup listeners
+    window.removeEventListener('keydown', handleHardwareScan);
+    delete (window as any).returnResult;
 });
 
-const handleContinueScanning = async (routeId: number) => {
-    if (isScanning.value) return;
-    isScanning.value = true;
-    try {
-        await scannerService.startScanning(store, router, routeId);
-    } catch (error) {
-        console.error("Lỗi scanner:", error);
-    } finally {
-        isScanning.value = false;
-    }
-};
-
+// ==========================================
+// 5. CÁC HÀM TIỆN ÍCH KHÁC
+// ==========================================
 const confirmCancelRoute = () => {
     isCancelAlertOpen.value = true;
 };
@@ -293,11 +376,31 @@ const cancelButtons = [
         text: 'Đồng ý hủy',
         role: 'confirm',
         cssClass: 'alert-button-confirm',
-        handler: () => {
-            if (currentActiveRoute.value) {
-                clearTimer(currentActiveRoute.value.routeId);
+        handler: async () => {
+            const currentRoute = currentActiveRoute.value;
+            if (!currentRoute) return;
+
+            const removeData = {
+                routeId: currentRoute.routeId,
+                psId: currentRoute.psId,
+                updatedBy: store.state.dataUser?.userId
+            };
+
+            // Lệnh API có thể thành công hoặc thất bại tùy mạng
+            try {
+                await PatrolShift.postRemovePatrolShift(removeData);
+            } catch (error) {
+                console.warn("Không thể báo hủy lên Server (có thể đang Offline), nhưng vẫn tiến hành xóa Local.");
             }
-            store.dispatch('resetCurrentRoute');
+
+            clearTimer(currentRoute.routeId);
+
+            // Xóa sạch dấu vết trong Store và SQLite
+            await store.dispatch('resetCurrentRoute');
+
+            // Cập nhật lại giao diện ngay lập tức
+            shiftDataList.value = store.state.dataListRoute;
+            router.replace('/home');
         }
     }
 ];

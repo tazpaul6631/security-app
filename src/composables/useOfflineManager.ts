@@ -47,11 +47,11 @@ export function useOfflineManager() {
   };
 
   const sendData = async (url: string, data: any, imagesBase64: string[] = []): Promise<void> => {
-    // 1. FIX LỖI ID TRÙNG: Sinh ID kết hợp random để chống dội (Race Condition)
+    // 1. Tạo ID duy nhất cho item trong queue
     const id = Date.now().toString() + '_' + Math.random().toString(36).substring(2, 9);
     const imageFiles: string[] = [];
 
-    // Lưu ảnh vào bộ nhớ máy
+    // 2. Lưu ảnh vật lý vào máy để dự phòng khi Offline hoặc Sync sau này
     for (const base64 of imagesBase64) {
       try {
         const fileName = await ImageService.saveImage(base64);
@@ -61,22 +61,24 @@ export function useOfflineManager() {
       }
     }
 
+    // 3. Quan trọng: Đảm bảo payload 'data' đã chứa đủ Base64 để gửi lên Server ngay lúc này
+    // Logic của bạn ở trang Vue đã map ảnh vào noteGroups, nên data ở đây đã có sẵn ảnh.
+
     const newItem: PendingItem = { id, url, data, imageFiles };
 
-    // Kiểm tra mạng từ Vuex
+    // 4. Kiểm tra mạng
     if (store.state.isOnline) {
       try {
+        // Gửi trực tiếp data (trong data đã có noteGroups chứa ảnh base64)
         const result = await uploadToServer(newItem);
-        console.log("Gửi trực tiếp thành công:", result);
 
-        // Đắp data THẬT vào màn hình danh sách điểm (nếu user đang xem)
+        // Gửi xong thì xóa ảnh vật lý cho nhẹ máy
+        for (const f of imageFiles) await ImageService.deleteImage(f);
+
         const realReport = result?.data?.data || result?.data || result;
         if (realReport) {
           store.commit('ADD_OFFLINE_REPORT', realReport);
         }
-
-        // Thành công: Xóa ảnh ngay
-        for (const f of imageFiles) await ImageService.deleteImage(f);
       } catch (error) {
         console.warn("Gửi trực tiếp thất bại, chuyển vào hàng chờ...");
         await addToQueue(newItem);

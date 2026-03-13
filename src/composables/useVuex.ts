@@ -20,6 +20,7 @@ const store = createStore({
       isHydrated: false,
       routeId: null,
       psId: null,
+      unfinishedRouteId: null,
 
       // Quản lý đồng bộ
       syncProgress: 0,
@@ -54,20 +55,54 @@ const store = createStore({
       state.dataAreaBU = data
     },
     SET_DATA_LIST_ROUTE(state: any, data) {
-      const rawData = Array.isArray(data) ? data : (data?.data || []);
+      const apiData = Array.isArray(data) ? data : (data?.data || []);
+      const localRoutes = state.dataListRoute || [];
 
-      state.dataListRoute = rawData.map((route: any) => ({
-        ...route,
-        // Ép kiểu để find/filter chính xác
-        areaId: Number(route.areaId),
-        roleId: Number(route.roleId),
+      let mergedList = [...apiData];
 
-        // Cập nhật đúng các field dùng để so sánh giờ
-        psHourFrom: Number(route.psHourFrom),
-        psHourTo: Number(route.psHourTo),
-        psHour: route.psHour ? Number(route.psHour) : null
-      }));
+      // Duyệt qua dữ liệu cũ để giữ lại những ca không có trong dữ liệu mới (ví dụ ca 10h)
+      localRoutes.forEach((localR: any) => {
+        const isInApi = apiData.some((apiR: any) => apiR.routeId === localR.routeId);
+        if (!isInApi) {
+          mergedList.push(localR); // Giữ lại ca cũ (ví dụ ca 10h đã xong)
+        }
+      });
+
+      state.dataListRoute = apiData.map((apiRoute: any) => {
+        const localRoute = localRoutes.find((r: any) => r.routeId === apiRoute.routeId);
+        return {
+          ...apiRoute,
+          areaId: Number(apiRoute.areaId),
+          roleId: Number(apiRoute.roleId),
+          psHourFrom: Number(apiRoute.psHourFrom),
+          psHourTo: Number(apiRoute.psHourTo),
+          routeDetails: apiRoute.routeDetails.map((apiPoint: any) => {
+            const localPoint = localRoute?.routeDetails.find((p: any) => p.cpId === apiPoint.cpId);
+            return {
+              ...apiPoint,
+              status: (localPoint?.status === 1) ? 1 : apiPoint.status
+            };
+          })
+        };
+      });
+
+      if (state.unfinishedRouteId) {
+        // 1. Chống mất ca dở dang trong danh sách
+        const isStillInList = state.dataListRoute.some((r: any) => r.routeId === state.unfinishedRouteId);
+        if (!isStillInList) {
+          const lockedRoute = localRoutes.find((r: any) => r.routeId === state.unfinishedRouteId);
+          if (lockedRoute) state.dataListRoute.unshift(lockedRoute);
+        }
+
+        // 2. QUAN TRỌNG: Cập nhật lại psId từ lộ trình đang bị khóa
+        const currentLocked = state.dataListRoute.find((r: any) => r.routeId === state.unfinishedRouteId);
+        if (currentLocked && currentLocked.psId) {
+          state.psId = currentLocked.psId;
+          console.log("🎯 Store: Đã khôi phục psId từ khóa dở dang:", state.psId);
+        }
+      }
     },
+
     SET_DATA_BASE_POINT_REPORT_VIEW(state: any, data) {
       const rawData = Array.isArray(data) ? data : (data?.data || []);
 
@@ -108,6 +143,39 @@ const store = createStore({
       state.currentCheckpoint = data;
     },
 
+    SET_UNFINISHED_ROUTE_ID(state: any, id: any) { // Thêm : any ở đây
+      state.unfinishedRouteId = id;
+      if (id) {
+        storageService.set('unfinished_route_id', id);
+
+        // Tự động tìm và gán psId từ danh sách lộ trình dựa trên routeId
+        if (Array.isArray(state.dataListRoute)) {
+          const found = state.dataListRoute.find((r: any) => Number(r.routeId) === Number(id));
+          if (found && found.psId) {
+            state.psId = found.psId;
+            console.log("🎯 Đã tự động cập nhật psId:", state.psId);
+          }
+        }
+      } else {
+        storageService.remove('unfinished_route_id');
+      }
+    },
+
+    // Cập nhật lại RESET_ROUTE_DATA để xóa cả khóa cứng
+    RESET_ROUTE_DATA(state: any) {
+      state.routeId = null;
+      state.unfinishedRouteId = null; // Thêm dòng này
+      if (Array.isArray(state.dataListRoute)) {
+        state.dataListRoute = state.dataListRoute.map((route: any) => ({
+          ...route,
+          routeDetails: route.routeDetails.map((point: any) => ({
+            ...point,
+            status: 0
+          }))
+        }));
+      }
+    },
+
     // Hàm bơm báo cáo Offline giả vào Store (Đã fix lỗi gạch chân)
     ADD_OFFLINE_REPORT(state: any, report: any) {
       // 1. Nhét vào kho tổng CheckpointsId (Bây giờ nó chắc chắn là Mảng)
@@ -136,24 +204,7 @@ const store = createStore({
         currentCPList = [report, ...currentCPList];
 
         console.log(currentCPList);
-        // Trả về đúng cấu trúc [{ data: [...] }] mà giao diện CPIndex đang mong đợi
         state.dataListCP = [{ data: currentCPList }];
-      }
-    },
-
-    // Mutation quét sạch trạng thái lộ trình
-    RESET_ROUTE_DATA(state: any) {
-      state.routeId = null;
-      if (Array.isArray(state.dataListRoute)) {
-        // Tạo bản sao mới của dataListRoute
-        state.dataListRoute = state.dataListRoute.map((route: any) => ({
-          ...route,
-          // Tạo bản sao mới của routeDetails với status = 0
-          routeDetails: route.routeDetails.map((point: any) => ({
-            ...point,
-            status: 0
-          }))
-        }));
       }
     },
 
@@ -187,28 +238,30 @@ const store = createStore({
     UPDATE_POINT_STATUS(state: any, { routeId, cpId, status }) {
       if (!state.dataListRoute) return;
 
-      // Sử dụng map để tạo mảng mới hoàn toàn, tránh mọi vấn đề về tham chiếu cũ
+      if (!state.unfinishedRouteId && status === 1) {
+        // Gọi logic khóa ID
+        state.unfinishedRouteId = routeId;
+        storageService.set('unfinished_route_id', routeId);
+
+        // Tìm psId để gán vào state ngay lập tức
+        const found = state.dataListRoute.find((r: any) => Number(r.routeId) === Number(routeId));
+        if (found) {
+          state.psId = found.psId;
+        }
+      }
+
       state.dataListRoute = state.dataListRoute.map((route: any) => {
-        // Nếu không phải route cần tìm, trả về nguyên bản
         if (Number(route.routeId) !== Number(routeId)) return route;
 
-        // Nếu đúng route, tạo bản sao mới của route và cập nhật routeDetails
         const newDetails = route.routeDetails.map((detail: any) => {
-          // KIỂM TRA KỸ: So sánh cpId (hoặc rdId tùy logic của bạn)
           if (Number(detail.cpId) === Number(cpId)) {
-            console.log("🎯 Tìm thấy điểm cần cập nhật:", detail.cpName);
-            return { ...detail, status: status }; // Trả về object mới với status = 1
+            return { ...detail, status: status };
           }
           return detail;
         });
-
         return { ...route, routeDetails: newDetails };
       });
 
-      // Sau khi map xong, state.dataListRoute ĐÃ LÀ MẢNG MỚI HOÀN TOÀN
-      console.log("🚀 Dữ liệu sau khi map hoàn tất:", state.dataListRoute);
-
-      // Lưu vào SQLite
       storageService.set('list_route', state.dataListRoute);
     },
 
@@ -318,18 +371,23 @@ const store = createStore({
       commit('SET_SYNC_STATUS', { progress: 100, message: 'Đồng bộ hoàn tất!', isSyncing: false });
     },
 
-    // Trong store/index.ts
+    // Hàm khôi phục khóa từ Storage
+    async restoreUnfinishedRouteId({ commit }) {
+      const id = await storageService.get('unfinished_route_id');
+      if (id) {
+        commit('SET_UNFINISHED_ROUTE_ID', Number(id));
+        console.log('✅ Đã khôi phục khóa lộ trình dở dang:', id);
+      }
+    },
+
     async initApp({ dispatch, commit }) {
       console.log('--- [START] Khởi tạo ứng dụng ---');
       try {
-        // Bước 1: Khôi phục các thông tin trọng yếu trước (Token, User) để App biết trạng thái Login
         await Promise.all([
           dispatch('restoreToken'),
           dispatch('restoreUser'),
         ]);
 
-        // Bước 2: Khôi phục dữ liệu nghiệp vụ (Chạy ngầm, không chặn luồng chính quá lâu)
-        // Thay vì dùng Promise.all cho tất cả, hãy chia nhỏ hoặc chạy tuần tự các mảng lớn
         const businessData = [
           'restoreMenu',
           'restoreCheckpoints',
@@ -337,6 +395,7 @@ const store = createStore({
           'restoreAreaBU',
           'restoreListRoute',
           'restoreRouteId',
+          'restoreUnfinishedRouteId', // THÊM DÒNG NÀY VÀO LIST
           'restoreReportNoteCategory',
           'restoreBasePointReportView',
           'restoreScanQr'
@@ -345,11 +404,9 @@ const store = createStore({
         for (const action of businessData) {
           await dispatch(action);
         }
-
       } catch (e) {
         console.error("Lỗi khi khởi tạo Store:", e);
       } finally {
-        // Bước 3: Chỉ khi xong xuôi mới bật cờ Hydrated
         commit('SET_HYDRATED', true);
         console.log('--- [END] Khởi tạo ứng dụng hoàn tất ---');
       }
@@ -548,8 +605,14 @@ const store = createStore({
 
     async resetCurrentRoute({ commit, state }) {
       try {
-        commit('RESET_ROUTE_DATA');
-        await storageService.remove('current_route_id');
+        commit('RESET_ROUTE_DATA'); // Mutation này của bạn đã set unfinishedRouteId = null rồi, rất tốt.
+
+        // Xóa tất cả các khóa cứng trong Storage
+        await Promise.all([
+          storageService.remove('current_route_id'),
+          storageService.remove('unfinished_route_id'), // Thêm dòng này
+          storageService.remove('data_scanqr'),
+        ]);
 
         const updatedList = state.dataListRoute;
         await storageService.set('list_route', updatedList);

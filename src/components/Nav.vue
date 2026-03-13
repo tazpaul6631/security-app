@@ -136,6 +136,10 @@ const handleLogout = async () => {
 </script>
 
 <style>
+.nav-header {
+  padding-top: 15px;
+}
+
 /* CSS giữ nguyên theo thiết kế của bạn */
 :root {
   --ion-color-rose: #d4fcc7;

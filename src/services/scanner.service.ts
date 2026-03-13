@@ -11,7 +11,28 @@ export const scannerService = {
         return camera === 'granted' || camera === 'limited';
     },
 
-    async startScanning(store: Store<any>, router: Router, routeId: number) {
+    // 1. Hàm này giờ CHỈ DÙNG ĐỂ MỞ CAMERA trên điện thoại và TRẢ VỀ CHUỖI QR
+    async startScanning(store: Store<any>, router: Router, routeId: number): Promise<string | null> {
+        const granted = await this.requestPermissions();
+        if (!granted) {
+            await presentAlert.presentAlert('Lỗi', '', 'Vui lòng cấp quyền sử dụng máy ảnh để quét mã.');
+            return null;
+        }
+
+        try {
+            const { barcodes } = await BarcodeScanner.scan();
+            if (!barcodes || barcodes.length === 0) return null;
+
+            // Trả về chuỗi rawValue của mã QR vừa quét bằng Camera
+            return barcodes[0].rawValue || null;
+        } catch (error) {
+            console.error("Camera scan error:", error);
+            throw error; // Quăng lỗi để bên Vue component bắt được (như lỗi không có camera)
+        }
+    },
+
+    // 2. Hàm mới: Xử lý chuỗi QR (Bất kể chuỗi đó lấy từ Camera hay từ nút bấm Unitech)
+    async processQRString(store: Store<any>, router: Router, routeId: number, qrCodeString: string) {
         const now = new Date();
         const currentTimeString = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 19);
         const dataListRoute = store.state.dataListRoute;
@@ -27,18 +48,12 @@ export const scannerService = {
             return;
         }
 
-        const granted = await this.requestPermissions();
-        if (!granted) return;
-
-        const { barcodes } = await BarcodeScanner.scan();
-        if (!barcodes || barcodes.length === 0) return;
-
-        const urlString = barcodes[0].rawValue;
         const listScanQr = { cpwId: '', cpwCode: '' };
 
-        if (urlString) {
+        // Parse URL từ chuỗi QR
+        if (qrCodeString) {
             try {
-                const url = new URL(urlString);
+                const url = new URL(qrCodeString);
                 const segments = url.pathname.split('/');
                 listScanQr.cpwId = segments[3];   // ID của checkpoint từ QR
                 listScanQr.cpwCode = segments[4];
@@ -46,10 +61,11 @@ export const scannerService = {
                 await presentAlert.presentAlert('Lỗi', '', 'Mã QR không hợp lệ');
                 return;
             }
+        } else {
+            return; // Nếu chuỗi rỗng thì bỏ qua
         }
 
         // --- BẮT ĐẦU LOGIC KIỂM TRA LỘ TRÌNH ---
-        // 1. Tìm điểm tiếp theo cần phải quét (Điểm đầu tiên có status khác 1)
         const nextPointRequired = currentRoute.routeDetails.find((point: any) => point.status !== 1);
 
         if (!nextPointRequired) {
@@ -57,15 +73,14 @@ export const scannerService = {
             return;
         }
 
-        // 2. Kiểm tra ID quét được có khớp với ID của điểm tiếp theo bắt buộc không
         if (String(listScanQr.cpwId) !== String(nextPointRequired.cpId)) {
             await presentAlert.presentAlert(
                 'Sai thứ tự tuần tra',
                 nextPointRequired.cpName,
                 `Là điểm tiếp theo cần quét. Vui lòng đi đúng lộ trình.`,
-                'custom-error-alert' // Thêm định danh class ở đây
+                'custom-error-alert'
             );
-            return; // Chặn lại, không cho đi tiếp trang create nếu sai thứ tự
+            return;
         }
         // --- KẾT THÚC LOGIC KIỂM TRA LỘ TRÌNH ---
 
@@ -73,7 +88,7 @@ export const scannerService = {
             let finalData = null;
             const isOnline = store.state.isOnline;
 
-            // Xử lý lấy dữ liệu Online/Offline (giữ nguyên logic cũ của bạn)
+            // Xử lý lấy dữ liệu Online/Offline
             if (isOnline) {
                 try {
                     const res = await CheckPointScanQr.getCheckPointScanQr(listScanQr);
@@ -95,13 +110,12 @@ export const scannerService = {
             }
 
             if (finalData) {
-
-                console.log(finalData);
-
+                console.log("Tìm thấy điểm tuần tra:", finalData);
                 store.commit('SET_DATASCANQR', finalData);
                 await storageService.set('data_scanqr', finalData);
                 await storageService.set('currentTime_scanqr', currentTimeString);
 
+                // Chuyển sang màn hình tạo báo cáo
                 router.replace({
                     path: '/checkpoint/create',
                     query: { t: Date.now() }

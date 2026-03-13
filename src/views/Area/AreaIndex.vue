@@ -30,7 +30,7 @@
                 </ion-header>
 
                 <ion-content class="ion-padding">
-                    <ion-list v-if="currentOptions.length > 0">
+                    <ion-list v-if="currentOptions.length > 0" lines="full">
                         <ion-item v-for="(item, index) in currentOptions" :key="item.psId || item.routeId || index"
                             :button="true" @click="handleModalSelection(item)">
                             <ion-grid>
@@ -40,7 +40,8 @@
                                             <strong
                                                 :style="item.isOfflineDone ? 'color: var(--ion-color-primary)' : ''">
                                                 {{ item.routeCode }}
-                                            </strong> - {{ item.routeName }}
+                                            </strong>
+                                            <p>{{ item.routeName }}</p>
 
                                             <div v-if="item.isOfflineDone">
                                                 <ion-badge color="warning" mode="ios" style="font-size: 0.7em;">
@@ -49,8 +50,7 @@
                                             </div>
 
                                             <div>
-                                                <ion-icon class="icon-1"
-                                                    :icon="item.isOfflineDone ? newspaperOutline : (item.pointProblem || item.timeProblem ? warningOutline : newspaperOutline)"
+                                                <ion-icon class="icon-1" :icon="newspaperOutline"
                                                     :color="item.isOfflineDone ? 'primary' : (item.pointProblem || item.timeProblem ? 'danger' : 'success')">
                                                 </ion-icon>
 
@@ -107,7 +107,9 @@
                     <p>Danh sách trống: <strong style="color: red;">
                             {{ selectedItem ? selectedItem[0] : 'Vui lòng chọn lộ trình' }}
                         </strong></p>
-                    <ion-button fill="clear" @click="router.replace('/home')">Về trang chủ</ion-button>
+                    <ion-button fill="outline" @click="router.replace('/home')" class="ion-margin-top">
+                        Quay lại trang chủ
+                    </ion-button>
                 </div>
 
                 <ion-list v-else>
@@ -132,7 +134,7 @@
                                 <ion-col class="ion-text-end">
                                     <ion-label class="labelItem">{{ item.reportName }}</ion-label>
                                     <ion-note class="labelItem">{{ item.reportAt?.replace('T', ' ').slice(0, 16)
-                                        }}</ion-note>
+                                    }}</ion-note>
                                 </ion-col>
                             </ion-row>
                         </ion-grid>
@@ -159,7 +161,7 @@ import {
     onIonViewWillEnter, IonProgressBar, IonSkeletonText, IonInfiniteScroll,
     IonInfiniteScrollContent, IonButton, IonModal, IonBadge
 } from '@ionic/vue';
-import { calendarOutline, newspaperOutline, timeOutline, warningOutline } from "ionicons/icons";
+import { calendarOutline, newspaperOutline, timeOutline } from "ionicons/icons";
 import { computed, ref, nextTick, watch } from 'vue';
 import { useStore } from 'vuex';
 import presentAlert from '@/mixins/presentAlert';
@@ -429,10 +431,10 @@ ion-segment {
 }
 
 .icon-1 {
-    padding: 5px 2px 0 0;
+    padding: 0 2px 0 0;
 }
 
 .icon-2 {
-    padding: 5px 2px 0 2px;
+    padding: 0 2px 0 2px;
 }
 </style>
