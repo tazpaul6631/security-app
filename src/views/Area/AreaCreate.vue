@@ -481,7 +481,6 @@ const handleSubmit = async (): Promise<void> => {
 
     console.log(formSubmitData);
 
-
     // 4. Gọi Offline Manager
     const firstPreview = groupedNotes.value[0]?.reportImages[0]?.preview || '';
     await sendData(firstPreview, formSubmitData, allBase64ForStorage);

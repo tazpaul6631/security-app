@@ -51,13 +51,13 @@
           <ion-list lines="none">
             <ion-item>
               <ion-label>
-                <h2>Thời gian dự kiến: <strong>{{ getPrIdData.planHours ? `${getPrIdData.planHours} giờ` : '' }} {{
-                  getPrIdData.planSeconds ? `${getPrIdData.planSeconds} giây` : '' }} {{ getPrIdData.planMinutes ?
-                      `${getPrIdData.planMinutes} phút` : '' }}</strong></h2>
+                <h2>Thời gian dự kiến: <strong>{{ getPrIdData.planHours ? `${getPrIdData.planHours}h` : '' }} {{
+                  getPrIdData.planMinutes ? `${getPrIdData.planMinutes}m` : '' }} {{ getPrIdData.planSeconds ?
+                      `${getPrIdData.planSeconds}s` : '' }}</strong></h2>
                 <h3 :class="getPrIdData.timeProblem ? 'time-problem' : ''">Thời gian thực tế: {{
-                  getPrIdData.realityHours ? `${getPrIdData.realityHours} giờ` : '' }} {{
-                    getPrIdData.realityMinutes ? `${getPrIdData.realityMinutes} phút` : '' }} {{
-                    getPrIdData.realitySeconds ? `${getPrIdData.realitySeconds} giây` : '' }}
+                  getPrIdData.realityHours ? `${getPrIdData.realityHours}h` : '' }} {{
+                    getPrIdData.realityMinutes ? `${getPrIdData.realityMinutes}m` : '' }} {{
+                    getPrIdData.realitySeconds ? `${getPrIdData.realitySeconds}s` : '' }}
                 </h3>
               </ion-label>
             </ion-item>

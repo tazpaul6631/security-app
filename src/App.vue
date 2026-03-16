@@ -95,7 +95,7 @@ onMounted(async () => {
         store.commit('SET_NETWORK_STATUS', status.connected);
 
         if (wasOffline && isNowOnline) {
-          console.log("🌐 Mạng khôi phục: Kích hoạt đồng bộ ngầm.");
+          console.log("Mạng khôi phục: Kích hoạt đồng bộ ngầm.");
           setTimeout(() => safeSync(), 1500);
         }
       });

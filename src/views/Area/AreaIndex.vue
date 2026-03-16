@@ -10,12 +10,14 @@
         </ion-header>
 
         <ion-content>
-            <ion-segment :scrollable="true" :value="activeSegment">
-                <ion-segment-button v-for="([parent, children, id]) in datalistNav" :key="parent" :value="parent"
-                    @click="openSelect(parent, children, id)">
-                    <ion-label>{{ parent }} ▾</ion-label>
-                </ion-segment-button>
-            </ion-segment>
+            <div slot="fixed" style="width: 100%; background: var(--ion-background-color, #fff); z-index: 10;">
+                <ion-segment :value="activeSegment" mode="md">
+                    <ion-segment-button v-for="([parent, children, id]) in datalistNav" :key="parent" :value="parent"
+                        @click="openSelect(parent, children, id)">
+                        <ion-label>{{ parent }} ▾</ion-label>
+                    </ion-segment-button>
+                </ion-segment>
+            </div>
 
             <ion-modal :is-open="isModalOpen" @didDismiss="isModalOpen = false" :initial-breakpoint="0.5"
                 :breakpoints="[0, 0.5, 0.8]">
@@ -38,10 +40,11 @@
                                     <ion-col>
                                         <ion-label>
                                             <strong
-                                                :style="item.isOfflineDone ? 'color: var(--ion-color-primary)' : ''">
+                                                :style="(item.isOfflineDone || item.realityPoint > 0) ? 'color: var(--ion-color-primary)' : ''">
                                                 {{ item.routeCode }}
                                             </strong>
-                                            <p>{{ item.routeName }}</p>
+                                            <p style="font-size: 0.9em; color: var(--ion-color-step-600);">{{
+                                                item.routeName }}</p>
 
                                             <div v-if="item.isOfflineDone">
                                                 <ion-badge color="warning" mode="ios" style="font-size: 0.7em;">
@@ -49,34 +52,41 @@
                                                 </ion-badge>
                                             </div>
 
-                                            <div>
+                                            <div style="margin-top: 5px;">
                                                 <ion-icon class="icon-1" :icon="newspaperOutline"
-                                                    :color="item.isOfflineDone ? 'primary' : (item.pointProblem || item.timeProblem ? 'danger' : 'success')">
+                                                    :color="item.pointProblem ? 'danger' : 'success'">
                                                 </ion-icon>
-
                                                 <ion-icon class="icon-2" :icon="timeOutline"
-                                                    :color="item.isOfflineDone ? 'primary' : (item.timeProblem ? 'danger' : 'success')">
+                                                    :color="item.timeProblem ? 'danger' : 'success'">
                                                 </ion-icon>
-
                                                 <ion-icon class="icon-2" :icon="footstepsOutline"
-                                                    :color="item.isOfflineDone ? 'primary' : (item.shiftProblem ? 'danger' : 'success')">
+                                                    :color="item.shiftProblem ? 'danger' : 'success'">
                                                 </ion-icon>
                                             </div>
                                         </ion-label>
                                     </ion-col>
-                                    <ion-col class="ion-text-end">
-                                        <ion-note class="labelItem">
-                                            <ion-label class="labelItem">Ca tuần tra: {{ item.psHourFrom }}h</ion-label>
-                                            <ion-label class="labelItem">{{ item.reportName }}</ion-label>
-                                            <ion-label class="labelItem">
-                                                {{ item.realityPoint }}/{{ item.planPoint }} điểm
-                                            </ion-label>
-                                            <ion-label class="labelItem">
-                                                {{ item.realityHours ? `${item.realityHours} giờ` : '' }}
-                                                {{ item.realityMinutes ? `${item.realityMinutes} phút` : '' }}
-                                                {{ item.realitySeconds ? `${item.realitySeconds} giây` : '' }}
-                                            </ion-label>
-                                        </ion-note>
+
+                                    <ion-col size="5" class="ion-text-end">
+                                        <div class="note-container">
+                                            <ion-label class="labelItem" style="font-weight: bold;">Ca: {{
+                                                item.psHourFrom }}h</ion-label>
+                                            <ion-label class="labelItem" color="medium">{{ item.reportName || 'Tuần tra'
+                                                }}</ion-label>
+
+                                            <ion-badge
+                                                :color="item.realityPoint >= item.planPoint ? 'success' : 'medium'"
+                                                style="margin-top: 4px; color: white;">
+                                                {{ item.realityPoint || 0 }}/{{ item.planPoint || 0 }} điểm
+                                            </ion-badge>
+
+                                            <p v-if="item.realityHours || item.realityMinutes"
+                                                style="font-size: 0.75em; margin: 4px 0 0 0;">
+                                                <ion-icon :icon="timeOutline" style="font-size: 10px;"></ion-icon>
+                                                {{ item.realityHours ? `${item.realityHours}h` : '' }}
+                                                {{ item.realityMinutes ? `${item.realityMinutes}m` : '' }}
+                                                {{ item.realitySeconds ? `${item.realitySeconds}s` : '' }}
+                                            </p>
+                                        </div>
                                     </ion-col>
                                 </ion-row>
                             </ion-grid>
@@ -90,7 +100,7 @@
                 </ion-content>
             </ion-modal>
 
-            <div class="list-container" style="margin-top: 10px;">
+            <div class="list-container" style="margin-top: 50px;">
                 <ion-list v-if="isLoading">
                     <ion-item v-for="i in 5" :key="i">
                         <ion-grid>
@@ -261,10 +271,8 @@ const fetchAreasData = async (areaId: number) => {
             const response = await AreaBU.postAreaBU(payload);
             const fetchedAreas = Array.isArray(response?.data) ? response.data : (response?.data?.data || []);
 
-            // --- SỬA TẠI ĐÂY: Lưu lại cho Offline ---
             store.commit('SET_DATA_AREA_BU', fetchedAreas);
             await storageService.set('area_bu', fetchedAreas);
-            // ---------------------------------------
 
             const foundArea = fetchedAreas.find((item: any) => item.areaId === areaId);
             currentOptions.value = foundArea ? (foundArea.patrolShifts || []) : [];
@@ -467,5 +475,54 @@ ion-segment {
 
 .icon-2 {
     padding: 0 2px 0 2px;
+}
+
+/* AreaIndex.vue */
+
+.labelItem {
+    font-size: 0.85em;
+    display: block;
+    line-height: 1.4;
+}
+
+.note-container {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+/* Định dạng các icon trạng thái */
+.icon-group {
+    margin-top: 8px;
+    display: flex;
+    gap: 8px;
+    /* Khoảng cách giữa các icon */
+}
+
+.icon-1,
+.icon-2 {
+    font-size: 18px;
+    /* Kích thước vừa phải cho mobile */
+    filter: drop-shadow(0px 1px 1px rgba(0, 0, 0, 0.1));
+}
+
+/* Hiệu ứng badge offline */
+ion-badge[color="warning"] {
+    --color: #000;
+    font-weight: bold;
+    letter-spacing: 0.3px;
+}
+
+/* Làm cho các hàng có sự cố (Problem) trông khác biệt */
+.custom-item-false {
+    --background: #fff5f5;
+    /* Nền hơi đỏ nhạt nếu có sự cố */
+}
+
+div[slot="fixed"] {
+    border-bottom: 0.5px solid #e0e0e0;
+    /* Hoặc shadow nhẹ */
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 </style>
