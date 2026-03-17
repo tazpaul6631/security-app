@@ -1,13 +1,12 @@
 <template>
   <ion-app>
-    <ion-progress-bar v-if="store.state.isSyncing && store.state.syncMode === 'silent'"
-      :value="store.state.syncProgress / 100" color="success" class="silent-progress-bar">
-    </ion-progress-bar>
-
-    <div v-if="store.state.isSyncing" class="sync-blocker-overlay">
-      <div class="sync-dialog">
-        <ion-spinner name="crescent" color="primary"></ion-spinner>
-        <p>{{ store.state.syncMessage || 'Đang đồng bộ dữ liệu...' }}</p>
+    <div v-if="store.state.isSyncing" class="sync-overlay">
+      <div class="sync-box">
+        <ion-text color="primary">
+          <h3>{{ store.state.syncMessage || 'Đang đồng bộ dữ liệu...' }}</h3>
+        </ion-text>
+        <ion-progress-bar :value="store.state.syncProgress / 100" color="success"></ion-progress-bar>
+        <p>{{ store.state.syncProgress }}%</p>
       </div>
     </div>
 
@@ -21,7 +20,7 @@
 </template>
 
 <script setup lang="ts">
-import { IonApp, IonRouterOutlet, IonSpinner, IonProgressBar } from '@ionic/vue';
+import { IonApp, IonRouterOutlet, IonSpinner, IonProgressBar, IonText } from '@ionic/vue';
 import { onMounted, ref } from 'vue';
 import { useSQLite } from '@/composables/useSQLite';
 import store from '@/composables/useVuex';
@@ -75,22 +74,20 @@ const safeSync = async () => {
       progress: 0,
       message: 'Đang tải dữ liệu offline lên server...',
       isSyncing: true,
-      mode: 'silent'
+      mode: 'overlay' // Đổi mode về overlay cho thống nhất
     });
 
     // 2. Chạy hàm đẩy báo cáo Offline lên Server
     await syncData();
 
-    // 3. Quá trình kéo dữ liệu mới từ Server về máy (Hàm này đã tự có logic cập nhật Message và Progress bên trong)
+    // 3. Quá trình kéo dữ liệu mới từ Server về máy
     const apiList = getGlobalApiList(store.state.dataUser);
-    await store.dispatch('syncAllData', { apiList, mode: 'silent' });
-
-    // (Lưu ý: Bạn không cần tắt màn chắn ở đây vì hàm syncAllData đã có sẵn logic setTimeout 1.5s để tắt nó ở cuối rồi)
+    await store.dispatch('syncAllData', { apiList, mode: 'overlay' });
 
   } catch (e) {
     console.error("Lỗi đồng bộ ngầm:", e);
     // Nếu lỗi giữa chừng, đảm bảo tắt màn chắn
-    store.commit('SET_SYNC_STATUS', { progress: 0, message: '', isSyncing: false, mode: 'silent' });
+    store.commit('SET_SYNC_STATUS', { progress: 0, message: '', isSyncing: false, mode: 'overlay' });
   }
 };
 
@@ -155,7 +152,6 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-/* CSS giữ nguyên như cũ */
 .app-loading {
   display: flex;
   flex-direction: column;
@@ -165,50 +161,49 @@ onMounted(async () => {
   background: #f4f4f4;
 }
 
-.silent-progress-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 3px;
-  z-index: 9999;
-}
-
-/* Màn chắn phủ kín toàn ứng dụng */
-.sync-blocker-overlay {
+/* --- STYLE DÀNH CHO MODAL ĐỒNG BỘ MỚI (KIỂU POPUP NHỎ CŨ) --- */
+.sync-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 99999 !important;
-  background-color: rgba(0, 0, 0, 0.2);
-  /* Làm tối nền đi một chút để hộp thoại nổi bật hơn */
+  background-color: rgba(0, 0, 0, 0.3);
+  /* Nền ngoài tối mờ nhẹ */
   display: flex;
-  align-items: center;
   justify-content: center;
+  align-items: center;
+  z-index: 99999 !important;
   cursor: not-allowed;
 }
 
-/* Hộp thoại thông báo đồng bộ */
-.sync-dialog {
+.sync-box {
+  width: 80%;
+  max-width: 320px;
   background-color: #ffffff;
-  padding: 20px 30px;
+  /* Bảng trắng nổi lên */
+  padding: 24px 20px;
   border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 200px;
+  /* Bo góc mềm mại */
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
+  /* Đổ bóng 3D */
+  text-align: center;
 }
 
-.sync-dialog p {
-  margin-top: 15px;
+.sync-box h3 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 16px;
+  /* Chữ nhỏ vừa vặn */
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.sync-box p {
+  margin-top: 12px;
   margin-bottom: 0;
   font-size: 15px;
   font-weight: 600;
   color: #333;
-  text-align: center;
 }
 </style>

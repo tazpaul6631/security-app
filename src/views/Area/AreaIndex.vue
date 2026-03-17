@@ -73,7 +73,7 @@
                                     <ion-col size="6" class="ion-text-end">
                                         <div class="note-container">
                                             <ion-label class="labelItem" color="medium">{{ item.reportName || 'Tuần tra'
-                                            }}</ion-label>
+                                                }}</ion-label>
 
                                             <ion-badge
                                                 :color="item.realityPoint >= item.planPoint ? 'success' : 'medium'"
@@ -126,7 +126,7 @@
                 <div v-else-if="displayedItems.length === 0" class="ion-padding ion-text-center no-route-container">
                     <ion-icon :icon="calendarOutline" style="font-size: 64px; color: #ccc;"></ion-icon>
                     <p>Danh sách trống: <strong style="color: red;">
-                            {{ selectedItem ? selectedItem[0] : 'Vui lòng chọn lộ trình' }}
+                            Vui lòng chọn lộ trình
                         </strong></p>
                     <ion-button fill="outline" @click="router.replace('/home')" class="ion-margin-top">
                         Quay lại trang chủ
@@ -155,7 +155,7 @@
                                 <ion-col class="ion-text-end">
                                     <ion-label class="labelItem">{{ item.reportName }}</ion-label>
                                     <ion-note class="labelItem">{{ item.reportAt?.replace('T', ' ').slice(0, 16)
-                                        }}</ion-note>
+                                    }}</ion-note>
                                 </ion-col>
                             </ion-row>
                         </ion-grid>
@@ -326,7 +326,8 @@ onIonViewWillEnter(async () => {
 const openSelect = async (parent: string, children: any[], id: number) => {
     activeSegment.value = parent;
     isModalOpen.value = true;
-    currentOptions.value = []; // Tạm làm rỗng để hiển thị loading skeleton
+    displayedItems.value = [];
+    currentOptions.value = [];
     await fetchAreasData(id);
 };
 
@@ -334,7 +335,6 @@ const openSelect = async (parent: string, children: any[], id: number) => {
 const handleModalSelection = async (item: any) => {
     isModalOpen.value = false;
     currentPage.value = 1;
-
     console.log(item);
 
     setTimeout(async () => {
