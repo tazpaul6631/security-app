@@ -7,7 +7,7 @@
             <ion-icon slot="icon-only" :icon="arrowBackOutline"></ion-icon>
           </ion-button>
         </ion-buttons>
-        <ion-title>CheckPoint Create</ion-title>
+        <ion-title>Báo cáo điểm quét</ion-title>
       </ion-toolbar>
     </ion-header>
 
@@ -18,12 +18,11 @@
           <ion-card-subtitle>
             Mã: {{ currentActiveRoute.routeCode }} | Giờ trực: {{ currentActiveRoute.psHourFrom }}h
             <br />
-            <span class="timer-display" :class="timerColorClass" v-if="currentActiveRoute.planSecond !== undefined">
+            <span class="timer-display" :class="timerColorClass" v-if="formattedTime">
               <ion-icon class="icon-clock" :icon="timeOutline"></ion-icon> Thời gian: {{ formattedTime }}
             </span>
           </ion-card-subtitle>
         </ion-card-header>
-
         <ion-card-content>
           <card-route-points :details="currentActiveRoute.routeDetails" />
         </ion-card-content>
@@ -145,24 +144,24 @@
         </ion-content>
       </ion-modal>
 
-      <ion-modal :is-open="openDetailModal" @didDismiss="openDetailModal = false" initial-breakpoint="0.7">
+      <ion-modal class="custom-bottom-sheet" :is-open="openDetailModal" @didDismiss="openDetailModal = false"
+        :initial-breakpoint="0.7" :breakpoints="[0, 0.7, 1]">
         <ion-content class="ion-padding">
           <ion-list>
-            <ion-item lines="none">
+            <ion-list-header>
               <ion-label><strong>{{ selectedSubCategory?.rncName }}</strong></ion-label>
+            </ion-list-header>
+            <ion-item v-for="issue in currentIssues" :key="issue.rncId" button @click="toggleIssue(issue.rncName)">
+              <ion-checkbox slot="start" :checked="selectedValues.includes(issue.rncName)"
+                aria-hidden="true"></ion-checkbox>
+              <ion-label>{{ issue.rncName }}</ion-label>
             </ion-item>
-            <ion-item>
-              <ion-select label="Mô tả sự cố" label-placement="floating" :multiple="true" v-model="selectedValues"
-                @ionChange="handleDetailChange" @ionDismiss="openDetailModal = false" placeholder="Chọn các mục...">
-                <ion-select-option v-for="issue in currentIssues" :key="issue.rncId" :value="issue.rncName">
-                  {{ issue.rncName }}
-                </ion-select-option>
-                <ion-select-option value="note">Khác (Nhập ghi chú)...</ion-select-option>
-              </ion-select>
+            <ion-item button @click="toggleIssue('note')">
+              <ion-checkbox slot="start" :checked="selectedValues.includes('note')" aria-hidden="true"></ion-checkbox>
+              <ion-label>Khác (Nhập ghi chú)...</ion-label>
             </ion-item>
           </ion-list>
-          <ion-button expand="block" fill="clear" @click="openDetailModal = false"
-            class="ion-margin-top">Hủy</ion-button>
+          <ion-button expand="block" class="ion-margin-top" @click="confirmDetails">XÁC NHẬN</ion-button>
         </ion-content>
       </ion-modal>
 
@@ -174,9 +173,9 @@
         </ion-content>
       </ion-modal>
 
-      <div v-if="pendingItems.length > 0" class="ion-margin-top">
+      <div v-if="displayItems.length > 0" class="ion-margin-top">
         <ion-list-header>
-          <ion-label color="primary">Chờ đồng bộ ({{ pendingItems.length }})</ion-label>
+          <ion-label color="primary">Chờ đồng bộ ({{ displayItems.length }})</ion-label>
         </ion-list-header>
         <ion-list lines="full">
           <ion-item-sliding v-for="item in displayItems" :key="item.id">
@@ -187,8 +186,10 @@
               </ion-thumbnail>
               <ion-label>
                 <h3>{{ getCheckpointName(item.data?.cpId) }}</h3>
-                <p class="info-offline"><ion-badge class="badge-offline" color="warning">Offline</ion-badge> {{
-                  formatDate(item.data?.createdAt) }}</p>
+                <p class="info-offline">
+                  <ion-badge class="badge-offline" color="warning">Offline</ion-badge>
+                  {{ formatDate(item.data?.createdAt) }}
+                </p>
               </ion-label>
             </ion-item>
             <ion-item-options side="end">
@@ -250,10 +251,26 @@ interface ReportNode { rncId: number | string; rncName: string; childs?: ReportN
 // Lấy đúng data lộ trình từ Vuex theo ID đang quét
 const currentActiveRoute = computed<Route | null>(() => {
   const routes = store.state.dataListRoute || [];
-  const selectedId = store.state.routeId;
-  if (!selectedId) return null;
-  return routes.find((r: any) => r.routeId == selectedId) || null;
+
+  // Lấy cả 2 ID ra để đối chiếu
+  const targetRouteId = store.state.unfinishedRouteId || store.state.routeId;
+  const targetPsId = store.state.psId;
+
+  if (!targetRouteId) return null;
+
+  // ƯU TIÊN 1: Tìm CHÍNH XÁC lộ trình khớp cả routeId lẫn psId đang bị khóa
+  if (targetPsId) {
+    const exactRoute = routes.find((r: any) =>
+      Number(r.routeId) === Number(targetRouteId) &&
+      Number(r.psId) === Number(targetPsId)
+    );
+    if (exactRoute) return exactRoute;
+  }
+
+  // ƯU TIÊN 2: Fallback (Phòng hờ trường hợp psId bị null lúc mới vào)
+  return routes.find((r: any) => Number(r.routeId) === Number(targetRouteId)) || null;
 });
+
 
 // Watch để khởi chạy Timer khi vào trang hoặc reload
 watch(() => currentActiveRoute.value, async (newRoute) => {
@@ -409,6 +426,47 @@ const removeGroupPhoto = (gIdx: number, pIdx: number) => {
   groupedNotes.value[gIdx].reportImages.splice(pIdx, 1);
 };
 
+const toggleIssue = (val: string) => {
+  const index = selectedValues.value.indexOf(val);
+  if (index > -1) {
+    selectedValues.value.splice(index, 1);
+  } else {
+    selectedValues.value.push(val);
+  }
+  // Log để debug xem click có ăn không
+  console.log('Current selected:', selectedValues.value);
+};
+
+const confirmDetails = () => {
+  const subId = selectedSubCategory.value?.rncId;
+  if (!subId) return;
+
+  selectedValues.value.forEach((val) => {
+    if (val === 'note') {
+      openNoteModal.value = true;
+    } else {
+      const exist = groupedNotes.value.some(
+        g => g.type === 'label' && g.rncId === String(subId) && g.priImageNote === val
+      );
+      if (!exist) {
+        groupedNotes.value.push({
+          id: generateId(),
+          prGroup: groupedNotes.value.length + 1,
+          priImageNote: val,
+          reportImages: [],
+          type: 'label',
+          rncId: String(subId)
+        });
+      }
+    }
+  });
+
+  syncToMainForm();
+  if (!selectedValues.value.includes('note')) {
+    openDetailModal.value = false;
+  }
+};
+
 // --- Submit Logic (Quan trọng nhất) ---
 const isSubmitting = ref(false);
 const handleSubmit = async (): Promise<void> => {
@@ -489,31 +547,34 @@ const handleSubmit = async (): Promise<void> => {
     store.commit('UPDATE_POINT_STATUS', { routeId, cpId: currentCpId, status: 1 });
 
     const updatedRoutes = [...store.state.dataListRoute];
-    const rIdx = updatedRoutes.findIndex(r => r.routeId == routeId);
+    const rIdx = updatedRoutes.findIndex(r =>
+      Number(r.routeId) === Number(routeId) &&
+      Number(r.psId) === Number(finalPsId)
+    );
     const details = updatedRoutes[rIdx].routeDetails;
     const allDone = details.every((p: any) => p.status === 1);
 
     if (allDone) {
-      // 1. Dừng bộ đếm giờ
+      // 1. Dừng bộ đếm giờ (Xóa sạch timer của route này)
       await clearTimer(routeId);
 
-      // 2. Xóa các khóa cứng trong Storage (Bộ nhớ máy)
+      // 2. Xóa các khóa cứng trong Storage (Bộ nhớ máy) để giải phóng app
       await Promise.all([
         storageService.remove('unfinished_route_id'),
         storageService.remove('current_route_id'),
         storageService.remove('data_scanqr'),
-        storageService.remove('currentTime_scanqr'), // Xóa luôn thời gian scan dở dang
-        storageService.remove('current_ps_id')       // lưu psId riêng
+        storageService.remove('currentTime_scanqr'),
+        storageService.remove('current_ps_id')
       ]);
 
-      // 3. Cập nhật trạng thái trong RAM và TỰ ĐỘNG lưu mảng đã reset xuống máy
-      store.commit('RESET_SPECIFIC_ROUTE', routeId);
-
-      // 4. Reset các biến ID tạm thời trong Store về null để ca sau sạch sẽ
+      // 3. Gỡ khóa trên RAM nhưng TUYỆT ĐỐI GIỮ NGUYÊN STATUS = 1 của lộ trình
+      store.commit('SET_UNFINISHED_ROUTE_ID', null);
       store.commit('SET_ROUTE_ID', null);
       store.commit('SET_PSID', null);
       store.commit('SET_DATASCANQR', null);
-      await store.dispatch('resetCurrentRoute');
+
+      // 4. Lưu mảng (với các điểm status = 1) xuống SQLite để khi F5 vẫn thấy là Đã hoàn thành
+      await storageService.set('list_route', store.state.dataListRoute);
 
       await loading.dismiss();
       await showToast('Chúc mừng! Bạn đã hoàn thành toàn bộ lộ trình.', 'success');
@@ -533,16 +594,7 @@ const handleSubmit = async (): Promise<void> => {
 };
 
 const handleGoBack = async () => {
-  const details = currentActiveRoute.value?.routeDetails || [];
-  const isFinished = details.every(p => p.status === 1);
-  if (isFinished || details.length === 0) return router.replace('/route');
-
-  const alert = await alertController.create({
-    header: 'Cảnh báo',
-    message: 'Bạn đang trong ca trực, hãy hoàn thành các điểm còn lại!',
-    buttons: ['Đã hiểu']
-  });
-  await alert.present();
+  router.replace('/route');
 };
 
 // --- Utils ---
@@ -699,5 +751,29 @@ onMounted(async () => {
 .badge-offline {
   margin-right: 4px;
   color: white;
+}
+
+ion-modal.custom-bottom-sheet::part(content) {
+  box-shadow: 0 -8px 20px rgba(0, 0, 0, 0.15);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+}
+
+ion-modal.custom-bottom-sheet::part(handle) {
+  background: #ccc;
+  width: 40px;
+}
+
+ion-list-header {
+  border-bottom: 1px solid #f0f0f0;
+  margin-bottom: 10px;
+}
+
+ion-item {
+  cursor: pointer;
+}
+
+ion-label {
+  user-select: none;
 }
 </style>

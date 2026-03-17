@@ -63,15 +63,17 @@
                                                     :color="item.shiftProblem ? 'danger' : 'success'">
                                                 </ion-icon>
                                             </div>
+                                            <div>
+                                                <ion-label class="labelItem" color="medium">{{
+                                                    item.shiftStart.replace('T', ' ').slice(0, 16) }}</ion-label>
+                                            </div>
                                         </ion-label>
                                     </ion-col>
 
-                                    <ion-col size="5" class="ion-text-end">
+                                    <ion-col size="6" class="ion-text-end">
                                         <div class="note-container">
-                                            <ion-label class="labelItem" style="font-weight: bold;">Ca: {{
-                                                item.psHourFrom }}h</ion-label>
                                             <ion-label class="labelItem" color="medium">{{ item.reportName || 'Tuần tra'
-                                                }}</ion-label>
+                                            }}</ion-label>
 
                                             <ion-badge
                                                 :color="item.realityPoint >= item.planPoint ? 'success' : 'medium'"
@@ -86,6 +88,10 @@
                                                 {{ item.realityMinutes ? `${item.realityMinutes}m` : '' }}
                                                 {{ item.realitySeconds ? `${item.realitySeconds}s` : '' }}
                                             </p>
+                                        </div>
+                                        <div>
+                                            <ion-label class="labelItem" color="medium">{{
+                                                item.shiftEnd.replace('T', ' ').slice(0, 16) }}</ion-label>
                                         </div>
                                     </ion-col>
                                 </ion-row>
@@ -149,7 +155,7 @@
                                 <ion-col class="ion-text-end">
                                     <ion-label class="labelItem">{{ item.reportName }}</ion-label>
                                     <ion-note class="labelItem">{{ item.reportAt?.replace('T', ' ').slice(0, 16)
-                                    }}</ion-note>
+                                        }}</ion-note>
                                 </ion-col>
                             </ion-row>
                         </ion-grid>
@@ -458,6 +464,11 @@ const loadMoreData = (event: any) => {
 .pointProblem-success,
 .timeProblem-success {
     color: #2dd36f;
+}
+
+.labelItem-time {
+    font-size: 10px;
+    display: block;
 }
 
 .labelItem {

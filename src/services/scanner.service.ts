@@ -41,8 +41,25 @@ export const scannerService = {
         store.commit('SET_ROUTE_ID', routeId);
         await storageService.set('current_route_id', routeId);
 
-        // 1. Tìm lộ trình cụ thể mà người dùng đã chọn
-        const currentRoute = dataListRoute.find((r: any) => r.routeId === routeId);
+        // ==========================================
+        // 1. CHỐT KHÓA 1: TÌM LỘ TRÌNH PHẢI CÓ PSID ĐỂ KHÔNG NHẢY CA
+        // ==========================================
+        const targetPsId = store.state.psId;
+        let currentRoute;
+
+        // Ưu tiên 1: Tìm bằng CẢ routeId VÀ psId
+        if (targetPsId) {
+            currentRoute = dataListRoute.find((r: any) =>
+                Number(r.routeId) === Number(routeId) &&
+                Number(r.psId) === Number(targetPsId)
+            );
+        }
+
+        // Ưu tiên 2: Fallback tìm mỗi routeId (Dành cho ca mới tinh chưa lưu khóa psId)
+        if (!currentRoute) {
+            currentRoute = dataListRoute.find((r: any) => Number(r.routeId) === Number(routeId));
+        }
+
         if (!currentRoute) {
             await presentAlert.presentAlert('Lỗi', '', 'Không tìm thấy thông tin lộ trình đã chọn.');
             return;
@@ -62,7 +79,7 @@ export const scannerService = {
                 return;
             }
         } else {
-            return; // Nếu chuỗi rỗng thì bỏ qua
+            return;
         }
 
         // --- BẮT ĐẦU LOGIC KIỂM TRA LỘ TRÌNH ---
@@ -88,7 +105,7 @@ export const scannerService = {
             let finalData = null;
             const isOnline = store.state.isOnline;
 
-            // Xử lý lấy dữ liệu Online/Offline
+            // Xử lý lấy dữ liệu Online
             if (isOnline) {
                 try {
                     const res = await CheckPointScanQr.getCheckPointScanQr(listScanQr);
@@ -96,17 +113,34 @@ export const scannerService = {
                     if (Array.isArray(actualData)) actualData = actualData[0];
                     if (actualData) {
                         finalData = actualData;
+                        // Lưu bản nháp CHẤT LƯỢNG CAO xuống máy
                         await storageService.set(`checkpoint_${listScanQr.cpwId}`, actualData);
                     }
                 } catch (e) {
-                    console.warn("API lỗi, kiểm tra kho Offline");
+                    console.warn("API lỗi, bắt đầu kiểm tra kho Offline");
                 }
             }
 
+            // ==========================================
+            // 2. CHỐT KHÓA 2: XỬ LÝ LẤY DATA OFFLINE THÔNG MINH
+            // ==========================================
             if (!finalData) {
-                let response = await storageService.get('checkpoints');
-                let allCheckpoints = Array.isArray(response) ? response : (response?.data || []);
-                finalData = allCheckpoints.find((item: any) => String(item.cpId) === String(listScanQr.cpwId));
+                // Ưu tiên 1: Lấy từ bản nháp CHẤT LƯỢNG CAO (có đầy đủ areaName, cpCode, cpQr) mà lúc online đã lưu
+                finalData = await storageService.get(`checkpoint_${listScanQr.cpwId}`);
+
+                // Ưu tiên 2: Nếu máy hoàn toàn chưa từng có mạng để lưu nháp, mới tìm trong kho tổng (Chấp nhận thiếu 1 vài trường text)
+                if (!finalData) {
+                    let response = await storageService.get('checkpoints');
+                    let allCheckpoints = [];
+                    // Bóc tách JSON an toàn hơn cho Offline
+                    if (Array.isArray(response)) {
+                        allCheckpoints = response;
+                    } else if (response?.data) {
+                        allCheckpoints = Array.isArray(response.data) ? response.data : (response.data.data || []);
+                    }
+
+                    finalData = allCheckpoints.find((item: any) => String(item.cpId) === String(listScanQr.cpwId));
+                }
             }
 
             if (finalData) {

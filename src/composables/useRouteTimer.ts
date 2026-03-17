@@ -32,13 +32,19 @@ export function useRouteTimer() {
 
         if (intervalId) clearInterval(intervalId);
 
-        intervalId = setInterval(() => {
-            if (remainingSeconds.value > 0) {
-                remainingSeconds.value--;
-            } else {
-                stopTimer();
-            }
-        }, 1000);
+        // Bắt đầu đếm nếu còn thời gian
+        if (remainingSeconds.value > 0) {
+            intervalId = setInterval(() => {
+                if (remainingSeconds.value > 0) {
+                    remainingSeconds.value--;
+                } else {
+                    // Chạm 0 thì dừng, NHƯNG KHÔNG CLEAR TIMER
+                    stopTimer();
+                }
+            }, 1000);
+        } else {
+            stopTimer(); // Đã hết giờ từ trước
+        }
     };
 
     const restoreTimer = async (routeId: string | number) => {
@@ -61,8 +67,11 @@ export function useRouteTimer() {
                     }
                 }, 1000);
             } else {
-                // Nếu quá giờ rồi thì dọn dẹp
-                await clearTimer(routeId);
+                // SỬA Ở ĐÂY: Nếu quá giờ rồi thì KHÔNG GỌI clearTimer()
+                // Ghim id và ép giây về 0 để giữ hiển thị 00:00 chớp đỏ
+                currentTimerRouteId.value = routeId;
+                remainingSeconds.value = 0;
+                stopTimer();
             }
         }
     };
@@ -78,13 +87,17 @@ export function useRouteTimer() {
     const clearTimer = async (routeId: string | number) => {
         stopTimer();
         remainingSeconds.value = 0;
-        currentTimerRouteId.value = null;
+        currentTimerRouteId.value = null; // Gỡ ghim ID để ẩn giao diện
         await storageService.remove(`timer_end_${routeId}`);
     };
 
     // Format thời gian MM:SS
     const formattedTime = computed(() => {
-        if (!currentTimerRouteId || remainingSeconds.value <= 0) return '';
+        // SỬA Ở ĐÂY: Chỉ ẩn đi khi thực sự không có RouteId nào được ghim
+        if (currentTimerRouteId.value === null) return '';
+
+        // Đóng băng ở 00:00 nếu hết giờ
+        if (remainingSeconds.value <= 0) return '00:00';
 
         const m = Math.floor(remainingSeconds.value / 60);
         const s = remainingSeconds.value % 60;
@@ -93,11 +106,14 @@ export function useRouteTimer() {
 
     // Màu sắc chung
     const timerColorClass = computed(() => {
-        if (!isTimerRunning.value && currentTimerRouteId === null) return ''; // Chưa chạy -> Xám
+        // SỬA Ở ĐÂY: Thêm .value cho currentTimerRouteId
+        if (currentTimerRouteId.value === null) return '';
+
+        // <= 600 bao gồm cả số 0, nên khi 00:00 nó sẽ ăn class 'text-danger' và chớp đỏ liên tục
         if (remainingSeconds.value <= 600) {
-            return 'text-danger'; // Dưới 10 phút -> Đỏ
+            return 'text-danger';
         }
-        return 'text-success'; // Đang chạy -> Xanh
+        return 'text-success';
     });
 
     return {

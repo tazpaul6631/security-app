@@ -137,6 +137,10 @@ const lockedRouteId = computed(() => store.state.unfinishedRouteId);
 const currentActiveRoute = computed(() => {
     const routes = shiftDataList.value;
     const userData = store.state.dataUser;
+
+    // THÊM DÒNG NÀY: Lấy thêm psId đang bị khóa từ Store
+    const lockedPsId = store.state.psId;
+
     if (!userData || !Array.isArray(routes)) return null;
 
     const uRole = Number(userData.userRoleId);
@@ -145,7 +149,21 @@ const currentActiveRoute = computed(() => {
 
     // ƯU TIÊN 1: Lộ trình đang làm dở (Locked) - Dù quá giờ vẫn phải hiện ca này
     if (lockedRouteId.value !== null) {
-        const lockedRoute = routes.find(r => Number(r.routeId) === Number(lockedRouteId.value));
+
+        // SỬA Ở ĐÂY: Tìm CHÍNH XÁC cả 2 điều kiện
+        let lockedRoute;
+        if (lockedPsId) {
+            lockedRoute = routes.find((r: any) =>
+                Number(r.routeId) === Number(lockedRouteId.value) &&
+                Number(r.psId) === Number(lockedPsId)
+            );
+        }
+
+        // Nếu không tìm thấy bằng psId, fallback về tìm bằng routeId
+        if (!lockedRoute) {
+            lockedRoute = routes.find((r: any) => Number(r.routeId) === Number(lockedRouteId.value));
+        }
+
         if (lockedRoute) {
             const isFinished = lockedRoute.routeDetails.every((p: any) => p.status === 1);
             if (!isFinished) return { ...lockedRoute };
@@ -156,9 +174,19 @@ const currentActiveRoute = computed(() => {
     const foundRoute = routes.find((r: any) => {
         if (Number(r.areaId) !== uArea || Number(r.roleId) !== uRole) return false;
 
-        const isMatchHour = hNow >= Number(r.psHourFrom) && hNow <= Number(r.psHourTo);
-        const isFinished = r.routeDetails.every((p: any) => p.status === 1);
+        const f = Number(r.psHourFrom);
+        const t = Number(r.psHourTo);
+        let isMatchHour = false;
 
+        // SỬA Ở ĐÂY: Xử lý ca trong ngày và ca qua đêm
+        if (f <= t) {
+            isMatchHour = hNow >= f && hNow <= t;
+        } else {
+            // Ca qua đêm (Ví dụ 21h tối đến 6h sáng)
+            isMatchHour = hNow >= f || hNow <= t;
+        }
+
+        const isFinished = r.routeDetails.every((p: any) => p.status === 1);
         return isMatchHour && !isFinished && !r.isComplete;
     });
 
@@ -234,6 +262,7 @@ let scanBuffer = '';
 let scanTimeout: any = null;
 
 const handleHardwareScan = (e: KeyboardEvent) => {
+    if (store.state.isSyncing) return;
     if (e.key === 'Enter') {
         if (scanBuffer.length > 3 && currentActiveRoute.value) {
             processScannedData(scanBuffer, currentActiveRoute.value.routeId);
@@ -275,17 +304,21 @@ const hasDataButFinished = computed(() => {
     if (!Array.isArray(routes)) return false;
 
     // Tìm xem có ca trực nào khớp với giờ hiện tại không
-    const routeInHour = routes.find(r =>
-        currentHour.value >= Number(r.psHourFrom) &&
-        currentHour.value <= Number(r.psHourTo)
-    );
+    const routeInHour = routes.find(r => {
+        const f = Number(r.psHourFrom);
+        const t = Number(r.psHourTo);
+        // SỬA Ở ĐÂY TƯƠNG TỰ
+        if (f <= t) {
+            return currentHour.value >= f && currentHour.value <= t;
+        } else {
+            return currentHour.value >= f || currentHour.value <= t;
+        }
+    });
 
-    // Nếu tìm thấy ca đó và tất cả điểm đã status = 1 thì mới là "Đã hoàn thành"
     if (routeInHour) {
         return routeInHour.routeDetails.every(p => p.status === 1);
     }
-
-    return false; // Không tìm thấy ca trực nào cho giờ này trong Store
+    return false;
 });
 
 // ==========================================

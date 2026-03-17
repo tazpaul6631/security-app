@@ -63,23 +63,16 @@ const store = createStore({
     SET_DATA_LIST_ROUTE(state: any, data) {
       const apiData = Array.isArray(data) ? data : (data?.data || []);
       if (JSON.stringify(state.dataListRoute) === JSON.stringify(apiData)) {
-        console.log("Dữ liệu lộ trình không đổi, bỏ qua Render");
         return;
       }
       const localRoutes = state.dataListRoute || [];
 
-      let mergedList = [...apiData];
-
-      // Duyệt qua dữ liệu cũ để giữ lại những ca không có trong dữ liệu mới (ví dụ ca 10h)
-      localRoutes.forEach((localR: any) => {
-        const isInApi = apiData.some((apiR: any) => apiR.routeId === localR.routeId);
-        if (!isInApi) {
-          mergedList.push(localR); // Giữ lại ca cũ (ví dụ ca 10h đã xong)
-        }
-      });
-
-      state.dataListRoute = apiData.map((apiRoute: any) => {
-        const localRoute = localRoutes.find((r: any) => r.routeId === apiRoute.routeId);
+      // 1. Map trạng thái từ local sang dữ liệu API (Phải so khớp CẢ routeId VÀ psId)
+      const mappedApiData = apiData.map((apiRoute: any) => {
+        const localRoute = localRoutes.find((r: any) =>
+          Number(r.routeId) === Number(apiRoute.routeId) &&
+          Number(r.psId) === Number(apiRoute.psId) // Thêm check psId để không map nhầm ca mới
+        );
         return {
           ...apiRoute,
           areaId: Number(apiRoute.areaId),
@@ -96,19 +89,40 @@ const store = createStore({
         };
       });
 
-      if (state.unfinishedRouteId) {
-        // 1. Chống mất ca dở dang trong danh sách
-        const isStillInList = state.dataListRoute.some((r: any) => r.routeId === state.unfinishedRouteId);
-        if (!isStillInList) {
-          const lockedRoute = localRoutes.find((r: any) => r.routeId === state.unfinishedRouteId);
-          if (lockedRoute) state.dataListRoute.unshift(lockedRoute);
-        }
+      let mergedList = [...mappedApiData];
 
-        // 2. QUAN TRỌNG: Cập nhật lại psId từ lộ trình đang bị khóa
-        const currentLocked = state.dataListRoute.find((r: any) => r.routeId === state.unfinishedRouteId);
+      // 2. GIỮ LẠI CA CŨ (Ca đang khóa dở dang hoặc các ca giờ trước đó)
+      localRoutes.forEach((localR: any) => {
+        // So khớp cả routeId và psId xem ca này API có trả về không
+        const isInApi = mergedList.some((apiR: any) =>
+          Number(apiR.routeId) === Number(localR.routeId) &&
+          Number(apiR.psId) === Number(localR.psId)
+        );
+
+        if (!isInApi) {
+          // Nếu là ca đang bị khóa (ví dụ: đang khóa psId 817), đẩy nó lên đầu mảng để ưu tiên hiển thị
+          if (state.unfinishedRouteId && Number(localR.routeId) === Number(state.unfinishedRouteId)) {
+            mergedList.unshift(localR);
+          } else {
+            mergedList.push(localR); // Các ca khác thì đẩy xuống cuối
+          }
+        }
+      });
+
+      // 3. Gán đúng mảng mergedList vào state
+      state.dataListRoute = mergedList;
+
+      // 4. QUAN TRỌNG: Chỉ thiết lập lại psId NẾU state.psId bị rỗng
+      if (state.unfinishedRouteId) {
+        // Tìm đúng route dở dang đang được ưu tiên ở đầu mảng
+        const currentLocked = state.dataListRoute.find((r: any) => Number(r.routeId) === Number(state.unfinishedRouteId));
+
         if (currentLocked && currentLocked.psId) {
-          state.psId = currentLocked.psId;
-          console.log("🎯 Store: Đã khôi phục psId từ khóa dở dang:", state.psId);
+          // TUYỆT ĐỐI KHÔNG GHI ĐÈ nếu state.psId đã được khôi phục chuẩn xác từ lúc F5
+          if (!state.psId) {
+            state.psId = currentLocked.psId;
+            console.log("🎯 Store: Đã khôi phục psId từ khóa dở dang:", state.psId);
+          }
         }
       }
     },
@@ -166,28 +180,43 @@ const store = createStore({
       state.currentCheckpoint = data;
     },
 
-    SET_UNFINISHED_ROUTE_ID(state: any, id: any) { // Thêm : any ở đây
+    SET_UNFINISHED_ROUTE_ID(state: any, id: any) {
       state.unfinishedRouteId = id;
       if (id) {
+        // 1. Lưu khóa dở dang
         storageService.set('unfinished_route_id', id);
 
-        // Tự động tìm và gán psId từ danh sách lộ trình dựa trên routeId
-        if (Array.isArray(state.dataListRoute)) {
-          const found = state.dataListRoute.find((r: any) => Number(r.routeId) === Number(id));
-          if (found && found.psId) {
-            state.psId = found.psId;
-            console.log("🎯 Đã tự động cập nhật psId:", state.psId);
+        // 2. ÉP LUÔN routeId hiện tại thành ID này (Đồng bộ tuyệt đối)
+        state.routeId = id;
+        storageService.set('current_route_id', id);
+
+        // 3. BẢO VỆ PSID: Chỉ tự động tìm và gán cứng psId NẾU NÓ CHƯA TỒN TẠI
+        if (!state.psId) {
+          if (Array.isArray(state.dataListRoute)) {
+            const found = state.dataListRoute.find((r: any) => Number(r.routeId) === Number(id));
+            if (found && found.psId) {
+              state.psId = found.psId;
+              storageService.set('current_ps_id', found.psId);
+              console.log("🎯 Đã tự động cập nhật & khóa cứng psId:", state.psId);
+            }
           }
+        } else {
+          // Đảm bảo lưu cứng lại psId chuẩn hiện tại xuống máy
+          storageService.set('current_ps_id', state.psId);
         }
       } else {
         storageService.remove('unfinished_route_id');
+        storageService.remove('current_ps_id'); // Xóa luôn khi không còn ca dở dang
       }
     },
 
     // Cập nhật lại RESET_ROUTE_DATA để xóa cả khóa cứng
     RESET_ROUTE_DATA(state: any) {
       state.routeId = null;
-      state.unfinishedRouteId = null; // Thêm dòng này
+      state.unfinishedRouteId = null;
+      state.psId = null;
+      state.dataScanQr = null;
+
       if (Array.isArray(state.dataListRoute)) {
         state.dataListRoute = state.dataListRoute.map((route: any) => ({
           ...route,
@@ -266,15 +295,21 @@ const store = createStore({
         state.unfinishedRouteId = routeId;
         storageService.set('unfinished_route_id', routeId);
 
-        // Tìm psId để gán vào state ngay lập tức
-        const found = state.dataListRoute.find((r: any) => Number(r.routeId) === Number(routeId));
-        if (found) {
-          state.psId = found.psId;
+        // BẢO VỆ PSID
+        if (!state.psId) {
+          const found = state.dataListRoute.find((r: any) => Number(r.routeId) === Number(routeId));
+          if (found) {
+            state.psId = found.psId;
+            storageService.set('current_ps_id', found.psId);
+          }
         }
       }
 
       state.dataListRoute = state.dataListRoute.map((route: any) => {
-        if (Number(route.routeId) !== Number(routeId)) return route;
+        // QUAN TRỌNG: Cập nhật status điểm quét phải khớp CẢ routeId VÀ psId
+        if (Number(route.routeId) !== Number(routeId) || Number(route.psId) !== Number(state.psId)) {
+          return route;
+        }
 
         const newDetails = route.routeDetails.map((detail: any) => {
           if (Number(detail.cpId) === Number(cpId)) {
@@ -442,12 +477,15 @@ const store = createStore({
           'restoreCheckpoints',
           'restoreCheckpointsId',
           'restoreAreaBU',
-          'restoreListRoute',
+          // ĐƯA 3 HÀM RESTORE KHÓA LÊN TRƯỚC TIÊN
           'restoreRouteId',
-          'restoreUnfinishedRouteId', // THÊM DÒNG NÀY VÀO LIST
+          'restoreUnfinishedRouteId',
+          'restorePsId',
+          // LẤY DANH SÁCH LỘ TRÌNH SAU KHI ĐÃ CÓ KHÓA
+          'restoreListRoute',
           'restoreReportNoteCategory',
           'restoreBasePointReportView',
-          'restoreScanQr'
+          'restoreScanQr',
         ];
 
         for (const action of businessData) {
@@ -654,12 +692,13 @@ const store = createStore({
 
     async resetCurrentRoute({ commit, state }) {
       try {
-        commit('RESET_ROUTE_DATA'); // Mutation này của bạn đã set unfinishedRouteId = null rồi, rất tốt.
+        commit('RESET_ROUTE_DATA');
 
         // Xóa tất cả các khóa cứng trong Storage
         await Promise.all([
           storageService.remove('current_route_id'),
-          storageService.remove('unfinished_route_id'), // Thêm dòng này
+          storageService.remove('unfinished_route_id'),
+          storageService.remove('current_ps_id'),
           storageService.remove('data_scanqr'),
         ]);
 
@@ -669,6 +708,13 @@ const store = createStore({
         console.log('✅ Đã xóa lộ trình và reset trạng thái thành công');
       } catch (error) {
         console.error('Lỗi khi reset lộ trình:', error);
+      }
+    },
+
+    async restorePsId({ commit, state }) {
+      if (!state.psId) {
+        const data = await storageService.get('current_ps_id');
+        if (data) commit('SET_PSID', data);
       }
     },
   }
