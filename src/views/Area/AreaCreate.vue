@@ -126,7 +126,7 @@
                     </ion-button>
                   </ion-col>
                 </ion-row>
-                <ion-grid v-if="group.reportImages.length > 0">
+                <ion-grid v-if="group.reportImages.length > 0 || group.isAddingPhoto">
                   <ion-row>
                     <ion-col size="4" v-for="(photo, pIdx) in group.reportImages" :key="pIdx">
                       <div class="image-container">
@@ -134,6 +134,12 @@
                         <div class="delete-btn" @click="removeGroupPhoto(index, pIdx)">
                           <ion-icon :icon="trash"></ion-icon>
                         </div>
+                      </div>
+                    </ion-col>
+
+                    <ion-col size="4" v-if="group.isAddingPhoto">
+                      <div class="image-container loading-container">
+                        <ion-spinner name="crescent" color="medium"></ion-spinner>
                       </div>
                     </ion-col>
                   </ion-row>
@@ -165,11 +171,27 @@
         </ion-content>
       </ion-modal>
 
-      <ion-modal :is-open="openNoteModal" @didDismiss="openNoteModal = false" initial-breakpoint="0.5">
-        <ion-content class="ion-padding">
-          <ion-textarea label="Ghi chú chi tiết" label-placement="floating" fill="outline" v-model="tempNoteInput"
-            :rows="4" placeholder="Nhập tại đây..."></ion-textarea>
-          <ion-button expand="block" class="ion-margin-top" @click="confirmNote">Xác nhận</ion-button>
+      <ion-modal :is-open="openNoteModal" @didDismiss="openNoteModal = false" class="custom-center-modal">
+        <ion-content class="modal-transparent-content">
+          <div class="flex-center-container">
+            <ion-card class="popup-card">
+              <ion-card-header>
+                <ion-card-title style="font-size: 18px;">Nhập ghi chú chi tiết</ion-card-title>
+              </ion-card-header>
+              <ion-card-content>
+                <ion-textarea label="Nội dung" label-placement="floating" fill="outline" v-model="tempNoteInput"
+                  :rows="4" placeholder="Nhập tại đây...">
+                </ion-textarea>
+
+                <ion-button expand="block" color="success" class="ion-margin-top" @click="confirmNote">
+                  Xác nhận
+                </ion-button>
+                <ion-button expand="block" fill="clear" color="medium" @click="openNoteModal = false">
+                  Đóng
+                </ion-button>
+              </ion-card-content>
+            </ion-card>
+          </div>
         </ion-content>
       </ion-modal>
 
@@ -177,8 +199,9 @@
         <ion-list-header>
           <ion-label color="primary">Chờ đồng bộ ({{ displayItems.length }})</ion-label>
         </ion-list-header>
+
         <ion-list lines="full">
-          <ion-item-sliding v-for="item in displayItems" :key="item.id">
+          <ion-item-sliding v-for="item in paginatedItems" :key="item.id">
             <ion-item>
               <ion-thumbnail slot="start" :class="!item.thumb ? 'icon-cloud' : ''">
                 <img v-if="item.thumb" :src="item.thumb" />
@@ -199,21 +222,27 @@
             </ion-item-options>
           </ion-item-sliding>
         </ion-list>
+
+        <ion-infinite-scroll @ionInfinite="loadMoreOfflineItems" :disabled="loadedCount >= displayItems.length">
+          <ion-infinite-scroll-content loading-spinner="bubbles" loading-text="Đang tải thêm báo cáo...">
+          </ion-infinite-scroll-content>
+        </ion-infinite-scroll>
+
       </div>
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, onMounted, watch } from 'vue';
+import { computed, reactive, ref, onMounted, watch, markRaw } from 'vue';
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonList, IonItem, IonTextarea,
   IonCheckbox, IonButton, IonIcon, IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle,
   IonCardContent, IonGrid, IonRow, IonCol, IonImg, IonLabel, IonItemSliding,
   IonItemOptions, IonItemOption, IonListHeader, loadingController, onIonViewWillEnter,
-  toastController, IonBadge, IonThumbnail, IonButtons,
-  IonSelect, IonModal, IonSelectOption, IonAccordion, IonAccordionGroup,
-  alertController
+  toastController, IonBadge, IonThumbnail, IonButtons, onIonViewDidLeave,
+  IonModal, IonAccordion, IonAccordionGroup, IonInfiniteScroll,
+  IonInfiniteScrollContent
 } from '@ionic/vue';
 import {
   sendOutline, camera, images, trash, arrowBackOutline,
@@ -244,7 +273,7 @@ interface Route {
   routeDetails: RouteDetail[]; psId: number;
 }
 interface Photo { fileName: string; rawBase64: string; preview: string; }
-interface GroupedNote { id: string; prGroup: number; priImageNote: string; reportImages: Photo[]; type: 'label' | 'note'; rncId?: string; }
+interface GroupedNote { id: string; prGroup: number; priImageNote: string; reportImages: Photo[]; type: 'label' | 'note'; rncId?: string; isAddingPhoto?: boolean; }
 interface QueueItem { id: number | string; data?: any; imageFiles?: string[]; thumb?: string | null; }
 interface ReportNode { rncId: number | string; rncName: string; childs?: ReportNode[]; }
 
@@ -288,6 +317,20 @@ const dataScanQr = computed(() => {
   return rawData.data?.data || rawData.data || rawData;
 });
 
+watch(() => dataScanQr.value?.cpId, (newCpId, oldCpId) => {
+  if (newCpId && newCpId !== oldCpId) {
+    isResetting.value = true; // Khóa
+
+    formData.prHasProblem = false;
+    formData.prNote = '';
+    groupedNotes.value = [];
+    selectedValues.value = [];
+    tempNoteInput.value = '';
+
+    setTimeout(() => { isResetting.value = false; }, 300); // Mở
+  }
+});
+
 const listImages = computed(() => {
   const currentData = dataScanQr.value;
   return (currentData && currentData.cpQr) ? [{ url: `data:image/png;base64,${currentData.cpQr}` }] : [];
@@ -300,6 +343,7 @@ const apiCategories = ref<ReportNode[]>([]);
 const selectedSubCategory = ref<ReportNode | null>(null);
 const selectedValues = ref<string[]>([]);
 const tempNoteInput = ref('');
+const isResetting = ref(false); // Cờ chặn vòng lặp lưu nháp
 
 // Modals
 const openCategoryModal = ref(false);
@@ -311,6 +355,40 @@ const currentIssues = computed(() => selectedSubCategory.value?.childs || []);
 // --- Offline Manager ---
 const { sendData, pendingItems, loadPendingItems } = useOfflineManager();
 const displayItems = ref<QueueItem[]>([]);
+
+// --- TỐI ƯU HIỆU NĂNG BẰNG INFINITE SCROLL ---
+const itemsPerPage = 10; // Mỗi lần cuộn tải thêm 10 phần tử
+const loadedCount = ref(itemsPerPage);
+
+// Computed này sẽ lấy ra số lượng item tương ứng với loadedCount
+const paginatedItems = computed(() => {
+  return displayItems.value.slice(0, loadedCount.value);
+});
+
+// Hàm bắt sự kiện khi cuộn tới đáy
+const loadMoreOfflineItems = (ev: any) => {
+  setTimeout(() => {
+    // Tăng số lượng hiển thị lên
+    loadedCount.value += itemsPerPage;
+
+    // Báo cho Ionic biết là đã load xong để tắt cái spinner xoay xoay
+    ev.target.complete();
+
+    // Vô hiệu hóa Infinite Scroll nếu đã hiển thị hết kho dữ liệu
+    if (loadedCount.value >= displayItems.value.length) {
+      ev.target.disabled = true;
+    }
+  }, 300); // Thêm 300ms delay nhỏ để tạo cảm giác mượt mà
+};
+
+watch(() => pendingItems.value, async (newPendingQueue) => {
+  // Khi pendingItems bị thay đổi (bị xóa đi sau khi sync thành công)
+  // Quét lại ảnh và gán lại cho displayItems để giao diện tự mất đi
+  displayItems.value = await Promise.all(newPendingQueue.map(async (item: QueueItem) => ({
+    ...item,
+    thumb: item.imageFiles?.[0] ? await ImageService.getDisplayUrl(item.imageFiles[0]) : null
+  })));
+}, { deep: true });
 
 // --- Functions ---
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -326,42 +404,6 @@ const selectSubCategory = (sub: ReportNode) => {
   selectedSubCategory.value = sub;
   selectedValues.value = [];
   openDetailModal.value = true;
-};
-
-const handleDetailChange = (event: any) => {
-  const values = event.detail.value;
-  const subId = selectedSubCategory.value?.rncId;
-
-  if (subId && values) {
-    values.forEach((val: string) => {
-      if (val === 'note') {
-        openNoteModal.value = true;
-        return;
-      }
-
-      const exist = groupedNotes.value.some(
-        g => g.type === 'label' && g.rncId === String(subId) && g.priImageNote === val
-      );
-
-      if (!exist) {
-        groupedNotes.value.push({
-          id: generateId(),
-          prGroup: groupedNotes.value.length + 1,
-          priImageNote: val,
-          reportImages: [],
-          type: 'label',
-          rncId: String(subId)
-        });
-      }
-    });
-    syncToMainForm();
-
-    // TỰ ĐỘNG ĐÓNG: 
-    // Nếu mảng giá trị đã chọn KHÔNG bao gồm 'note', đóng luôn modal chi tiết
-    if (!values.includes('note')) {
-      openDetailModal.value = false;
-    }
-  }
 };
 
 const confirmNote = () => {
@@ -403,23 +445,66 @@ const convertBlobToBase64 = (blob: Blob): Promise<string> => {
 };
 
 const addGroupPhoto = async (idx: number) => {
+  // Kiểm tra giới hạn ảnh
+  if (groupedNotes.value[idx].reportImages.length >= 10) {
+    await showToast('Chỉ được phép đính kèm tối đa 10 ảnh cho mỗi sự cố!', 'warning');
+    return;
+  }
+
   try {
+    // 1. BẬT SPINNER: Báo cho UI biết là đang chuẩn bị bật Camera và xử lý ảnh
+    groupedNotes.value[idx].isAddingPhoto = true;
+
     const image = await Camera.getPhoto({
       quality: 60, width: 1024, resultType: CameraResultType.Uri, source: CameraSource.Camera
     });
+
     if (image.webPath) {
-      groupedNotes.value[idx].reportImages.push({ fileName: 'camera_img.jpg', rawBase64: '', preview: image.webPath });
+      groupedNotes.value[idx].reportImages.push({
+        fileName: 'camera_img.jpg',
+        rawBase64: '',
+        preview: image.webPath
+      });
     }
-  } catch (e) { console.log("Hủy chụp ảnh"); }
+  } catch (e) {
+    console.log("Hủy chụp ảnh hoặc có lỗi");
+  } finally {
+    // 2. TẮT SPINNER: Dù chụp thành công hay bấm Hủy thì cũng phải tắt vòng xoay đi
+    groupedNotes.value[idx].isAddingPhoto = false;
+  }
 };
 
 const pickGroupImages = async (idx: number) => {
+  // Tính toán số ảnh còn được phép chọn
+  const currentCount = groupedNotes.value[idx].reportImages.length;
+  const maxAllowed = 10;
+  const slotsLeft = maxAllowed - currentCount;
+
+  if (slotsLeft <= 0) {
+    await showToast('Đã đạt giới hạn 10 ảnh cho sự cố này!', 'warning');
+    return;
+  }
+
   try {
-    const result = await Camera.pickImages({ quality: 60, limit: 10 });
+    // SỬA CHỖ NÀY: Thay vì limit: 10 cứng, ta giới hạn bằng số lượng slot còn trống
+    const result = await Camera.pickImages({ quality: 60, limit: slotsLeft });
+
+    // Bắt đầu quá trình nạp ảnh -> Bật Spinner cục bộ
+    groupedNotes.value[idx].isAddingPhoto = true;
+
     for (const photo of result.photos) {
-      groupedNotes.value[idx].reportImages.push({ fileName: 'gallery_img.jpg', rawBase64: '', preview: photo.webPath });
+      groupedNotes.value[idx].reportImages.push({
+        fileName: 'gallery_img.jpg',
+        rawBase64: '',
+        preview: photo.webPath
+      });
     }
-  } catch (e) { console.log("Hủy chọn ảnh"); }
+  } catch (e) {
+    console.log("Hủy chọn ảnh");
+  } finally {
+    // Xong việc thì tắt Spinner cục bộ đi
+    groupedNotes.value[idx].isAddingPhoto = false;
+  }
 };
 
 const removeGroupPhoto = (gIdx: number, pIdx: number) => {
@@ -554,6 +639,22 @@ const handleSubmit = async (): Promise<void> => {
     const details = updatedRoutes[rIdx].routeDetails;
     const allDone = details.every((p: any) => p.status === 1);
 
+    isResetting.value = true; // Khóa mồm watcher
+
+    // Xóa tận gốc bản nháp trong CSDL máy
+    if (currentCpId) {
+      await storageService.remove(`draft_report_${currentCpId}`);
+    }
+
+    // Reset giao diện
+    formData.prHasProblem = false;
+    formData.prNote = '';
+    groupedNotes.value = [];
+    selectedValues.value = [];
+    tempNoteInput.value = '';
+
+    setTimeout(() => { isResetting.value = false; }, 300);
+
     if (allDone) {
       // 1. Dừng bộ đếm giờ (Xóa sạch timer của route này)
       await clearTimer(routeId);
@@ -628,10 +729,82 @@ const showToast = async (m: string, c: string) => {
   await t.present();
 };
 
+// Key lưu nháp dựa trên ID của Checkpoint hiện tại để không bị lẫn lộn giữa các điểm quét
+const draftKey = computed(() => {
+  if (dataScanQr.value && dataScanQr.value.cpId) {
+    return `draft_report_${dataScanQr.value.cpId}`;
+  }
+  return null;
+});
+
+// Tự động lưu nháp mỗi khi người dùng thao tác trên form
+let draftTimeout: any = null;
+
+watch([formData, groupedNotes, selectedValues], async () => {
+  if (isResetting.value) return;
+
+  // Dọn dẹp cái timeout cũ nếu người dùng vẫn đang gõ
+  if (draftTimeout) clearTimeout(draftTimeout);
+
+  // Thiết lập timeout mới: Đợi 500 mili-giây SAU KHI người dùng dừng thao tác mới lưu SQLite
+  draftTimeout = setTimeout(async () => {
+    if (draftKey.value && isReady.value) {
+      const draftData = {
+        prHasProblem: formData.prHasProblem,
+        prNote: formData.prNote,
+        // Ép kiểu JSON để loại bỏ bớt Proxy nặng nề của Vue trước khi lưu DB
+        groupedNotes: JSON.parse(JSON.stringify(groupedNotes.value)),
+        selectedValues: JSON.parse(JSON.stringify(selectedValues.value))
+      };
+      await storageService.set(draftKey.value, draftData);
+      console.log('Đã lưu nháp ngầm!');
+    }
+  }, 500); // 500ms là khoảng thời gian lý tưởng
+}, { deep: true });
+
+const loadDraft = async () => {
+  if (!draftKey.value) return false;
+
+  const draft: any = await storageService.get(draftKey.value);
+  if (draft) {
+    formData.prHasProblem = draft.prHasProblem || false;
+    formData.prNote = draft.prNote || '';
+    groupedNotes.value = draft.groupedNotes || [];
+    selectedValues.value = draft.selectedValues || [];
+    console.log('✅ Đã khôi phục bản nháp đang nhập dở');
+    return true;
+  }
+  return false;
+};
+
 // --- Lifecycle ---
-onIonViewWillEnter(() => {
-  formData.prNote = ''; formData.prHasProblem = false;
-  groupedNotes.value = []; selectedValues.value = [];
+onIonViewWillEnter(async () => {
+  // Chờ 1 chút để computed draftKey nhận được dataScanQr
+  setTimeout(async () => {
+    const hasDraft = await loadDraft();
+    if (!hasDraft) {
+      // Nếu không có nháp thì mới reset rỗng
+      formData.prNote = '';
+      formData.prHasProblem = false;
+      groupedNotes.value = [];
+      selectedValues.value = [];
+    }
+  }, 100);
+});
+
+onIonViewDidLeave(() => {
+  isResetting.value = true; // Khóa
+
+  formData.prHasProblem = false;
+  formData.prNote = '';
+  groupedNotes.value = [];
+  selectedValues.value = [];
+  tempNoteInput.value = '';
+  openCategoryModal.value = false;
+  openDetailModal.value = false;
+  openNoteModal.value = false;
+
+  setTimeout(() => { isResetting.value = false; }, 300); // Mở
 });
 
 onMounted(async () => {
@@ -639,7 +812,11 @@ onMounted(async () => {
   await loadPendingItemsWithImages();
 
   const catData = store.state.dataReportNoteCategory;
-  if (catData) apiCategories.value = Array.isArray(catData) ? catData : (catData.data || []);
+  if (catData) {
+    const rawArray = Array.isArray(catData) ? catData : (catData.data || []);
+    // markRaw giúp Vue ngắt Reactivity, tiết kiệm 90% RAM cho mảng này
+    apiCategories.value = markRaw(rawArray);
+  }
 
   isReady.value = true;
   App.addListener('backButton', handleGoBack);
@@ -775,5 +952,43 @@ ion-item {
 
 ion-label {
   user-select: none;
+}
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f0f0f0;
+  border: 1px dashed #ccc;
+  border-radius: 4px;
+}
+
+/* --- STYLE CHO MODAL GHI CHÚ (GIỐNG LOGIN) --- */
+ion-modal.custom-center-modal {
+  --background: transparent;
+  /* Xóa phông nền trắng mặc định của Modal */
+}
+
+.modal-transparent-content {
+  --background: rgba(0, 0, 0, 0.4);
+  /* Phủ lớp nền đen mờ */
+}
+
+.flex-center-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100%;
+  /* QUAN TRỌNG: Cho phép cuộn khi bàn phím đẩy lên */
+  padding: 20px;
+}
+
+.popup-card {
+  width: 100%;
+  max-width: 400px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  margin: 0;
 }
 </style>

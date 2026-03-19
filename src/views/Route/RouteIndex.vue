@@ -88,6 +88,7 @@ import CardRoutePoints from '@/components/CardRoutePoints.vue';
 import { scannerService } from '@/services/scanner.service';
 import storageService from '@/services/storage.service';
 import PatrolShiftView from '@/api/PatrolShiftView';
+import presentAlert from '@/mixins/presentAlert';
 
 // IMPORT GLOBAL TIMER
 import { useRouteTimer } from '@/composables/useRouteTimer';
@@ -283,6 +284,9 @@ const handleHardwareScan = (e: KeyboardEvent) => {
 
 // Nút bấm cho Điện thoại thường (Mở Camera)
 const handleContinueScanning = async (routeId: number) => {
+    if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+    }
     if (isScanning.value) return;
     isScanning.value = true;
     try {
@@ -293,7 +297,12 @@ const handleContinueScanning = async (routeId: number) => {
         }
     } catch (error: any) {
         console.error("Lỗi scanner:", error);
-        alert("Để quét mã trên thiết bị này, vui lòng bấm nút cứng (vật lý) bên hông hoặc đầu máy!");
+        await presentAlert.presentAlert(
+            'Lưu ý thiết bị',
+            '',
+            'Để quét mã trên thiết bị này, vui lòng bấm nút cứng (vật lý) bên hông hoặc đầu máy!',
+            'custom-alert-class'
+        );
     } finally {
         isScanning.value = false;
     }

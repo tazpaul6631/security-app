@@ -12,7 +12,6 @@ import Login from '@/views/Login/Login.vue';
 import AreaBase from '@/views/Area/AreaIndex.vue';
 import UserIndex from '@/views/User/UserIndex.vue';
 import RoleIndex from '@/views/Role/RoleIndex.vue';
-import MenuCategoryIndex from '@/views/MenuCategory/MenuCategoryIndex.vue';
 import ReportIndex from '@/views/Report/ReportIndex.vue';
 import RouteIndex from '@/views/Route/RouteIndex.vue';
 import TutorialIndex from '@/views/Tutorial/TutorialIndex.vue';
@@ -55,11 +54,6 @@ const routes: Array<RouteRecordRaw> = [
         path: 'role',
         name: 'role',
         component: RoleIndex,
-      },
-      {
-        path: 'menucategory',
-        name: 'menucategory',
-        component: MenuCategoryIndex,
       },
       {
         path: 'route',

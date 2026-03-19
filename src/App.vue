@@ -28,20 +28,18 @@ import { Network } from '@capacitor/network';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 
 // Import APIs
-import CheckPointScanQr from '@/api/CheckPointScanQr';
 import PointReport from '@/api/PointReport';
 import AreaBU from '@/api/AreaBU';
 import ReportNoteCategory from '@/api/ReportNoteCategory';
 import PatrolShiftView from '@/api/PatrolShiftView';
 
-const { syncData } = useOfflineManager();
+const { syncData, loadPendingItems, pendingItems } = useOfflineManager();
 const { initDatabase } = useSQLite();
 const isAppReady = ref(false);
 
 // --- CHỐT CHẶN BẰNG WINDOW ĐỂ CHỐNG RE-MOUNT ---
 const getGlobalApiList = (userData: any) => ({
-  checkpoints: () => CheckPointScanQr.postCheckPointView(),
-  checkpoints_id: () => PointReport.postPointReportView(),
+  // checkpoints_id: () => PointReport.postPointReportView(),
   area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),
 
   list_route: () => {
@@ -65,29 +63,73 @@ const getGlobalApiList = (userData: any) => ({
 });
 
 // Hàm đồng bộ an toàn dùng chung
-const safeSync = async () => {
+let isSafeSyncing = false;
+
+const safeSync = async (isInitApp = false) => {
   if (!store.state.token || !store.state.isOnline) return;
+  if (isSafeSyncing) return;
+
+  // Đọc xem trong máy có báo cáo Offline nào đang kẹt không?
+  await loadPendingItems();
+  const hasOfflineData = pendingItems.value.length > 0;
+
+  // LƯỚI LỌC LOGIC THÔNG MINH Ở ĐÂY:
+  // Nếu chỉ là có mạng lại (không phải F5) VÀ không có data offline -> THOÁT LUÔN!
+  if (!isInitApp && !hasOfflineData) {
+    console.log("Mạng khôi phục nhưng không có báo cáo kẹt. Bỏ qua đồng bộ.");
+    return;
+  }
+
+  isSafeSyncing = true;
   console.log("🚀 Luồng đồng bộ an toàn đang chạy...");
+
   try {
-    // 1. BẬT MÀN CHẮN & HIỂN THỊ THÔNG BÁO NGAY LẬP TỨC
-    store.commit('SET_SYNC_STATUS', {
-      progress: 0,
-      message: 'Đang tải dữ liệu offline lên server...',
-      isSyncing: true,
-      mode: 'overlay' // Đổi mode về overlay cho thống nhất
-    });
+    // Nếu là F5 hoặc Login -> Ép bật Overlay chặn màn hình
+    const mode = isInitApp ? 'overlay' : 'silent';
 
-    // 2. Chạy hàm đẩy báo cáo Offline lên Server
-    await syncData();
+    if (mode === 'overlay') {
+      store.commit('SET_SYNC_STATUS', {
+        progress: 0,
+        message: 'Đang chuẩn bị dữ liệu ca trực...', // Đổi câu chữ cho hợp lý lúc F5
+        isSyncing: true,
+        mode: 'overlay'
+      });
+    }
 
-    // 3. Quá trình kéo dữ liệu mới từ Server về máy
-    const apiList = getGlobalApiList(store.state.dataUser);
-    await store.dispatch('syncAllData', { apiList, mode: 'overlay' });
+    // 1. Chỉ chạy hàm đẩy ảnh offline lên nếu thực sự CÓ data
+    if (hasOfflineData) {
+      await syncData();
+    }
+
+    // 2. Nếu là F5/Login (isInitApp = true), TẢI MỚI TOÀN BỘ MASTER DATA
+    // Nếu là ngầm (có mạng lại), BỎ QUA việc tải Master Data để đỡ nặng máy, hoặc chỉ tải lại list_route.
+    if (isInitApp) {
+      const apiList = getGlobalApiList(store.state.dataUser);
+      await store.dispatch('syncAllData', { apiList, mode: mode });
+    } else {
+      // (Tùy chọn) Nếu mạng phục hồi, bạn chỉ cần cập nhật lại list_route xem có ca trực mới không, 
+      // không cần tải lại hàng ngàn Checkpoint làm gì cho cực CPU.
+      const rawUser: any = store.state.dataUser;
+      const userData = rawUser?.data ? rawUser.data : (rawUser || {});
+
+      const lightApiList = {
+        list_route: () => {
+          const lockedPsId = store.state.psId;
+          if (lockedPsId) {
+            // 2. Dùng userData an toàn ở đây, TypeScript sẽ không báo lỗi nữa
+            return PatrolShiftView.postPatrolShiftView({ ...userData, psId: lockedPsId });
+          }
+          return PatrolShiftView.postPatrolShiftView(userData);
+        }
+      };
+      await store.dispatch('syncAllData', { apiList: lightApiList, mode: 'silent' });
+    }
 
   } catch (e) {
-    console.error("Lỗi đồng bộ ngầm:", e);
-    // Nếu lỗi giữa chừng, đảm bảo tắt màn chắn
-    store.commit('SET_SYNC_STATUS', { progress: 0, message: '', isSyncing: false, mode: 'overlay' });
+    console.error("Lỗi đồng bộ:", e);
+    store.commit('SET_SYNC_STATUS', { progress: 0, message: '', isSyncing: false, mode: 'silent' });
+  } finally {
+    isSafeSyncing = false;
   }
 };
 
@@ -116,7 +158,7 @@ onMounted(async () => {
     if (store.state.token) {
       await store.dispatch('initApp');
       if (status.connected) {
-        safeSync();
+        safeSync(true);
       }
     }
 
@@ -124,15 +166,13 @@ onMounted(async () => {
     if (!(window as any).HAS_NETWORK_LISTENER) {
       await Network.removeAllListeners();
       Network.addListener('networkStatusChange', (status) => {
-        // Sử dụng giá trị cũ từ store để so sánh
         const wasOffline = store.state.isOnline === false;
         const isNowOnline = status.connected === true;
-
         store.commit('SET_NETWORK_STATUS', status.connected);
 
         if (wasOffline && isNowOnline) {
-          console.log("Mạng khôi phục: Kích hoạt đồng bộ ngầm.");
-          setTimeout(() => safeSync(), 1500);
+          // LÚC MẠNG CHẬP CHỜN CÓ LẠI -> TRUYỀN FALSE
+          setTimeout(() => safeSync(false), 1500);
         }
       });
       (window as any).HAS_NETWORK_LISTENER = true;

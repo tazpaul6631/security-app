@@ -59,15 +59,30 @@ export function useOfflineManager() {
   };
 
   const addToQueue = async (item: PendingItem): Promise<void> => {
+    // 1. CLONE (Tạo bản sao) để không làm ảnh hưởng data gốc đang gửi trực tiếp
+    const itemToSave = JSON.parse(JSON.stringify(item));
+
+    // 2. RÚT RUỘT BASE64: Xóa trắng chuỗi Base64 nặng nề trước khi lưu vào SQLite
+    if (itemToSave.data?.noteGroups) {
+      for (const group of itemToSave.data.noteGroups) {
+        if (group.reportImages) {
+          for (const img of group.reportImages) {
+            img.priImage = ''; // Xóa sạch Base64, chỉ giữ lại khung data
+          }
+        }
+      }
+    }
+
+    // 3. Lưu bản sao siêu nhẹ này vào SQLite
     const queue: PendingItem[] = (await storage.get('offline_api_queue')) || [];
-    queue.push(item);
+    queue.push(itemToSave);
     await storage.set('offline_api_queue', queue);
     await loadPendingItems();
 
     const actualUser: any = storeInstance.state.dataUser;
     const userData = actualUser?.data ? actualUser.data : actualUser;
 
-    // Tạo báo cáo ảo để hiển thị ngay trên UI
+    // Tạo báo cáo ảo để hiển thị ngay trên UI (Giữ nguyên của bạn)
     const mockReport = {
       psId: item.data.psId,
       prId: item.id,
@@ -80,7 +95,7 @@ export function useOfflineManager() {
       prHasProblem: item.data.prHasProblem,
       prNote: item.data.prNote,
       isOfflineMock: true,
-      reportImages: []
+      reportImages: [] // Giao diện ảo cũng không cần ôm ảnh
     };
 
     await presentToast('Đã lưu vào hàng chờ. Sẽ tự động gửi khi có mạng.');
@@ -225,6 +240,9 @@ export function useOfflineManager() {
             await cleanUpItem(item);
           } else {
             console.error("Lỗi mạng/Server, dừng tiến trình Sync.");
+            if (statusCode >= 500) {
+              await presentToast('Hệ thống máy chủ đang bảo trì. Dữ liệu đã được lưu an toàn trên máy và sẽ tự động gửi lại sau.', 'danger');
+            }
             break;
           }
         }

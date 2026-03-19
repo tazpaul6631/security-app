@@ -15,7 +15,6 @@
                   dataUser?.userRoleName }}</p>
               </div>
             </div>
-
           </div>
 
           <div class="divider"></div>
@@ -56,7 +55,7 @@
 import router from '@/router';
 import { IonPage, IonContent, IonIcon, IonGrid, IonRow, IonCol, IonSpinner } from '@ionic/vue';
 import {
-  person, location, personCircle, people, list, barChartOutline, footstepsOutline, alertCircleOutline
+  person, location, personCircle, people, barChartOutline, footstepsOutline, alertCircleOutline
 } from 'ionicons/icons';
 import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
@@ -71,11 +70,10 @@ console.log(dataUser);
 const listRoles = ref([
   { mcId: 1, icon: `${personCircle}`, color: 'color-orange', router: '/role' },
   { mcId: 2, icon: `${people}`, color: 'color-slate', router: '/user' },
-  { mcId: 3, icon: `${list}`, color: 'color-green', router: '/menucategory' },
-  { mcId: 4, icon: `${location}`, color: 'color-red', router: '/area' },
-  { mcId: 5, icon: `${footstepsOutline}`, color: 'color-gold', router: '/route' },
-  { mcId: 6, icon: `${barChartOutline}`, color: 'color-blue', router: '/report' },
-  { mcId: 7, icon: `${alertCircleOutline}`, color: 'color-grey', router: '/tutorial' },
+  { mcId: 3, icon: `${location}`, color: 'color-red', router: '/area' },
+  { mcId: 4, icon: `${footstepsOutline}`, color: 'color-gold', router: '/route' },
+  { mcId: 5, icon: `${barChartOutline}`, color: 'color-blue', router: '/report' },
+  { mcId: 6, icon: `${alertCircleOutline}`, color: 'color-grey', router: '/tutorial' },
 ])
 
 const getRoleData = (mcId: number) => {

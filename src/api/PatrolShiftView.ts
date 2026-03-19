@@ -11,7 +11,4 @@ export default {
             areaId: data.areaId
         });
     },
-    postBasePatrolShiftView() {
-        return request.post('/PatrolShiftView/getbaselist', {});
-    }
 };

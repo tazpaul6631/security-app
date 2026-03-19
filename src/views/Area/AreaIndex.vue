@@ -73,7 +73,7 @@
                                     <ion-col size="6" class="ion-text-end">
                                         <div class="note-container">
                                             <ion-label class="labelItem" color="medium">{{ item.reportName || 'Tuần tra'
-                                                }}</ion-label>
+                                            }}</ion-label>
 
                                             <ion-badge
                                                 :color="item.realityPoint >= item.planPoint ? 'success' : 'medium'"
@@ -155,7 +155,7 @@
                                 <ion-col class="ion-text-end">
                                     <ion-label class="labelItem">{{ item.reportName }}</ion-label>
                                     <ion-note class="labelItem">{{ item.reportAt?.replace('T', ' ').slice(0, 16)
-                                    }}</ion-note>
+                                        }}</ion-note>
                                 </ion-col>
                             </ion-row>
                         </ion-grid>
@@ -410,26 +410,75 @@ const handleModalSelection = async (item: any) => {
 };
 
 const handleSelectedRow = async (prId: number) => {
-    const loading = await loadingController.create({ message: 'Đang tải chi tiết...', spinner: 'crescent' });
+    console.log("Đang mở chi tiết PR_ID:", prId);
+
+    const loading = await loadingController.create({
+        message: 'Đang tải chi tiết...',
+        spinner: 'crescent'
+    });
+
     try {
         await loading.present();
         let detailData = null;
+        let found = null;
 
-        const storeData = Array.isArray(store.state.dataCheckpointsId) ? store.state.dataCheckpointsId : (store.state.dataCheckpointsId?.data || []);
-        const found = storeData.find((rep: any) => String(rep.prId) === String(prId));
+        // ==========================================
+        // LỚP 1: TÌM TRONG RAM (VUEX) - Cực nhanh
+        // ==========================================
+        // 1.1 Tìm trong danh sách báo cáo vừa quét/mock
+        const recentVuex = Array.isArray(store.state.dataCheckpointsId)
+            ? store.state.dataCheckpointsId
+            : (store.state.dataCheckpointsId?.data || []);
+        found = recentVuex.find((rep: any) => String(rep.prId) === String(prId));
 
+        // 1.2 Tìm trong danh sách base (ca trực)
+        if (!found) {
+            const baseVuex = Array.isArray(store.state.dataBasePointReportView)
+                ? store.state.dataBasePointReportView
+                : (store.state.dataBasePointReportView?.data || []);
+            found = baseVuex.find((rep: any) => String(rep.prId) === String(prId));
+        }
+
+        // ==========================================
+        // LỚP 2: TÌM TRONG Ổ CỨNG (SQLITE) - Nhanh hơn gọi mạng
+        // ==========================================
+        if (!found) {
+            // 2.1 Tìm trong kho checkpoints_id
+            const recentDbRaw = await storageService.get('checkpoints_id');
+            const recentDb = Array.isArray(recentDbRaw) ? recentDbRaw : (recentDbRaw?.data || []);
+            found = recentDb.find((rep: any) => String(rep.prId) === String(prId));
+        }
+
+        if (!found) {
+            // 2.2 Tìm trong kho base_point_report
+            const baseDbRaw = await storageService.get('base_point_report');
+            const baseDb = Array.isArray(baseDbRaw) ? baseDbRaw : (baseDbRaw?.data || []);
+            found = baseDb.find((rep: any) => String(rep.prId) === String(prId));
+        }
+
+        // ==========================================
+        // LỚP 3: ĐƯỜNG CÙNG MỚI GỌI API (Tải Base64 nặng nề)
+        // ==========================================
         if (found) {
+            console.log("✅ Đã tìm thấy data dưới Local (Vuex/SQLite)");
             detailData = { data: found };
         } else if (isOnline.value) {
+            console.log("⚠️ Không có dưới Local, bắt buộc kéo API từ Server...");
             const res = await PointReport.getPointReportId(prId);
             if (res?.data) detailData = res.data;
         }
 
-        if (!detailData?.data) throw new Error("No data");
+        // Kiểm tra chốt hạ
+        if (!detailData?.data) {
+            throw new Error("No data");
+        }
 
+        // Đẩy data vào store và chuyển trang
         store.commit('SET_CURRENT_CHECKPOINT', detailData);
         router.push({ path: `/checkpoint/detail/${prId}` });
+
     } catch (error) {
+        console.error("Lỗi mở chi tiết báo cáo:", error);
         presentAlert.presentAlert('Thông báo', '', 'Không tìm thấy dữ liệu chi tiết.');
     } finally {
         await loading.dismiss();

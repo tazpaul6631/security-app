@@ -1,5 +1,6 @@
 import { createStore } from 'vuex'
 import storageService from '@/services/storage.service'
+import { markRaw } from 'vue';
 
 // Tạo store mới
 const store = createStore({
@@ -50,21 +51,16 @@ const store = createStore({
       state.dataMenu = data;
     },
     SET_DATACP(state, data) {
-      state.dataListCP = data
+      state.dataListCP = markRaw(data)
     },
     SET_DATA_CHECKPOINTS_ID(state, data) {
-      console.log(data);
-
-      state.dataCheckpointsId = data
+      state.dataCheckpointsId = markRaw(data)
     },
     SET_DATA_AREA_BU(state, data) {
-      state.dataAreaBU = data
+      state.dataAreaBU = markRaw(data)
     },
     SET_DATA_LIST_ROUTE(state: any, data) {
       const apiData = Array.isArray(data) ? data : (data?.data || []);
-      if (JSON.stringify(state.dataListRoute) === JSON.stringify(apiData)) {
-        return;
-      }
       const localRoutes = state.dataListRoute || [];
 
       // 1. Map trạng thái từ local sang dữ liệu API (Phải so khớp CẢ routeId VÀ psId)
@@ -129,10 +125,7 @@ const store = createStore({
 
     SET_DATA_BASE_POINT_REPORT_VIEW(state: any, data) {
       const rawData = Array.isArray(data) ? data : (data?.data || []);
-
-      state.dataBasePointReportView = rawData.map((route: any) => ({
-        ...route
-      }));
+      state.dataBasePointReportView = markRaw(rawData.map((route: any) => ({ ...route })));
     },
     SET_DATAUSER(state, data) {
       // CHỈ GÁN KHI DỮ LIỆU THỰC SỰ KHÁC BIỆT
@@ -159,7 +152,7 @@ const store = createStore({
       state.routeId = id
     },
     SET_DATA_REPORT_NOTE_CATEGORY(state, data) {
-      state.dataReportNoteCategory = data
+      state.dataReportNoteCategory = markRaw(data)
     },
     SET_NETWORK_STATUS(state, status) {
       // Chỉ cập nhật nếu thực sự thay đổi từ true sang false hoặc ngược lại
@@ -231,9 +224,6 @@ const store = createStore({
     // Hàm bơm báo cáo Offline giả vào Store (Đã fix lỗi gạch chân)
     ADD_OFFLINE_REPORT(state: any, report: any) {
       // 1. Nhét vào kho tổng CheckpointsId (Bây giờ nó chắc chắn là Mảng)
-      console.log(state);
-      console.log(report);
-
       let allReports = Array.isArray(state.dataCheckpointsId) ? state.dataCheckpointsId : [];
 
       // Đẩy báo cáo mới lên đầu mảng và gán thẳng lại (Không cần .data nữa)
@@ -243,19 +233,13 @@ const store = createStore({
       let currentCPList = [];
       if (Array.isArray(state.dataListCP)) {
         currentCPList = state.dataListCP[0]?.data || state.dataListCP;
-        console.log(currentCPList);
       } else {
         currentCPList = state.dataListCP?.data || [];
-        console.log(currentCPList);
       }
-
-      console.log(currentCPList);
 
       // Nếu danh sách rỗng hoặc cpId trùng với màn hình đang xem thì bơm vào UI
       if (currentCPList.length === 0 || String(currentCPList[0]?.cpId) === String(report.cpId)) {
         currentCPList = [report, ...currentCPList];
-
-        console.log(currentCPList);
         state.dataListCP = [{ data: currentCPList }];
       }
     },
@@ -373,18 +357,20 @@ const store = createStore({
       // 1. Khởi động trạng thái đồng bộ
       commit('SET_SYNC_STATUS', {
         progress: 0,
-        message: mode === 'overlay' ? 'Bắt đầu đồng bộ dữ liệu...' : 'Đang cập nhật...',
+        message: mode === 'overlay' ? 'Đang tải dữ liệu ca trực...' : 'Đang cập nhật...',
         isSyncing: true,
         mode: mode
       });
+
+      // Nhường luồng 100ms để trình duyệt kịp vẽ Overlay đen ra màn hình
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       const steps: {
         name: string,
         key: string,
         mutation: string,
-        stateKey: keyof typeof state // Định nghĩa stateKey phải là 1 key của state
+        stateKey: keyof typeof state
       }[] = [
-          { name: 'CheckPoints', key: 'checkpoints', mutation: 'SET_DATACP', stateKey: 'dataListCP' },
           { name: 'CheckPointsId', key: 'checkpoints_id', mutation: 'SET_DATA_CHECKPOINTS_ID', stateKey: 'dataCheckpointsId' },
           { name: 'AreaBU', key: 'area_bu', mutation: 'SET_DATA_AREA_BU', stateKey: 'dataAreaBU' },
           { name: 'ListRoute', key: 'list_route', mutation: 'SET_DATA_LIST_ROUTE', stateKey: 'dataListRoute' },
@@ -396,36 +382,7 @@ const store = createStore({
         const step = steps[i];
         const progress = Math.round(((i + 1) / steps.length) * 100);
 
-        try {
-          const apiFunc = apiList[step.key];
-          if (typeof apiFunc === 'function') {
-            const response = await apiFunc();
-            const data = response?.data;
-
-            if (data) {
-              // Lưu SQLite chạy ngầm
-              storageService.set(step.key, data);
-
-              // CẢI TIẾN QUAN TRỌNG: 
-              // 1. So sánh JSON để tránh ghi đè dữ liệu giống hệt nhau (nguyên nhân gây chớp UI)
-              // Tìm đến dòng này trong syncAllData và sửa thành:
-              const currentDataStr = JSON.stringify((state as any)[step.stateKey]);
-              const newDataStr = JSON.stringify(data);
-
-              if (currentDataStr !== newDataStr) {
-                // 2. Sử dụng requestAnimationFrame để báo cho trình duyệt 
-                // cập nhật UI mượt mà hơn, tránh nghẽn luồng xử lý
-                requestAnimationFrame(() => {
-                  commit(step.mutation, data);
-                });
-              }
-            }
-          }
-        } catch (error) {
-          console.error(`Lỗi đồng bộ bước ${step.name}:`, error);
-        }
-
-        // Chỉ cập nhật status nếu là mode overlay, silent thì giảm bớt số lần commit
+        // Cập nhật text hiển thị và phần trăm trước khi tải
         if (mode === 'overlay' || i === steps.length - 1) {
           commit('SET_SYNC_STATUS', {
             progress,
@@ -433,10 +390,35 @@ const store = createStore({
             isSyncing: true,
             mode: mode
           });
+
+          // Nhường luồng 50ms để thanh Progress Bar trượt mượt mà
+          await new Promise(resolve => setTimeout(resolve, 50));
         }
+
+        try {
+          const apiFunc = apiList[step.key];
+          if (typeof apiFunc === 'function') {
+            const response = await apiFunc();
+            const data = response?.data;
+
+            if (data) {
+              // SỬA LỖI 1: Chỉ lưu SQLite 1 lần và BẮT BUỘC CÓ AWAIT để máy ghi xong mới đi tiếp
+              await storageService.set(step.key, data);
+
+              // SỬA LỖI 2: Xóa bỏ các khối if (data) lồng nhau lặp code
+              requestAnimationFrame(() => {
+                commit(step.mutation, data);
+              });
+            }
+          }
+        } catch (error) {
+          console.error(`Lỗi đồng bộ bước ${step.name}:`, error);
+        }
+
+        // (Đã xóa khối if cập nhật status trùng lặp ở đây)
       }
 
-      // 2. Hoàn tất đồng bộ: Giữ trạng thái một chút để mượt mà
+      // 2. Hoàn tất đồng bộ
       commit('SET_SYNC_STATUS', {
         progress: 100,
         message: 'Hoàn tất!',
@@ -444,14 +426,9 @@ const store = createStore({
         mode: mode
       });
 
-      // Tăng thời gian chờ lên 1.5s để UI ổn định hẳn rồi mới tắt thanh progress
+      // Giữ màn hình Hoàn Tất 1.5s trước khi đóng
       setTimeout(() => {
-        commit('SET_SYNC_STATUS', {
-          progress: 0,
-          message: '',
-          isSyncing: false,
-          mode: 'silent'
-        });
+        commit('SET_SYNC_STATUS', { progress: 0, message: '', isSyncing: false, mode: 'silent' });
       }, 1500);
     },
 

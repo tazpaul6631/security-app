@@ -1,44 +1,46 @@
 <template>
     <ion-page>
-        <div class="flex-content">
-            <ion-card class="login-card">
-                <ion-card-header>
-                    <ion-card-title size="large">Login</ion-card-title>
-                </ion-card-header>
+        <ion-content class="login-content">
+            <div class="flex-container">
+                <ion-card class="login-card">
+                    <ion-card-header>
+                        <ion-card-title size="large">Login</ion-card-title>
+                    </ion-card-header>
 
-                <ion-card-content>
-                    <ion-input v-model="loginDetail.userCode" label="Username" label-placement="floating" fill="outline"
-                        type="email" placeholder="Enter Username" :clear-input="true" class="ion-margin-bottom"
-                        @ion-blur="markTouched"></ion-input>
+                    <ion-card-content>
+                        <ion-input v-model="loginDetail.userCode" label="Username" label-placement="floating"
+                            fill="outline" type="email" placeholder="Enter Username" :clear-input="true"
+                            class="ion-margin-bottom" @ion-blur="markTouched"></ion-input>
 
-                    <br>
+                        <br>
 
-                    <ion-input v-model="loginDetail.userPassword" label="Password" label-placement="floating"
-                        fill="outline" placeholder="Enter Password" type="password" @keyup.enter="handleLogin">
-                        <ion-input-password-toggle slot="end"></ion-input-password-toggle>
-                    </ion-input>
+                        <ion-input v-model="loginDetail.userPassword" label="Password" label-placement="floating"
+                            fill="outline" placeholder="Enter Password" type="password" @keyup.enter="handleLogin">
+                            <ion-input-password-toggle slot="end"></ion-input-password-toggle>
+                        </ion-input>
 
-                    <br>
+                        <br>
 
-                    <div v-if="errorMessage" style="color: red; text-align: center;">
-                        {{ errorMessage }}
-                    </div>
+                        <div v-if="errorMessage" style="color: red; text-align: center;">
+                            {{ errorMessage }}
+                        </div>
 
-                    <ion-button :disabled="isButtonDisabled || isLoading" @click="handleLogin" expand="block"
-                        color="success" class="ion-margin-top">
-                        <ion-spinner v-if="isLoading" name="crescent"></ion-spinner>
-                        <span v-else>Login</span>
-                    </ion-button>
-                </ion-card-content>
-            </ion-card>
-        </div>
+                        <ion-button :disabled="isButtonDisabled || isLoading" @click="handleLogin" expand="block"
+                            color="success" class="ion-margin-top">
+                            <ion-spinner v-if="isLoading" name="crescent"></ion-spinner>
+                            <span v-else>Login</span>
+                        </ion-button>
+                    </ion-card-content>
+                </ion-card>
+            </div>
+        </ion-content>
     </ion-page>
 </template>
 
 <script setup lang="ts">
 import {
     IonCardHeader, IonCardTitle, IonButton, IonCard, IonInput, IonInputPasswordToggle,
-    IonCardContent, IonPage, IonSpinner
+    IonCardContent, IonPage, IonSpinner, IonContent
 } from '@ionic/vue';
 import { useRouter } from 'vue-router';
 import { reactive, ref, computed } from 'vue';
@@ -115,8 +117,7 @@ const handleLogin = async () => {
                 await storageService.set('offline_users_dict', offlineUsers);
 
                 const apiList = {
-                    checkpoints: () => CheckPointScanQr.postCheckPointView(),
-                    checkpoints_id: () => PointReport.postPointReportView(),
+                    // checkpoints_id: () => PointReport.postPointReportView(),
                     area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),
                     list_route: () => PatrolShiftView.postPatrolShiftView(userData),
                     report_note_category: () => ReportNoteCategory.getReportNoteCategory(),
@@ -124,9 +125,11 @@ const handleLogin = async () => {
                 };
 
                 // Gọi đồng bộ. UI sẽ tự được kích hoạt bên App.vue
-                await store.dispatch('syncAllData', { apiList: apiList, mode: 'overlay' });
+                store.dispatch('syncAllData', { apiList: apiList, mode: 'overlay' });
 
-                router.replace('/home');
+                setTimeout(() => {
+                    router.replace('/home');
+                }, 50);
             } else {
                 errorMessage.value = result?.message || 'Thông tin đăng nhập chưa chính xác';
             }
@@ -165,12 +168,20 @@ const handleLogin = async () => {
 </script>
 
 <style scoped>
-.flex-content {
+/* Định dạng màu nền cho ion-content */
+.login-content {
+    --background: #f4f5f8;
+}
+
+/* Ép form ra giữa màn hình nhưng vẫn cho phép cuộn khi cần */
+.flex-container {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100%;
-    background: #f4f5f8;
+    min-height: 100%;
+    /* QUAN TRỌNG: Dùng min-height thay vì height */
+    padding: 20px;
+    /* Thêm padding để khi cuộn không bị sát mép */
 }
 
 .login-card {
@@ -178,14 +189,8 @@ const handleLogin = async () => {
     max-width: 400px;
     border-radius: 12px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
-.error-message {
-    color: var(--ion-color-danger);
-    text-align: center;
-    margin-top: 15px;
-    font-size: 0.9rem;
-    font-weight: 500;
+    margin: 0;
+    /* Xóa margin thừa */
 }
 
 .ion-margin-top {

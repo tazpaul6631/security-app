@@ -1,77 +1,81 @@
-import { CapacitorHttp, HttpResponse, HttpOptions } from '@capacitor/core';
 import baseURLMixin from '@/mixins/baseURLMixin';
 import storageService from '@/services/storage.service';
 
 const baseURL: string = baseURLMixin.url;
 
-// Định nghĩa các method hợp lệ theo CapacitorHttp
+// Định nghĩa các method hợp lệ
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
 const request = {
   /**
-   * Hàm xử lý chung sử dụng CapacitorHttp.request
+   * Hàm xử lý chung sử dụng FETCH thuần của WebView
+   * Bỏ qua lỗi SSL khắt khe của Android Native
    */
-  async send(method: HttpMethod, url: string, data: any = null): Promise<HttpResponse> {
+  async send(method: HttpMethod, url: string, data: any = null): Promise<any> {
     // LẤY TOKEN TỪ SQLITE/STORAGE TRƯỚC KHI GỬI
     const token = await storageService.get('user_token');
 
-    const options: HttpOptions = {
-      url: `${baseURL}${url}`,
-      method: method,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : '',
-        // 'Connection': 'close' // Thường không cần thiết với CapacitorHttp trừ khi debug đặc biệt
-      },
-      data: data,
-      
-      /**
-       * PHẦN FIX LỖI SSL & TIMEOUT
-       * 'default': Kiểm tra chứng chỉ chuẩn (CA).
-       * 'nocheck': Bỏ qua kiểm tra (Chỉ dùng cho môi trường Dev/Self-signed).
-       */
-      // webviewServerTrustMode: 'default',
-      connectTimeout: 15000, // Tăng lên 15s để ổn định hơn trên mạng di động
-      readTimeout: 15000
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
     };
 
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const options: RequestInit = {
+      method: method,
+      headers: headers,
+    };
+
+    // Fetch không được phép có body nếu là GET hoặc HEAD
+    if (data && method !== 'GET') {
+      options.body = JSON.stringify(data);
+    }
+
     try {
-      // Sử dụng hàm request duy nhất thay vì truy cập dynamic property
-      const response = await CapacitorHttp.request(options);
-      
-      // CapacitorHttp không throw error khi status code >= 400 (giống fetch)
+      const response = await fetch(`${baseURL}${url}`, options);
+
       // Xử lý lỗi 401 (Token hết hạn)
       if (response.status === 401) {
-          console.warn("Token hết hạn, đang đăng xuất...");
-          await storageService.clear();
-          window.location.href = '/login'; 
+        console.warn("Token hết hạn, đang đăng xuất...");
+        await storageService.clear();
+        window.location.href = '/login';
       }
 
-      if (response.status >= 400) {
-          throw response;
+      if (!response.ok) {
+        throw response;
       }
-      return response;
+
+      // Parse JSON
+      const responseData = await response.json();
+      return {
+        data: responseData,
+        status: response.status,
+        url: response.url
+      };
+
     } catch (error) {
-      console.error(`[Network/SSL Error] ${method} ${url}:`, error);
+      console.error(`[Network/Fetch Error] ${method} ${url}:`, error);
       throw error;
     }
   },
 
-  // Các hàm rút gọn với typing rõ ràng
-  get(url: string) { 
-    return this.send('GET', url); 
+  // Các hàm rút gọn giữ nguyên
+  get(url: string) {
+    return this.send('GET', url);
   },
-  
-  post(url: string, data?: any) { 
-    return this.send('POST', url, data); 
+
+  post(url: string, data?: any) {
+    return this.send('POST', url, data);
   },
-  
-  put(url: string, data?: any) { 
-    return this.send('PUT', url, data); 
+
+  put(url: string, data?: any) {
+    return this.send('PUT', url, data);
   },
-  
-  delete(url: string) { 
-    return this.send('DELETE', url); 
+
+  delete(url: string) {
+    return this.send('DELETE', url);
   },
 
   patch(url: string, data?: any) {
