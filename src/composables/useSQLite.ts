@@ -111,6 +111,7 @@ export function useSQLite() {
     await dbInstance.value?.run('DELETE FROM settings WHERE key = ?', [key]);
   };
 
+  // Trong composables/useSQLite.ts
   const logout = async () => {
     await initDatabase();
     if (!dbInstance.value) return;
@@ -118,25 +119,16 @@ export function useSQLite() {
       // 1. Xóa thông tin cá nhân trong bảng profile
       await dbInstance.value.execute(`DELETE FROM profile;`);
 
-      // 2. Chỉ xóa các Key mang tính chất "Phiên làm việc" (Session)
-      // GIỮ LẠI: area_bu, checkpoints, checkpoints_id, list_route, menu_data, offline_users_dict
-      const keysToDelete = [
-        'user_token',
-        'user_data',
-        'data_scanqr',
-        'currentTime_scanqr',
-        'last_selected_checkpoint'
-      ];
+      // 2. XÓA SẠCH bảng settings (Key-Value)
+      // Không nên giữ lại bất kỳ category nào vì mỗi User có thể có quyền xem Area khác nhau
+      await dbInstance.value.execute(`DELETE FROM settings;`);
 
-      const placeholders = keysToDelete.map(() => '?').join(',');
-      await dbInstance.value.run(
-        `DELETE FROM settings WHERE key IN (${placeholders})`,
-        keysToDelete
-      );
+      // 3. Xóa cả hàng chờ đồng bộ (sync_queue) để tránh gửi nhầm dữ liệu của người cũ
+      await dbInstance.value.execute(`DELETE FROM sync_queue;`);
 
-      console.log('✅ Đã xóa phiên làm việc cũ. Dữ liệu danh mục vẫn được giữ lại cho người sau.');
+      console.log('✅ SQLite: Đã dọn dẹp sạch sẽ toàn bộ dữ liệu local.');
     } catch (err) {
-      console.error('Lỗi logout:', err);
+      console.error('Lỗi logout SQLite:', err);
     }
   };
 

@@ -32,6 +32,7 @@ import PointReport from '@/api/PointReport';
 import AreaBU from '@/api/AreaBU';
 import ReportNoteCategory from '@/api/ReportNoteCategory';
 import PatrolShiftView from '@/api/PatrolShiftView';
+import CheckPointScanQr from './api/CheckPointScanQr';
 
 const { syncData, loadPendingItems, pendingItems } = useOfflineManager();
 const { initDatabase } = useSQLite();
@@ -39,7 +40,8 @@ const isAppReady = ref(false);
 
 // --- CHỐT CHẶN BẰNG WINDOW ĐỂ CHỐNG RE-MOUNT ---
 const getGlobalApiList = (userData: any) => ({
-  // checkpoints_id: () => PointReport.postPointReportView(),
+  checkpoints: () => CheckPointScanQr.postCheckPointView(),
+  checkpoints_id: () => PointReport.postPointReportView(),
   area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),
 
   list_route: () => {

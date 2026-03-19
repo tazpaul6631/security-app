@@ -242,7 +242,7 @@ import {
   IonItemOptions, IonItemOption, IonListHeader, loadingController, onIonViewWillEnter,
   toastController, IonBadge, IonThumbnail, IonButtons, onIonViewDidLeave,
   IonModal, IonAccordion, IonAccordionGroup, IonInfiniteScroll,
-  IonInfiniteScrollContent
+  IonInfiniteScrollContent, IonSpinner
 } from '@ionic/vue';
 import {
   sendOutline, camera, images, trash, arrowBackOutline,
@@ -475,7 +475,6 @@ const addGroupPhoto = async (idx: number) => {
 };
 
 const pickGroupImages = async (idx: number) => {
-  // Tính toán số ảnh còn được phép chọn
   const currentCount = groupedNotes.value[idx].reportImages.length;
   const maxAllowed = 10;
   const slotsLeft = maxAllowed - currentCount;
@@ -486,13 +485,24 @@ const pickGroupImages = async (idx: number) => {
   }
 
   try {
-    // SỬA CHỖ NÀY: Thay vì limit: 10 cứng, ta giới hạn bằng số lượng slot còn trống
+    // 1. Gọi giao diện chọn ảnh với limit (Chặn ở tầng hệ điều hành nếu OS hỗ trợ)
     const result = await Camera.pickImages({ quality: 60, limit: slotsLeft });
 
-    // Bắt đầu quá trình nạp ảnh -> Bật Spinner cục bộ
+    // 2. KIỂM TRA LẠI MẢNG TRẢ VỀ (Quan trọng nhất)
+    // Nếu người dùng chọn 15 tấm trong khi chỉ còn 5 slot trống:
+    let photosToAdd = result.photos;
+
+    if (photosToAdd.length > slotsLeft) {
+      await showToast(`Bạn đã chọn ${photosToAdd.length} ảnh. Hệ thống sẽ chỉ lấy ${slotsLeft} ảnh đầu tiên để không vượt quá giới hạn 10 ảnh.`, 'warning');
+
+      // Cắt bớt mảng ảnh trả về, chỉ lấy đúng số lượng slot còn lại
+      photosToAdd = photosToAdd.slice(0, slotsLeft);
+    }
+
+    // 3. Bắt đầu nạp ảnh hợp lệ vào UI
     groupedNotes.value[idx].isAddingPhoto = true;
 
-    for (const photo of result.photos) {
+    for (const photo of photosToAdd) {
       groupedNotes.value[idx].reportImages.push({
         fileName: 'gallery_img.jpg',
         rawBase64: '',
@@ -500,9 +510,8 @@ const pickGroupImages = async (idx: number) => {
       });
     }
   } catch (e) {
-    console.log("Hủy chọn ảnh");
+    console.log("Hủy chọn ảnh hoặc có lỗi xảy ra");
   } finally {
-    // Xong việc thì tắt Spinner cục bộ đi
     groupedNotes.value[idx].isAddingPhoto = false;
   }
 };

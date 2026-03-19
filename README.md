@@ -28,3 +28,17 @@ npm install
 # Đồng bộ code Web sang thư mục Android
 npx cap sync
 
+# Thay đổi capacitor
+
+npm run build
+
+npx cap sync
+
+# Xóa bên android file
+
+flatDir{ dirs 'src/main/libs', 'libs' }
+
+# Thêm 
+
+implementation fileTree(dir: 'src/main/libs', include: ['*.jar', '*.aar'])
+implementation fileTree(dir: 'libs', include: ['*.jar', '*.aar'])

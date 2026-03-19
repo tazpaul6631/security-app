@@ -125,21 +125,28 @@ export const scannerService = {
             // 2. CHỐT KHÓA 2: XỬ LÝ LẤY DATA OFFLINE THÔNG MINH
             // ==========================================
             if (!finalData) {
-                // Ưu tiên 1: Lấy từ bản nháp CHẤT LƯỢNG CAO (có đầy đủ areaName, cpCode, cpQr) mà lúc online đã lưu
+                // Ưu tiên 1: Bản nháp chất lượng cao (giữ nguyên)
                 finalData = await storageService.get(`checkpoint_${listScanQr.cpwId}`);
 
-                // Ưu tiên 2: Nếu máy hoàn toàn chưa từng có mạng để lưu nháp, mới tìm trong kho tổng (Chấp nhận thiếu 1 vài trường text)
+                // Ưu tiên 2: Tìm trong kho tổng
                 if (!finalData) {
-                    let response = await storageService.get('checkpoints');
+                    const response = await storageService.get('checkpoints');
+                    console.log("Dữ liệu kho checkpoints lấy lên:", response);
+
                     let allCheckpoints = [];
-                    // Bóc tách JSON an toàn hơn cho Offline
-                    if (Array.isArray(response)) {
+
+                    // BÓC TÁCH CHUẨN THEO JSON BẠN CUNG CẤP
+                    // Vì JSON của bạn là { data: [ {cpId: 0, ...} ], success: true }
+                    if (response && response.data && Array.isArray(response.data)) {
+                        allCheckpoints = response.data;
+                    } else if (Array.isArray(response)) {
                         allCheckpoints = response;
-                    } else if (response?.data) {
-                        allCheckpoints = Array.isArray(response.data) ? response.data : (response.data.data || []);
                     }
 
-                    finalData = allCheckpoints.find((item: any) => String(item.cpId) === String(listScanQr.cpwId));
+                    // TIẾN HÀNH TÌM KIẾM
+                    finalData = allCheckpoints.find((item: any) =>
+                        String(item.cpId) === String(listScanQr.cpwId)
+                    );
                 }
             }
 
@@ -157,6 +164,9 @@ export const scannerService = {
             } else {
                 await presentAlert.presentAlert('Thông báo', '', 'Không tìm thấy thông tin điểm này trong dữ liệu hệ thống.');
             }
+
+            console.log("ID cần tìm:", listScanQr.cpwId);
+            console.log("Kết quả tìm thấy:", finalData);
         } catch (error) {
             await presentAlert.presentAlert('Lỗi', '', 'Hệ thống không thể xử lý mã quét.');
         }

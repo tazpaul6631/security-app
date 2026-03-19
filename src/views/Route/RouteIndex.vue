@@ -289,20 +289,38 @@ const handleContinueScanning = async (routeId: number) => {
     }
     if (isScanning.value) return;
     isScanning.value = true;
+
     try {
         const result: any = await scannerService.startScanning(store, router, routeId);
 
+        // Nếu user bấm dấu X, kết quả thường trả về null hoặc undefined (không nhảy vào catch)
         if (result && typeof result === 'string') {
             await processScannedData(result, routeId);
         }
     } catch (error: any) {
         console.error("Lỗi scanner:", error);
-        await presentAlert.presentAlert(
-            'Lưu ý thiết bị',
-            '',
-            'Để quét mã trên thiết bị này, vui lòng bấm nút cứng (vật lý) bên hông hoặc đầu máy!',
-            'custom-alert-class'
-        );
+
+        // Chuyển lỗi về dạng chuỗi để check cho dễ
+        const errString = String(error).toLowerCase();
+        const errMessage = error?.message ? String(error.message).toLowerCase() : '';
+
+        // Danh sách các từ khóa xác định là User chủ động tắt Camera
+        const userClosedCamera =
+            errString.includes('cancel') ||
+            errMessage.includes('cancel') ||
+            errString.includes('closed') ||
+            errMessage.includes('closed');
+
+        // CHỈ HIỆN CẢNH BÁO nếu không phải do user tắt, và lỗi liên quan đến phần cứng/quyền
+        // Máy Unitech khi gọi startScanning thường báo lỗi: "Hardware not available" hoặc "Permission denied"
+        if (!userClosedCamera) {
+            await presentAlert.presentAlert(
+                'Lưu ý thiết bị',
+                '',
+                'Để quét mã trên thiết bị này, vui lòng bấm nút cứng (vật lý) bên hông hoặc đầu máy!',
+                'custom-alert-class'
+            );
+        }
     } finally {
         isScanning.value = false;
     }

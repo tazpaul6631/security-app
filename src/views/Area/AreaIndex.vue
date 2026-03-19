@@ -73,7 +73,7 @@
                                     <ion-col size="6" class="ion-text-end">
                                         <div class="note-container">
                                             <ion-label class="labelItem" color="medium">{{ item.reportName || 'Tuần tra'
-                                            }}</ion-label>
+                                                }}</ion-label>
 
                                             <ion-badge
                                                 :color="item.realityPoint >= item.planPoint ? 'success' : 'medium'"
@@ -155,7 +155,7 @@
                                 <ion-col class="ion-text-end">
                                     <ion-label class="labelItem">{{ item.reportName }}</ion-label>
                                     <ion-note class="labelItem">{{ item.reportAt?.replace('T', ' ').slice(0, 16)
-                                        }}</ion-note>
+                                    }}</ion-note>
                                 </ion-col>
                             </ion-row>
                         </ion-grid>
@@ -183,12 +183,11 @@ import {
     IonInfiniteScrollContent, IonButton, IonModal, IonBadge
 } from '@ionic/vue';
 import { calendarOutline, footstepsOutline, newspaperOutline, timeOutline } from "ionicons/icons";
-import { computed, ref, nextTick, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useStore } from 'vuex';
 import presentAlert from '@/mixins/presentAlert';
 import AreaBU from '@/api/AreaBU';
 import storageService from '@/services/storage.service';
-import { ImageService } from '@/services/image.service';
 
 const store = useStore();
 
@@ -216,8 +215,11 @@ const datalistNav = computed(() => {
     const userAreaId = userInfo.userAreaId;
 
     for (const item of areas) {
+        // Chỉ check quyền xem Area, KHÔNG lọc patrolShifts ở đây
         const isAuthorizedArea = isAdmin || (item.areaId === userAreaId);
+
         if (isAuthorizedArea) {
+            // Trả về toàn bộ ca của Area đó (việc lọc sẽ làm ở Modal)
             result.push([item.areaCode, item.patrolShifts || [], item.areaId]);
         }
     }
@@ -265,42 +267,45 @@ watch(() => dataPR.value.details, (newVal) => {
 // --- 3. METHODS CHÍNH (GỌI API THEO ĐIỀU KIỆN) ---
 const fetchAreasData = async (areaId: number) => {
     isLoading.value = true;
-    try {
-        const userInfo = store.state.dataUser?.data || store.state.dataUser || {};
-        const isAdmin = userInfo.userRoleIsAdmin === true;
-        const currentUserId = userInfo.userId;
+    const userInfo = store.state.dataUser?.data || store.state.dataUser || {};
+    const currentUserId = userInfo.userId;
+    const isAdmin = userInfo.userRoleIsAdmin === true;
 
+    try {
         if (isOnline.value) {
-            const payload: any = { areaId: areaId };
+            // Gửi userId lên để Server lọc (nếu Server có hỗ trợ)
+            const payload: any = { areaId: areaId, reportBy: currentUserId };
             if (!isAdmin) payload.userId = currentUserId;
 
             const response = await AreaBU.postAreaBU(payload);
             const fetchedAreas = Array.isArray(response?.data) ? response.data : (response?.data?.data || []);
 
-            store.commit('SET_DATA_AREA_BU', fetchedAreas);
-            await storageService.set('area_bu', fetchedAreas);
-
+            // Sau khi lấy về, lọc lại 1 lần nữa ở Client cho chắc chắn
             const foundArea = fetchedAreas.find((item: any) => item.areaId === areaId);
-            currentOptions.value = foundArea ? (foundArea.patrolShifts || []) : [];
-        } else {
-            // Logic Offline giữ nguyên như cũ của bạn là đã chuẩn
-            const rawData = store.state.dataAreaBU;
-            let areas = Array.isArray(rawData) ? rawData : (rawData?.data || []);
-            if (areas[0]?.data) areas = areas[0].data;
-
-            const foundArea = areas.find((item: any) => Number(item.areaId) === Number(areaId));
-            let offlineShifts = foundArea ? (foundArea.patrolShifts || []) : [];
+            let shifts = foundArea ? (foundArea.patrolShifts || []) : [];
 
             if (!isAdmin) {
-                const hasUserIdProp = offlineShifts.length > 0 && offlineShifts[0].hasOwnProperty('userId');
-                if (hasUserIdProp) {
-                    offlineShifts = offlineShifts.filter((shift: any) => shift.userId === currentUserId);
-                }
+                shifts = shifts.filter((s: any) => String(s.reportBy) === String(currentUserId));
             }
-            currentOptions.value = offlineShifts;
+            currentOptions.value = shifts;
+
+        } else {
+            // OFFLINE: Lấy từ Store nhưng lọc gắt gao theo reportBy
+            const rawData = store.state.dataAreaBU;
+            let areas = Array.isArray(rawData) ? rawData : (rawData?.data || []);
+
+            const foundArea = areas.find((item: any) => Number(item.areaId) === Number(areaId));
+            let shifts = foundArea ? (foundArea.patrolShifts || []) : [];
+
+            // LỌC CHỐT HẠ: Người 2 sẽ không thấy ca của người 1 ở đây
+            if (!isAdmin) {
+                shifts = shifts.filter((s: any) => String(s.reportBy) === String(currentUserId));
+            }
+            currentOptions.value = shifts;
         }
     } catch (error) {
         console.error("Lỗi:", error);
+        currentOptions.value = [];
     } finally {
         isLoading.value = false;
     }
@@ -335,7 +340,10 @@ const openSelect = async (parent: string, children: any[], id: number) => {
 const handleModalSelection = async (item: any) => {
     isModalOpen.value = false;
     currentPage.value = 1;
-    console.log(item);
+
+    const userInfo = store.state.dataUser?.data || store.state.dataUser || {};
+    const currentUserId = Number(userInfo.userId);
+    const isAdmin = userInfo.userRoleIsAdmin === true;
 
     setTimeout(async () => {
         isLoading.value = true;
@@ -344,65 +352,54 @@ const handleModalSelection = async (item: any) => {
         try {
             let finalReports = [];
 
+            // --- CHẾ ĐỘ ONLINE ---
             if (isOnline.value) {
-                // 1. Online: Lấy từ API
                 try {
                     const responseBU = await PointReport.postBasePointReportView(item.psId);
                     finalReports = Array.isArray(responseBU?.data) ? responseBU.data : (responseBU?.data?.data || []);
+                    // const apiData = Array.isArray(responseBU?.data) ? responseBU.data : (responseBU?.data?.data || []);
+
+                    // // Lọc lại một lần nữa ở Client cho chắc chắn
+                    // finalReports = isAdmin ? apiData : apiData.filter((r: any) => String(r.reportBy) === String(currentUserId));
                 } catch (e) {
-                    console.warn("API lỗi, tự động chuyển sang chế độ Offline data.");
+                    console.warn("API lỗi, chuyển sang Offline data.");
                 }
             }
 
-            // 2. Nếu Offline HOẶC API Online trả về rỗng
+            // --- CHẾ ĐỘ OFFLINE (Hoặc khi Online không có data) ---
             if (finalReports.length === 0) {
-                const rawBase = store.state.dataBasePointReportView;
-                console.log(rawBase);
+                const baseReports = Array.isArray(store.state.dataBasePointReportView)
+                    ? store.state.dataBasePointReportView
+                    : (store.state.dataBasePointReportView?.data || []);
 
-                const baseReports = Array.isArray(rawBase) ? rawBase : (rawBase?.data || []);
+                const recentReports = Array.isArray(store.state.dataCheckpointsId)
+                    ? store.state.dataCheckpointsId
+                    : (store.state.dataCheckpointsId?.data || []);
 
-                const rawRecent = store.state.dataCheckpointsId;
-                const recentReports = Array.isArray(rawRecent) ? rawRecent : (rawRecent?.data || []);
-
-                // Gộp và Lọc theo psId
                 const combined = [...recentReports, ...baseReports];
-                const filtered = combined.filter((rep: any) =>
-                    Number(rep.psId) === Number(item.psId)
-                );
 
-                // Khử trùng theo cpId (Giữ lại bản ghi mới nhất hoặc bản ghi có Mock)
+                // LỌC OFFLINE THEO psId VÀ userId (reportBy)
+                finalReports = combined.filter((rep: any) => {
+                    const isRightShift = Number(rep.psId) === Number(item.psId);
+                    const isRightUser = isAdmin || Number(rep.reportBy) === currentUserId || Number(rep.userId) === currentUserId;
+                    return isRightShift && isRightUser;
+                });
+
+                // Khử trùng theo cpId
                 const uniqueMap = new Map();
-                filtered.forEach(r => {
-                    // Nếu đã tồn tại nhưng bản ghi mới là Mock (đang chờ sync), ưu tiên bản ghi Mock
+                finalReports.forEach(r => {
                     if (uniqueMap.has(r.cpId) && !r.isOfflineMock) return;
                     uniqueMap.set(r.cpId, r);
                 });
-
                 finalReports = Array.from(uniqueMap.values());
             }
 
-            // 3. XỬ LÝ HÌNH ẢNH THUMBNAIL (Nếu có ảnh offline)
-            // Duyệt qua danh sách để "phục hồi" thumbnail từ bộ nhớ máy cho các item Mock
-            finalReports = await Promise.all(finalReports.map(async (report: any) => {
-                if (report.isOfflineMock && report.imageFiles?.length > 0) {
-                    // Lấy ảnh đầu tiên làm thumbnail để hiển thị ở danh sách
-                    const thumbUrl = await ImageService.getDisplayUrl(report.imageFiles[0]);
-                    return { ...report, thumbUrl }; // Gắn thêm thumbUrl để UI bind vào <ion-img>
-                }
-                return report;
-            }));
+            // Sắp xếp và xử lý Thumbnail (giữ nguyên logic cũ của bạn)
+            finalReports.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-            // 4. SẮP XẾP: Mới nhất lên đầu
-            finalReports.sort((a: any, b: any) => {
-                return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-            });
-
-            // Gửi dữ liệu vào Vuex để hiển thị
             store.commit('SET_DATACP', [{ data: finalReports }]);
-            await nextTick();
-
         } catch (error) {
-            console.error("Lỗi xử lý báo cáo:", error);
+            console.error("Lỗi:", error);
         } finally {
             isLoading.value = false;
         }

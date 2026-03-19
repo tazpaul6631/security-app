@@ -86,6 +86,7 @@ const { pendingItems, loadPendingItems, isSyncing, isOnline } = useOfflineManage
 const handleLogout = async () => {
   console.log('Bắt đầu kiểm tra trước khi đăng xuất...');
 
+  // 1. Chặn nếu chưa hoàn thành lộ trình
   if (isRouteUnfinished.value) {
     const alert = await alertController.create({
       header: 'Không thể đăng xuất',
@@ -96,40 +97,24 @@ const handleLogout = async () => {
     return;
   }
 
-  // 1. CHẶN ĐĂNG XUẤT: Kiểm tra xem còn báo cáo nào đang kẹt ở máy không
-  await loadPendingItems(); // Lấy danh sách mới nhất từ Storage
-
+  // 2. Chặn nếu còn báo cáo chưa đồng bộ (Tránh mất dữ liệu)
+  await loadPendingItems();
   if (pendingItems.value.length > 0) {
-    // Nếu mảng > 0, ném ra câu cảnh báo và kết thúc hàm ngay lập tức
     const alert = await alertController.create({
       header: 'Cảnh báo mất dữ liệu!',
-      message: `Bạn đang có ${pendingItems.value.length} báo cáo chưa được đồng bộ lên máy chủ. Vui lòng kết nối mạng và đồng bộ dữ liệu trước khi đăng xuất để tránh mất công sức!`,
-      buttons: [
-        {
-          text: 'Đã hiểu',
-          role: 'cancel',
-        }
-      ]
+      message: `Bạn đang có ${pendingItems.value.length} báo cáo chưa được đồng bộ. Vui lòng kết nối mạng để đồng bộ trước khi đăng xuất!`,
+      buttons: [{ text: 'Đã hiểu', role: 'cancel' }]
     });
     await alert.present();
-    return; // Dừng lại, KHÔNG chạy xuống các lệnh xóa bên dưới
+    return;
   }
 
-  // Nếu qua được ải kiểm tra, tiến hành đăng xuất bình thường
-  console.log('Hàng chờ trống, tiến hành đăng xuất an toàn...');
+  // --- BẮT ĐẦU QUY TRÌNH DỌN DẸP TRIỆT ĐỂ ---
+  console.log('Tiến hành dọn dẹp và đăng xuất...');
 
-  // 2. Dọn dẹp bộ nhớ RAM (Vuex)
-  store.commit('CLEAR_ALL_DATA');
+  await store.dispatch('logout');
 
-  // 3. Gọi hàm logout an toàn từ SQLite (chỉ xóa user hiện tại, giữ lại danh bạ offline)
-  await logout();
-
-  // 4. Xóa token riêng rẽ nếu cần (phòng hờ)
-  if (storageService.remove) {
-    await storageService.remove('user_token');
-  }
-
-  // 5. Chuyển hướng về trang Login mượt mà thay vì dùng window.location.reload()
+  // 5. Chuyển hướng
   router.replace('/login');
 };
 ////////////////////////////////////////////

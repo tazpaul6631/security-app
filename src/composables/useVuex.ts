@@ -328,23 +328,25 @@ const store = createStore({
 
     // Dùng để dọn sạch bộ nhớ RAM khi người dùng bấm Đăng Xuất
     CLEAR_ALL_DATA(state) {
-      state.dataMenu = []
-      state.dataListCP = []
-      state.dataCheckpointsId = []
-      state.dataAreaBU = []
-      state.dataListRoute = []
-      state.dataBasePointReportView = []
-      state.dataReportNoteCategory = []
-      state.dataUser = null
-      state.dataScanQr = null
-      state.token = null
-      state.currentTime = null
-      state.isHydrated = false
-      state.routeId = null
-      state.syncProgress = 0
-      state.syncMessage = ''
-      state.isSyncing = false
-      state.currentCheckpoint = null
+      state.dataMenu = [];
+      state.dataListCP = [];
+      state.dataCheckpointsId = [];
+      state.dataAreaBU = [];
+      state.dataListRoute = [];
+      state.dataBasePointReportView = [];
+      state.dataReportNoteCategory = [];
+      state.dataUser = null;
+      state.dataScanQr = null;
+      state.token = null;
+      state.currentTime = null;
+      state.isHydrated = false;
+      state.routeId = null;
+      state.psId = null;              // Thêm dòng này
+      state.unfinishedRouteId = null;  // Thêm dòng này
+      state.syncProgress = 0;
+      state.syncMessage = '';
+      state.isSyncing = false;
+      state.currentCheckpoint = null;
     }
   },
 
@@ -371,6 +373,7 @@ const store = createStore({
         mutation: string,
         stateKey: keyof typeof state
       }[] = [
+          { name: 'CheckPoints', key: 'checkpoints', mutation: 'SET_DATACP', stateKey: 'dataListCP' },
           { name: 'CheckPointsId', key: 'checkpoints_id', mutation: 'SET_DATA_CHECKPOINTS_ID', stateKey: 'dataCheckpointsId' },
           { name: 'AreaBU', key: 'area_bu', mutation: 'SET_DATA_AREA_BU', stateKey: 'dataAreaBU' },
           { name: 'ListRoute', key: 'list_route', mutation: 'SET_DATA_LIST_ROUTE', stateKey: 'dataListRoute' },
@@ -520,7 +523,6 @@ const store = createStore({
 
         console.log(response);
 
-        // Đề phòng SQLite trả về chuỗi JSON thô
         if (typeof response === 'string') {
           try { response = JSON.parse(response); } catch (e) { }
         }
@@ -694,6 +696,20 @@ const store = createStore({
         if (data) commit('SET_PSID', data);
       }
     },
+
+    // Thêm vào phần actions trong store/index.ts
+    // Trong store/index.ts -> actions
+    async logout({ commit }) {
+      console.log('--- [LOGOUT] Đang dọn dẹp dữ liệu ---');
+
+      // 1. Xóa sạch RAM
+      commit('CLEAR_ALL_DATA');
+
+      // 2. Xóa sạch Ổ CỨNG thông qua Service đã có
+      await storageService.clear();
+
+      console.log('✅ Đã dọn dẹp xong RAM và SQLite.');
+    }
   }
 })
 

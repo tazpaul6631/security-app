@@ -91,7 +91,8 @@ const handleLogin = async () => {
         const dateInfo = {
             psDay: now.getDate(),
             psMonth: now.getMonth() + 1,
-            psYear: now.getFullYear()
+            psYear: now.getFullYear(),
+            psHour: now.getHours() // Thêm giờ để đồng bộ lộ trình chính xác hơn
         };
 
         if (isOnline) {
@@ -104,11 +105,13 @@ const handleLogin = async () => {
                     ...dateInfo,
                 };
 
+                // 1. Cập nhật thông tin User mới vào Store và SQLite
                 store.commit('SET_DATAUSER', userData);
                 store.commit('SET_TOKEN', userData.userPassword);
                 await storageService.set('user_data', userData);
                 await storageService.set('user_token', userData.userPassword);
 
+                // Lưu danh sách đăng nhập offline (giữ nguyên logic của bạn)
                 let offlineUsers = await storageService.get('offline_users_dict') || {};
                 offlineUsers[loginDetail.userCode] = {
                     profile: userData,
@@ -116,20 +119,27 @@ const handleLogin = async () => {
                 };
                 await storageService.set('offline_users_dict', offlineUsers);
 
+                // 2. CHUẨN BỊ DANH SÁCH ĐỒNG BỘ RIÊNG CHO USER NÀY
                 const apiList = {
-                    // checkpoints_id: () => PointReport.postPointReportView(),
+                    checkpoints: () => CheckPointScanQr.postCheckPointView(),
+                    checkpoints_id: () => PointReport.postPointReportView(),
+                    // Lấy khu vực của User
                     area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),
+                    // Lấy lộ trình của User trong ngày/giờ hiện tại
                     list_route: () => PatrolShiftView.postPatrolShiftView(userData),
+                    // Lấy danh mục ghi chú
                     report_note_category: () => ReportNoteCategory.getReportNoteCategory(),
+                    // Lấy lịch sử báo cáo (truyền 0 hoặc ID phù hợp)
                     base_point_report: () => PointReport.postBasePointReportView(0),
                 };
 
-                // Gọi đồng bộ. UI sẽ tự được kích hoạt bên App.vue
-                store.dispatch('syncAllData', { apiList: apiList, mode: 'overlay' });
+                // 3. ĐỢI ĐỒNG BỘ XONG MỚI CHO VÀO TRANG CHỦ
+                // mode: 'overlay' sẽ hiện màn hình chờ đen để chặn User bấm bậy
+                await store.dispatch('syncAllData', { apiList: apiList, mode: 'overlay' });
 
-                setTimeout(() => {
-                    router.replace('/home');
-                }, 50);
+                // 4. Chuyển trang sau khi dữ liệu đã sẵn sàng trong SQLite
+                router.replace('/home');
+
             } else {
                 errorMessage.value = result?.message || 'Thông tin đăng nhập chưa chính xác';
             }
