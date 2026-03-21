@@ -26,6 +26,7 @@ import { useSQLite } from '@/composables/useSQLite';
 import store from '@/composables/useVuex';
 import { Network } from '@capacitor/network';
 import { useOfflineManager } from '@/composables/useOfflineManager';
+import storage from '@/services/storage.service';
 
 // Import APIs
 import PointReport from '@/api/PointReport';
@@ -73,7 +74,8 @@ const safeSync = async (isInitApp = false) => {
 
   // Đọc xem trong máy có báo cáo Offline nào đang kẹt không?
   await loadPendingItems();
-  const hasOfflineData = pendingItems.value.length > 0;
+  const deleteQueue = (await storage.get('offline_delete_queue')) || [];
+  const hasOfflineData = pendingItems.value.length > 0 || deleteQueue.length > 0;
 
   // LƯỚI LỌC LOGIC THÔNG MINH Ở ĐÂY:
   // Nếu chỉ là có mạng lại (không phải F5) VÀ không có data offline -> THOÁT LUÔN!
@@ -126,7 +128,6 @@ const safeSync = async (isInitApp = false) => {
       };
       await store.dispatch('syncAllData', { apiList: lightApiList, mode: 'silent' });
     }
-
   } catch (e) {
     console.error("Lỗi đồng bộ:", e);
     store.commit('SET_SYNC_STATUS', { progress: 0, message: '', isSyncing: false, mode: 'silent' });
@@ -138,7 +139,7 @@ const safeSync = async (isInitApp = false) => {
 onMounted(async () => {
   // 1. Kiểm tra khóa ngay lập tức
   if ((window as any).APP_INITIALIZING || (window as any).APP_READY_LOCK) {
-    console.log("⚠️ Hệ thống đang khởi tạo hoặc đã sẵn sàng. Chặn luồng trùng lặp.");
+    console.log("Hệ thống đang khởi tạo hoặc đã sẵn sàng. Chặn luồng trùng lặp.");
     isAppReady.value = true;
     return;
   }
@@ -171,7 +172,6 @@ onMounted(async () => {
         const wasOffline = store.state.isOnline === false;
         const isNowOnline = status.connected === true;
         store.commit('SET_NETWORK_STATUS', status.connected);
-
         if (wasOffline && isNowOnline) {
           // LÚC MẠNG CHẬP CHỜN CÓ LẠI -> TRUYỀN FALSE
           setTimeout(() => safeSync(false), 1500);

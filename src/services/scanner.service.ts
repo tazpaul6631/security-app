@@ -38,7 +38,6 @@ export const scannerService = {
         const dataListRoute = store.state.dataListRoute;
 
         // Lưu routeId đang thực hiện vào store/storage
-        store.commit('SET_ROUTE_ID', routeId);
         await storageService.set('current_route_id', routeId);
 
         // ==========================================
@@ -90,7 +89,10 @@ export const scannerService = {
             return;
         }
 
-        if (String(listScanQr.cpwId) !== String(nextPointRequired.cpId)) {
+        const isIdMismatch = String(listScanQr.cpwId) !== String(nextPointRequired.cpId);
+        const isCodeMismatch = String(listScanQr.cpwCode) !== String(nextPointRequired.cpCode);
+
+        if (isIdMismatch || isCodeMismatch) {
             await presentAlert.presentAlert(
                 'Sai thứ tự tuần tra',
                 nextPointRequired.cpName,
@@ -159,7 +161,10 @@ export const scannerService = {
                 // Chuyển sang màn hình tạo báo cáo
                 router.replace({
                     path: '/checkpoint/create',
-                    query: { t: Date.now() }
+                    query: {
+                        routeId: routeId,
+                        t: Date.now()
+                    }
                 });
             } else {
                 await presentAlert.presentAlert('Thông báo', '', 'Không tìm thấy thông tin điểm này trong dữ liệu hệ thống.');

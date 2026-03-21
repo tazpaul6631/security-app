@@ -12,38 +12,17 @@
     </ion-header>
 
     <ion-content class="ion-padding">
-      <ion-card class="inspection-grid-card" v-if="currentActiveRoute">
-        <ion-card-header>
-          <ion-card-title>{{ currentActiveRoute.routeName }}</ion-card-title>
-          <ion-card-subtitle>
-            Mã: {{ currentActiveRoute.routeCode }} | Giờ trực: {{ currentActiveRoute.psHourFrom }}h
-            <br />
-            <span class="timer-display" :class="timerColorClass" v-if="formattedTime">
-              <ion-icon class="icon-clock" :icon="timeOutline"></ion-icon> Thời gian: {{ formattedTime }}
-            </span>
-          </ion-card-subtitle>
-        </ion-card-header>
-        <ion-card-content>
-          <card-route-points :details="currentActiveRoute.routeDetails" />
-        </ion-card-content>
-      </ion-card>
-
       <div v-if="isReady && dataScanQr">
         <ion-card>
           <ion-grid>
             <ion-row>
-              <ion-col size="7">
+              <ion-col>
                 <ion-card-header class="pad-0">
                   <ion-card-title>{{ dataScanQr.areaName }}</ion-card-title>
                   <ion-card-subtitle>
                     <strong>{{ dataScanQr.cpCode }}</strong> - {{ dataScanQr.cpName }}
                   </ion-card-subtitle>
                 </ion-card-header>
-              </ion-col>
-              <ion-col size="5">
-                <ion-card v-if="listImages.length > 0" class="ion-no-margin">
-                  <ion-img :src="listImages[0].url" class="qr-thumb" />
-                </ion-card>
               </ion-col>
             </ion-row>
             <ion-row v-if="dataScanQr.cpDescription">
@@ -58,20 +37,67 @@
 
         <ion-card>
           <ion-card-content>
-            <ion-item lines="none">
-              <ion-checkbox v-model="formData.prHasProblem" @ionChange="handleChecked">
+            <ion-item v-if="!formData.prHasProblem" lines="none">
+              <ion-checkbox v-model="formData.prNoProblem" @ionChange="handleCheckedNoProblem">
+                Không Phát hiện vấn đề / Sự cố
+              </ion-checkbox>
+            </ion-item>
+
+            <div v-if="formData.prNoProblem" class="ion-padding-top">
+              <ion-row>
+                <ion-col size="6">
+                  <ion-button expand="block" size="small" @click="addNoProblemPhoto">
+                    <ion-icon slot="start" :icon="camera"></ion-icon> Máy ảnh
+                  </ion-button>
+                </ion-col>
+                <ion-col size="6">
+                  <ion-button expand="block" size="small" @click="pickNoProblemImages">
+                    <ion-icon slot="start" :icon="images"></ion-icon> Thư viện
+                  </ion-button>
+                </ion-col>
+              </ion-row>
+
+              <ion-grid v-if="noProblemImages.length > 0">
+                <ion-row>
+                  <ion-col size="4" v-for="(photo, pIdx) in noProblemImages" :key="pIdx">
+                    <div class="image-container">
+                      <ion-img :src="photo.preview" class="thumb-img" />
+                      <div class="delete-btn" @click="removeNoProblemPhoto(pIdx)">
+                        <ion-icon :icon="trash"></ion-icon>
+                      </div>
+                    </div>
+                  </ion-col>
+                </ion-row>
+              </ion-grid>
+
+              <ion-row>
+                <ion-col>
+                  <ion-textarea label="Nội dung" label-placement="floating" fill="outline" v-model="formData.prNote"
+                    :rows="4" placeholder="Nhập tại đây...">
+                  </ion-textarea>
+                </ion-col>
+              </ion-row>
+            </div>
+
+            <ion-item v-if="!formData.prNoProblem" lines="none">
+              <ion-checkbox v-model="formData.prHasProblem" @ionChange="handleCheckedHasProblem">
                 Phát hiện vấn đề / Sự cố
               </ion-checkbox>
             </ion-item>
 
             <div v-if="formData.prHasProblem" class="ion-padding-top">
-              <ion-button expand="block" fill="outline" @click="openCategoryModal = true">
-                <ion-icon slot="start" :icon="images"></ion-icon>
-                Chọn tình trạng ({{ groupedNotes.length }})
-              </ion-button>
+              <ion-row>
+                <ion-col>
+                  <ion-button expand="block" fill="outline" @click="openCategoryModal = true">
+                    <ion-icon slot="start" :icon="images"></ion-icon>
+                    Chọn tình trạng ({{ groupedNotes.length }})
+                  </ion-button>
+                </ion-col>
+              </ion-row>
             </div>
 
-            <ion-button expand="block" color="success" class="ion-margin-top" @click="handleSubmit">
+            <ion-button expand="block" color="success" class="ion-margin-top" @mousedown.prevent="handleSubmit"
+              @click="handleSubmit">
               <ion-icon slot="start" :icon="sendOutline"></ion-icon>
               GỬI BÁO CÁO
             </ion-button>
@@ -242,28 +268,29 @@ import {
   IonItemOptions, IonItemOption, IonListHeader, loadingController, onIonViewWillEnter,
   toastController, IonBadge, IonThumbnail, IonButtons, onIonViewDidLeave,
   IonModal, IonAccordion, IonAccordionGroup, IonInfiniteScroll,
-  IonInfiniteScrollContent, IonSpinner
+  IonInfiniteScrollContent, IonSpinner,
+  alertController
 } from '@ionic/vue';
 import {
   sendOutline, camera, images, trash, arrowBackOutline,
-  cloudOfflineOutline, trashOutline, timeOutline
+  cloudOfflineOutline, trashOutline
 } from 'ionicons/icons';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { useStore } from 'vuex';
 import { useOfflineManager } from '@/composables/useOfflineManager';
-import storage from '@/services/storage.service';
 import { ImageService } from '@/services/image.service';
 import router from '@/router';
 import storageService from '@/services/storage.service';
 import { App } from '@capacitor/app';
-import CardRoutePoints from '@/components/CardRoutePoints.vue';
 import { useRouteTimer } from '@/composables/useRouteTimer';
+import { useRoute } from 'vue-router';
 
 // --- Global Timer Composable ---
-const { formattedTime, timerColorClass, startTimer, clearTimer } = useRouteTimer();
+const { startTimer, clearTimer } = useRouteTimer();
 
 const store = useStore();
 const isReady = ref(false);
+const route = useRoute();
 
 // --- Interfaces ---
 interface RouteDetail { rdId: number | string; cpId: number | string; cpName: string; status: number; }
@@ -272,7 +299,7 @@ interface Route {
   psHourFrom: number; psHourTo: number; planSecond?: number;
   routeDetails: RouteDetail[]; psId: number;
 }
-interface Photo { fileName: string; rawBase64: string; preview: string; }
+interface Photo { fileName: string; preview: string; }
 interface GroupedNote { id: string; prGroup: number; priImageNote: string; reportImages: Photo[]; type: 'label' | 'note'; rncId?: string; isAddingPhoto?: boolean; }
 interface QueueItem { id: number | string; data?: any; imageFiles?: string[]; thumb?: string | null; }
 interface ReportNode { rncId: number | string; rncName: string; childs?: ReportNode[]; }
@@ -280,14 +307,11 @@ interface ReportNode { rncId: number | string; rncName: string; childs?: ReportN
 // Lấy đúng data lộ trình từ Vuex theo ID đang quét
 const currentActiveRoute = computed<Route | null>(() => {
   const routes = store.state.dataListRoute || [];
-
-  // Lấy cả 2 ID ra để đối chiếu
   const targetRouteId = store.state.unfinishedRouteId || store.state.routeId;
   const targetPsId = store.state.psId;
 
   if (!targetRouteId) return null;
 
-  // ƯU TIÊN 1: Tìm CHÍNH XÁC lộ trình khớp cả routeId lẫn psId đang bị khóa
   if (targetPsId) {
     const exactRoute = routes.find((r: any) =>
       Number(r.routeId) === Number(targetRouteId) &&
@@ -296,15 +320,12 @@ const currentActiveRoute = computed<Route | null>(() => {
     if (exactRoute) return exactRoute;
   }
 
-  // ƯU TIÊN 2: Fallback (Phòng hờ trường hợp psId bị null lúc mới vào)
   return routes.find((r: any) => Number(r.routeId) === Number(targetRouteId)) || null;
 });
-
 
 // Watch để khởi chạy Timer khi vào trang hoặc reload
 watch(() => currentActiveRoute.value, async (newRoute) => {
   if (newRoute && newRoute.routeId && newRoute.planSecond) {
-    // Đảm bảo lưu khóa "đang làm dở" khi vào trang này
     await storageService.set('unfinished_route_id', newRoute.routeId);
     await startTimer(newRoute.routeId, newRoute.planSecond);
   }
@@ -317,33 +338,14 @@ const dataScanQr = computed(() => {
   return rawData.data?.data || rawData.data || rawData;
 });
 
-watch(() => dataScanQr.value?.cpId, (newCpId, oldCpId) => {
-  if (newCpId && newCpId !== oldCpId) {
-    isResetting.value = true; // Khóa
-
-    formData.prHasProblem = false;
-    formData.prNote = '';
-    groupedNotes.value = [];
-    selectedValues.value = [];
-    tempNoteInput.value = '';
-
-    setTimeout(() => { isResetting.value = false; }, 300); // Mở
-  }
-});
-
-const listImages = computed(() => {
-  const currentData = dataScanQr.value;
-  return (currentData && currentData.cpQr) ? [{ url: `data:image/png;base64,${currentData.cpQr}` }] : [];
-});
-
 // --- Form State ---
-const formData = reactive({ prHasProblem: false, prNote: '', cpId: '' });
+const formData = reactive({ prHasProblem: false, prNoProblem: false, prNote: '', cpId: '' });
 const groupedNotes = ref<GroupedNote[]>([]);
 const apiCategories = ref<ReportNode[]>([]);
 const selectedSubCategory = ref<ReportNode | null>(null);
 const selectedValues = ref<string[]>([]);
 const tempNoteInput = ref('');
-const isResetting = ref(false); // Cờ chặn vòng lặp lưu nháp
+const isResetting = ref(false);
 
 // Modals
 const openCategoryModal = ref(false);
@@ -357,33 +359,24 @@ const { sendData, pendingItems, loadPendingItems } = useOfflineManager();
 const displayItems = ref<QueueItem[]>([]);
 
 // --- TỐI ƯU HIỆU NĂNG BẰNG INFINITE SCROLL ---
-const itemsPerPage = 10; // Mỗi lần cuộn tải thêm 10 phần tử
+const itemsPerPage = 10;
 const loadedCount = ref(itemsPerPage);
 
-// Computed này sẽ lấy ra số lượng item tương ứng với loadedCount
 const paginatedItems = computed(() => {
   return displayItems.value.slice(0, loadedCount.value);
 });
 
-// Hàm bắt sự kiện khi cuộn tới đáy
 const loadMoreOfflineItems = (ev: any) => {
   setTimeout(() => {
-    // Tăng số lượng hiển thị lên
     loadedCount.value += itemsPerPage;
-
-    // Báo cho Ionic biết là đã load xong để tắt cái spinner xoay xoay
     ev.target.complete();
-
-    // Vô hiệu hóa Infinite Scroll nếu đã hiển thị hết kho dữ liệu
     if (loadedCount.value >= displayItems.value.length) {
       ev.target.disabled = true;
     }
-  }, 300); // Thêm 300ms delay nhỏ để tạo cảm giác mượt mà
+  }, 300);
 };
 
 watch(() => pendingItems.value, async (newPendingQueue) => {
-  // Khi pendingItems bị thay đổi (bị xóa đi sau khi sync thành công)
-  // Quét lại ảnh và gán lại cho displayItems để giao diện tự mất đi
   displayItems.value = await Promise.all(newPendingQueue.map(async (item: QueueItem) => ({
     ...item,
     thumb: item.imageFiles?.[0] ? await ImageService.getDisplayUrl(item.imageFiles[0]) : null
@@ -393,10 +386,17 @@ watch(() => pendingItems.value, async (newPendingQueue) => {
 // --- Functions ---
 const generateId = () => Math.random().toString(36).substr(2, 9);
 
-const handleChecked = () => {
-  if (!formData.prHasProblem) {
+const handleCheckedHasProblem = () => {
+  if (formData.prHasProblem) {
+    // KHI TICK VÀO "Có lỗi": Xóa sạch dữ liệu của bên "Không lỗi" (nếu có)
+    formData.prNoProblem = false;
+    noProblemImages.value = [];
+    formData.prNote = ''; // Reset note
+  } else {
+    // KHI BỎ TICK "Có lỗi": Xóa sạch danh sách sự cố đã chọn
     groupedNotes.value = [];
     selectedValues.value = [];
+    formData.prNote = '';
   }
 };
 
@@ -419,7 +419,6 @@ const confirmNote = () => {
     syncToMainForm();
   }
 
-  // TỰ ĐỘNG ĐÓNG CẢ 2:
   openNoteModal.value = false;
   openDetailModal.value = false;
 };
@@ -445,16 +444,13 @@ const convertBlobToBase64 = (blob: Blob): Promise<string> => {
 };
 
 const addGroupPhoto = async (idx: number) => {
-  // Kiểm tra giới hạn ảnh
   if (groupedNotes.value[idx].reportImages.length >= 10) {
     await showToast('Chỉ được phép đính kèm tối đa 10 ảnh cho mỗi sự cố!', 'warning');
     return;
   }
 
   try {
-    // 1. BẬT SPINNER: Báo cho UI biết là đang chuẩn bị bật Camera và xử lý ảnh
     groupedNotes.value[idx].isAddingPhoto = true;
-
     const image = await Camera.getPhoto({
       quality: 60, width: 1024, resultType: CameraResultType.Uri, source: CameraSource.Camera
     });
@@ -462,14 +458,12 @@ const addGroupPhoto = async (idx: number) => {
     if (image.webPath) {
       groupedNotes.value[idx].reportImages.push({
         fileName: 'camera_img.jpg',
-        rawBase64: '',
         preview: image.webPath
       });
     }
   } catch (e) {
     console.log("Hủy chụp ảnh hoặc có lỗi");
   } finally {
-    // 2. TẮT SPINNER: Dù chụp thành công hay bấm Hủy thì cũng phải tắt vòng xoay đi
     groupedNotes.value[idx].isAddingPhoto = false;
   }
 };
@@ -485,27 +479,19 @@ const pickGroupImages = async (idx: number) => {
   }
 
   try {
-    // 1. Gọi giao diện chọn ảnh với limit (Chặn ở tầng hệ điều hành nếu OS hỗ trợ)
     const result = await Camera.pickImages({ quality: 60, limit: slotsLeft });
-
-    // 2. KIỂM TRA LẠI MẢNG TRẢ VỀ (Quan trọng nhất)
-    // Nếu người dùng chọn 15 tấm trong khi chỉ còn 5 slot trống:
     let photosToAdd = result.photos;
 
     if (photosToAdd.length > slotsLeft) {
       await showToast(`Bạn đã chọn ${photosToAdd.length} ảnh. Hệ thống sẽ chỉ lấy ${slotsLeft} ảnh đầu tiên để không vượt quá giới hạn 10 ảnh.`, 'warning');
-
-      // Cắt bớt mảng ảnh trả về, chỉ lấy đúng số lượng slot còn lại
       photosToAdd = photosToAdd.slice(0, slotsLeft);
     }
 
-    // 3. Bắt đầu nạp ảnh hợp lệ vào UI
     groupedNotes.value[idx].isAddingPhoto = true;
 
     for (const photo of photosToAdd) {
       groupedNotes.value[idx].reportImages.push({
         fileName: 'gallery_img.jpg',
-        rawBase64: '',
         preview: photo.webPath
       });
     }
@@ -527,7 +513,6 @@ const toggleIssue = (val: string) => {
   } else {
     selectedValues.value.push(val);
   }
-  // Log để debug xem click có ăn không
   console.log('Current selected:', selectedValues.value);
 };
 
@@ -561,6 +546,73 @@ const confirmDetails = () => {
   }
 };
 
+// --- THÊM MỚI: Xử lý ảnh cho trường hợp Không Lỗi ---
+const noProblemImages = ref<Photo[]>([]);
+
+const addNoProblemPhoto = async () => {
+  // BƯỚC 1: Chặn ngay từ cửa nếu đã đủ 10 tấm
+  if (noProblemImages.value.length >= 10) {
+    await showToast('Chỉ được phép đính kèm tối đa 10 ảnh!', 'warning');
+    return;
+  }
+
+  try {
+    const image = await Camera.getPhoto({
+      quality: 60, width: 1024, resultType: CameraResultType.Uri, source: CameraSource.Camera
+    });
+    if (image.webPath) {
+      noProblemImages.value.push({ fileName: `ok_cam_${Date.now()}.jpg`, preview: image.webPath });
+    }
+  } catch (e) {
+    console.log("Hủy chụp");
+  }
+};
+
+const pickNoProblemImages = async () => {
+  // BƯỚC 1: Tính toán slot trống và chặn từ cửa
+  const slotsLeft = 10 - noProblemImages.value.length;
+  if (slotsLeft <= 0) {
+    await showToast('Đã đạt giới hạn 10 ảnh!', 'warning');
+    return;
+  }
+
+  try {
+    const result = await Camera.pickImages({ quality: 60, limit: slotsLeft });
+    let photosToAdd = result.photos;
+
+    // BƯỚC 2: Cắt mảng dự phòng (Đề phòng một số dòng điện thoại Tàu phớt lờ lệnh limit của OS)
+    if (photosToAdd.length > slotsLeft) {
+      await showToast(`Chỉ lấy ${slotsLeft} ảnh đầu tiên để không vượt quá giới hạn 10 ảnh.`, 'warning');
+      photosToAdd = photosToAdd.slice(0, slotsLeft);
+    }
+
+    for (const photo of photosToAdd) {
+      noProblemImages.value.push({ fileName: `ok_lib_${Date.now()}.jpg`, preview: photo.webPath });
+    }
+  } catch (e) {
+    console.log("Hủy chọn");
+  }
+};
+
+const removeNoProblemPhoto = (idx: number) => {
+  noProblemImages.value.splice(idx, 1);
+};
+
+const handleCheckedNoProblem = () => {
+  if (formData.prNoProblem) {
+    // KHI TICK VÀO "Không lỗi": Xóa sạch dữ liệu của bên "Có lỗi" (nếu có)
+    formData.prHasProblem = false;
+    groupedNotes.value = [];
+    selectedValues.value = [];
+    formData.prNote = ''; // Reset note để bắt đầu nhập mới
+  } else {
+    // KHI BỎ TICK "Không lỗi": Xóa sạch ảnh và ghi chú vừa nhập
+    noProblemImages.value = [];
+    formData.prNote = '';
+  }
+};
+// ----------------------------------------------------
+
 // --- Submit Logic (Quan trọng nhất) ---
 const isSubmitting = ref(false);
 const handleSubmit = async (): Promise<void> => {
@@ -578,25 +630,26 @@ const handleSubmit = async (): Promise<void> => {
   await loading.present();
 
   try {
-    // 1. Chuyển đổi tất cả ảnh trong các Group sang Base64 để gửi API
-    const imageFileNames: string[] = []; // Mảng chứa tên file vật lý
+    // THÊM MỚI: Chuẩn bị nguồn data tùy thuộc vào việc có chọn NoProblem hay không
+    const sourceData = formData.prNoProblem
+      ? [{
+        prGroup: 1,
+        priImageNote: formData.prNote || "Bình thường",
+        reportImages: noProblemImages.value
+      }]
+      : groupedNotes.value.map(g => ({
+        prGroup: g.prGroup,
+        priImageNote: g.priImageNote,
+        reportImages: g.reportImages
+      }));
 
-    const noteGroupsPayload = await Promise.all(groupedNotes.value.map(async (group) => {
+    // --- LOGIC MAP BASE64 VÀ GỌI ImageService.saveImage (Giữ nguyên của bạn, chỉ đổi tên mảng loop) ---
+    const finalNoteGroups = await Promise.all(sourceData.map(async (group) => {
       const mappedImages = await Promise.all(group.reportImages.map(async (item) => {
-        let base64Data = item.rawBase64;
-
-        if (!base64Data && item.preview) {
-          const response = await fetch(item.preview);
-          const blob = await response.blob();
-          const fullBase64 = await convertBlobToBase64(blob);
-          base64Data = fullBase64.split(',')[1];
-        }
-
-        // --- LƯU FILE VẬT LÝ VÀO MÁY ---
-        const fileName = await ImageService.saveImage(base64Data);
-        imageFileNames.push(fileName);
-
-        // Gửi lên server vẫn cần base64 nếu đang Online
+        const response = await fetch(item.preview);
+        const blob = await response.blob();
+        let base64Data = (await convertBlobToBase64(blob)).split(',')[1];
+        await ImageService.saveImage(base64Data);
         return { priImage: base64Data, priImageType: 'jpg' };
       }));
 
@@ -607,8 +660,8 @@ const handleSubmit = async (): Promise<void> => {
       };
     }));
 
-    // 2. Gom tất cả Base64 ra một mảng riêng để OfflineManager lưu file vật lý (phòng hờ sync sau)
-    const allBase64ForStorage = noteGroupsPayload.flatMap(ng => ng.reportImages.map(img => img.priImage));
+    // Gom tất cả Base64 ra một mảng riêng để OfflineManager lưu file vật lý (phòng hờ sync sau)
+    const allBase64ForStorage = finalNoteGroups.flatMap(ng => ng.reportImages.map(img => img.priImage));
 
     const currentCpId = dataScanQr.value.cpId;
     const routeId = store.state.routeId;
@@ -617,7 +670,7 @@ const handleSubmit = async (): Promise<void> => {
     const activeRoute = currentActiveRoute.value;
     const finalPsId = activeRoute?.psId || store.state.psId;
 
-    // 3. Tạo Payload hoàn chỉnh
+    // Tạo Payload hoàn chỉnh
     const formSubmitData = {
       psId: finalPsId,
       routeId: routeId,
@@ -627,17 +680,23 @@ const handleSubmit = async (): Promise<void> => {
       prNote: formData.prNote,
       cpId: currentCpId,
       createdBy: userId,
+      prLat: 0,
+      prLng: 0,
+      prAccuracy: 0,
       scanAt: scanAt || currentTimeString,
-      noteGroups: formData.prHasProblem ? noteGroupsPayload : [],
+      noteGroups: finalNoteGroups, // Sử dụng dữ liệu đã gộp
     };
 
     console.log(formSubmitData);
 
-    // 4. Gọi Offline Manager
-    const firstPreview = groupedNotes.value[0]?.reportImages[0]?.preview || '';
-    await sendData(firstPreview, formSubmitData, allBase64ForStorage);
+    // THÊM MỚI: Lấy ảnh đại diện (phụ thuộc vào việc có lỗi hay không)
+    const firstPreview = formData.prNoProblem
+      ? noProblemImages.value[0]?.preview
+      : groupedNotes.value[0]?.reportImages[0]?.preview;
 
-    // 5. Cập nhật trạng thái và check Hoàn thành
+    await sendData(firstPreview || '', formSubmitData, allBase64ForStorage);
+
+    // Cập nhật trạng thái và check Hoàn thành
     store.commit('UPDATE_POINT_STATUS', { routeId, cpId: currentCpId, status: 1 });
 
     const updatedRoutes = [...store.state.dataListRoute];
@@ -657,18 +716,19 @@ const handleSubmit = async (): Promise<void> => {
 
     // Reset giao diện
     formData.prHasProblem = false;
+    formData.prNoProblem = false; // THÊM MỚI
     formData.prNote = '';
     groupedNotes.value = [];
     selectedValues.value = [];
     tempNoteInput.value = '';
+    noProblemImages.value = []; // THÊM MỚI
 
     setTimeout(() => { isResetting.value = false; }, 300);
 
+    // --- BLOCK IF ALL DONE CỦA BẠN (GIỮ NGUYÊN 100%) ---
     if (allDone) {
-      // 1. Dừng bộ đếm giờ (Xóa sạch timer của route này)
       await clearTimer(routeId);
 
-      // 2. Xóa các khóa cứng trong Storage (Bộ nhớ máy) để giải phóng app
       await Promise.all([
         storageService.remove('unfinished_route_id'),
         storageService.remove('current_route_id'),
@@ -677,13 +737,11 @@ const handleSubmit = async (): Promise<void> => {
         storageService.remove('current_ps_id')
       ]);
 
-      // 3. Gỡ khóa trên RAM nhưng TUYỆT ĐỐI GIỮ NGUYÊN STATUS = 1 của lộ trình
       store.commit('SET_UNFINISHED_ROUTE_ID', null);
       store.commit('SET_ROUTE_ID', null);
       store.commit('SET_PSID', null);
       store.commit('SET_DATASCANQR', null);
 
-      // 4. Lưu mảng (với các điểm status = 1) xuống SQLite để khi F5 vẫn thấy là Đã hoàn thành
       await storageService.set('list_route', store.state.dataListRoute);
 
       await loading.dismiss();
@@ -691,6 +749,7 @@ const handleSubmit = async (): Promise<void> => {
       router.replace('/home');
     } else {
       await storageService.set('list_route', updatedRoutes);
+      await storageService.set('unfinished_route_id', routeId);
       await loading.dismiss();
       router.replace('/route');
     }
@@ -704,7 +763,16 @@ const handleSubmit = async (): Promise<void> => {
 };
 
 const handleGoBack = async () => {
-  router.replace('/route');
+  const details = currentActiveRoute.value?.routeDetails || [];
+  const isFinished = details.every(p => p.status === 1);
+  if (isFinished || details.length === 0) return router.replace('/route');
+
+  const alert = await alertController.create({
+    header: 'Cảnh báo',
+    message: 'Bạn đang trong ca trực, hãy hoàn thành các điểm còn lại!',
+    buttons: ['Đã hiểu']
+  });
+  await alert.present();
 };
 
 // --- Utils ---
@@ -724,12 +792,12 @@ const loadPendingItemsWithImages = async () => {
 };
 
 const deleteItem = async (id: any) => {
-  const queue = (await storage.get('offline_api_queue')) || [];
+  const queue = (await storageService.get('offline_api_queue')) || [];
   const item = queue.find((i: any) => i.id === id);
   if (item?.imageFiles) {
     for (const f of item.imageFiles) await ImageService.deleteImage(f);
   }
-  await storage.set('offline_api_queue', queue.filter((i: any) => i.id !== id));
+  await storageService.set('offline_api_queue', queue.filter((i: any) => i.id !== id));
   loadPendingItemsWithImages();
 };
 
@@ -738,7 +806,6 @@ const showToast = async (m: string, c: string) => {
   await t.present();
 };
 
-// Key lưu nháp dựa trên ID của Checkpoint hiện tại để không bị lẫn lộn giữa các điểm quét
 const draftKey = computed(() => {
   if (dataScanQr.value && dataScanQr.value.cpId) {
     return `draft_report_${dataScanQr.value.cpId}`;
@@ -746,29 +813,28 @@ const draftKey = computed(() => {
   return null;
 });
 
-// Tự động lưu nháp mỗi khi người dùng thao tác trên form
 let draftTimeout: any = null;
 
-watch([formData, groupedNotes, selectedValues], async () => {
+// THÊM MỚI: Bổ sung noProblemImages vào watcher lưu nháp
+watch([formData, groupedNotes, selectedValues, noProblemImages], async () => {
   if (isResetting.value) return;
 
-  // Dọn dẹp cái timeout cũ nếu người dùng vẫn đang gõ
   if (draftTimeout) clearTimeout(draftTimeout);
 
-  // Thiết lập timeout mới: Đợi 500 mili-giây SAU KHI người dùng dừng thao tác mới lưu SQLite
   draftTimeout = setTimeout(async () => {
     if (draftKey.value && isReady.value) {
       const draftData = {
+        prNoProblem: formData.prNoProblem,
         prHasProblem: formData.prHasProblem,
         prNote: formData.prNote,
-        // Ép kiểu JSON để loại bỏ bớt Proxy nặng nề của Vue trước khi lưu DB
         groupedNotes: JSON.parse(JSON.stringify(groupedNotes.value)),
-        selectedValues: JSON.parse(JSON.stringify(selectedValues.value))
+        selectedValues: JSON.parse(JSON.stringify(selectedValues.value)),
+        noProblemImages: JSON.parse(JSON.stringify(noProblemImages.value)) // THÊM MỚI
       };
       await storageService.set(draftKey.value, draftData);
       console.log('Đã lưu nháp ngầm!');
     }
-  }, 500); // 500ms là khoảng thời gian lý tưởng
+  }, 500);
 }, { deep: true });
 
 const loadDraft = async () => {
@@ -777,9 +843,11 @@ const loadDraft = async () => {
   const draft: any = await storageService.get(draftKey.value);
   if (draft) {
     formData.prHasProblem = draft.prHasProblem || false;
+    formData.prNoProblem = draft.prNoProblem || false; // THÊM MỚI
     formData.prNote = draft.prNote || '';
     groupedNotes.value = draft.groupedNotes || [];
     selectedValues.value = draft.selectedValues || [];
+    noProblemImages.value = draft.noProblemImages || []; // THÊM MỚI
     console.log('✅ Đã khôi phục bản nháp đang nhập dở');
     return true;
   }
@@ -788,42 +856,52 @@ const loadDraft = async () => {
 
 // --- Lifecycle ---
 onIonViewWillEnter(async () => {
-  // Chờ 1 chút để computed draftKey nhận được dataScanQr
   setTimeout(async () => {
     const hasDraft = await loadDraft();
     if (!hasDraft) {
-      // Nếu không có nháp thì mới reset rỗng
       formData.prNote = '';
       formData.prHasProblem = false;
+      formData.prNoProblem = false; // THÊM MỚI
       groupedNotes.value = [];
       selectedValues.value = [];
+      noProblemImages.value = []; // THÊM MỚI
     }
   }, 100);
 });
 
+// HOOK NÀY MÌNH ĐÃ TRẢ LẠI 100% CHO BẠN
 onIonViewDidLeave(() => {
-  isResetting.value = true; // Khóa
+  isResetting.value = true;
 
   formData.prHasProblem = false;
+  formData.prNoProblem = false; // THÊM MỚI
   formData.prNote = '';
   groupedNotes.value = [];
   selectedValues.value = [];
   tempNoteInput.value = '';
+  noProblemImages.value = []; // THÊM MỚI
+
   openCategoryModal.value = false;
   openDetailModal.value = false;
   openNoteModal.value = false;
 
-  setTimeout(() => { isResetting.value = false; }, 300); // Mở
+  setTimeout(() => { isResetting.value = false; }, 300);
 });
 
 onMounted(async () => {
+  const routeId = route.query.routeId || store.state.routeId;
+
+  if (routeId) {
+    store.commit('SET_UNFINISHED_ROUTE_ID', Number(routeId));
+    await storageService.set('unfinished_route_id', Number(routeId));
+  }
+
   if (!store.state.isHydrated) await store.dispatch('initApp');
   await loadPendingItemsWithImages();
 
   const catData = store.state.dataReportNoteCategory;
   if (catData) {
     const rawArray = Array.isArray(catData) ? catData : (catData.data || []);
-    // markRaw giúp Vue ngắt Reactivity, tiết kiệm 90% RAM cho mảng này
     apiCategories.value = markRaw(rawArray);
   }
 
@@ -839,47 +917,6 @@ onMounted(async () => {
 
 .pad-0 {
   padding: 0;
-}
-
-.qr-thumb {
-  width: 100%;
-  object-fit: contain;
-  border-radius: 4px;
-  background: #f9f9f9;
-}
-
-.timer-display {
-  display: flex;
-  align-items: center;
-  margin-top: 4px;
-  font-weight: 600;
-}
-
-.icon-clock {
-  margin-right: 4px;
-}
-
-.text-success {
-  color: var(--ion-color-success);
-}
-
-.text-danger {
-  color: var(--ion-color-danger);
-  animation: pulse 1.5s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.5;
-  }
-
-  100% {
-    opacity: 1;
-  }
 }
 
 .note-group-card {
@@ -918,10 +955,6 @@ onMounted(async () => {
   padding: 4px;
   font-size: 14px;
   height: 25px;
-}
-
-.inspection-grid-card {
-  border-left: 4px solid #2dd55b;
 }
 
 .icon-cloud {
@@ -972,15 +1005,12 @@ ion-label {
   border-radius: 4px;
 }
 
-/* --- STYLE CHO MODAL GHI CHÚ (GIỐNG LOGIN) --- */
 ion-modal.custom-center-modal {
   --background: transparent;
-  /* Xóa phông nền trắng mặc định của Modal */
 }
 
 .modal-transparent-content {
   --background: rgba(0, 0, 0, 0.4);
-  /* Phủ lớp nền đen mờ */
 }
 
 .flex-center-container {
@@ -988,7 +1018,6 @@ ion-modal.custom-center-modal {
   justify-content: center;
   align-items: center;
   min-height: 100%;
-  /* QUAN TRỌNG: Cho phép cuộn khi bàn phím đẩy lên */
   padding: 20px;
 }
 

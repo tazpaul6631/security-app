@@ -441,6 +441,10 @@ const store = createStore({
       if (id) {
         commit('SET_UNFINISHED_ROUTE_ID', Number(id));
         console.log('✅ Đã khôi phục khóa lộ trình dở dang:', id);
+      } else {
+        // CHỐT CHẶN AN TOÀN TỐI ĐA: 
+        // Nếu bộ nhớ máy (SQLite) không có khóa, ép Vuex phải rỗng để chắc chắn không bị khóa oan
+        commit('SET_UNFINISHED_ROUTE_ID', null);
       }
     },
 
@@ -579,10 +583,6 @@ const store = createStore({
       try {
         const response = await storageService.get('list_route');
         if (response) {
-          // Bóc tách dữ liệu: 
-          // Trường hợp 1: response là mảng [{}, {}]
-          // Trường hợp 2: response là { data: [{}, {}] }
-          // Trường hợp 3: response là { data: { data: [] } } (đôi khi API bọc 2 lần)
           let actualData = response;
           if (response.data) {
             actualData = Array.isArray(response.data) ? response.data : (response.data.data || []);

@@ -32,6 +32,8 @@ npx cap sync
 
 npm run build
 
+npx cap copy
+
 npx cap sync
 
 # Xóa bên android file

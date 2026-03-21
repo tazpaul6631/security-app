@@ -89,6 +89,9 @@ export function useOfflineManager() {
       routeId: item.data.routeId,
       rdId: item.data.rdId,
       cpId: item.data.cpId,
+      prLat: 0,
+      prLng: 0,
+      prAccuracy: 0,
       cpName: item.data.cpName || 'Điểm quét (Offline)',
       createdName: userData?.fullName || 'Tôi (Offline)',
       createdAt: item.data.createdAt || new Date().toISOString(),
@@ -150,18 +153,23 @@ export function useOfflineManager() {
 
     try {
       // 1. Xử lý hàng chờ xóa
-      const deleteQueue = (await storage.get('offline_delete_queue')) || [];
+      let deleteQueue = (await storage.get('offline_delete_queue')) || [];
       if (deleteQueue.length > 0) {
+        // Tạo một mảng mới để chứa những cái XÓA THẤT BẠI (để lưu lại lần sau)
+        const failedDeletes = [];
+
         for (const delItem of deleteQueue) {
           try {
+            // Gọi API xóa
             await PatrolShift.postRemovePatrolShift(delItem);
-            const updatedDeleteQueue = (await storage.get('offline_delete_queue'))
-              .filter((i: any) => i.psId !== delItem.psId);
-            await storage.set('offline_delete_queue', updatedDeleteQueue);
           } catch (e) {
-            console.error("Vẫn chưa xóa được trên server:", e);
+            // Nếu lỗi mạng, giữ lại trong hàng chờ
+            failedDeletes.push(delItem);
           }
         }
+
+        // Cập nhật lại Storage một lần duy nhất sau khi chạy xong vòng lặp
+        await storage.set('offline_delete_queue', failedDeletes);
       }
 
       // 2. Xử lý hàng chờ gửi API

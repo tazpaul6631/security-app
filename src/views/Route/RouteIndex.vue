@@ -244,10 +244,7 @@ const processScannedData = async (qrCodeString: string, routeId: number) => {
     await loading.present();
 
     try {
-        // Cập nhật khóa vào Store và Storage
-        store.commit('SET_UNFINISHED_ROUTE_ID', routeId);
-
-        // 2. Gọi logic xử lý nặng (Check lộ trình, API, SQLite)
+        // Gọi logic xử lý nặng (Check lộ trình, API, SQLite)
         await scannerService.processQRString(store, router, routeId, qrCodeString);
 
     } catch (error) {
@@ -445,6 +442,7 @@ const confirmCancelRoute = () => {
     isCancelAlertOpen.value = true;
 };
 
+const isCancelling = ref(false);
 const cancelButtons = [
     { text: 'Đóng', role: 'cancel' },
     {
@@ -452,48 +450,55 @@ const cancelButtons = [
         role: 'confirm',
         cssClass: 'alert-button-confirm',
         handler: async () => {
-            const currentRoute = currentActiveRoute.value;
-            if (!currentRoute) return;
-
-            const removeData = {
-                routeId: currentRoute.routeId,
-                psId: currentRoute.psId,
-                updatedBy: store.state.dataUser?.userId,
-                isDeleteAction: true
-            };
-
-            console.log(removeData);
-
-            await clearTimer(currentRoute.routeId);
-            const { pendingItems, loadPendingItems, removeQueueItem } = useOfflineManager();
-            await loadPendingItems();
-
-            const itemsToDelete = pendingItems.value.filter(
-                (item: any) => item.data.psId === currentRoute.psId
-            );
-            for (const item of itemsToDelete) {
-                // Xóa Mock trong Vuex
-                store.commit('REMOVE_OFFLINE_REPORT', item.id);
-                // Xóa trong SQLite
-                await removeQueueItem(item.id);
-            }
-
+            if (isCancelling.value) return false; // Chặn nếu đang xử lý
+            isCancelling.value = true;
             try {
-                await PatrolShift.postRemovePatrolShift(removeData);
-            } catch (error) {
-                // NẾU LỖI (OFFLINE): Lưu lệnh xóa này vào hàng chờ
-                console.warn("Offline: Đã lưu lệnh xóa vào hàng chờ đồng bộ.");
-                const deleteQueue = (await storageService.get('offline_delete_queue')) || [];
-                deleteQueue.push(removeData);
-                await storageService.set('offline_delete_queue', deleteQueue);
+                const currentRoute = currentActiveRoute.value;
+                if (!currentRoute) return;
+
+                const removeData = {
+                    routeId: currentRoute.routeId,
+                    psId: currentRoute.psId,
+                    updatedBy: store.state.dataUser?.userId,
+                    isDeleteAction: true
+                };
+
+                console.log(removeData);
+
+                await clearTimer(currentRoute.routeId);
+                const { pendingItems, loadPendingItems, removeQueueItem } = useOfflineManager();
+                await loadPendingItems();
+
+                const itemsToDelete = pendingItems.value.filter(
+                    (item: any) => item.data.psId === currentRoute.psId
+                );
+                for (const item of itemsToDelete) {
+                    // Xóa Mock trong Vuex
+                    store.commit('REMOVE_OFFLINE_REPORT', item.id);
+                    // Xóa trong SQLite
+                    await removeQueueItem(item.id);
+                }
+
+                try {
+                    await PatrolShift.postRemovePatrolShift(removeData);
+                } catch (error) {
+                    // NẾU OFFLINE: Kiểm tra xem đã có psId này trong hàng chờ chưa trước khi push
+                    const deleteQueue = (await storageService.get('offline_delete_queue')) || [];
+                    const isExist = deleteQueue.some((item: any) => item.psId === removeData.psId);
+
+                    if (!isExist) {
+                        deleteQueue.push(removeData);
+                        await storageService.set('offline_delete_queue', deleteQueue);
+                        console.warn("Offline: Đã lưu lệnh xóa vào hàng chờ.");
+                    }
+                }
+
+                await store.dispatch('resetCurrentRoute');
+                shiftDataList.value = store.state.dataListRoute;
+                router.replace('/home');
+            } finally {
+                isCancelling.value = false; // Mở khóa khi xong
             }
-
-            // Xóa sạch dấu vết trong Store và SQLite
-            await store.dispatch('resetCurrentRoute');
-
-            // Cập nhật lại giao diện ngay lập tức
-            shiftDataList.value = store.state.dataListRoute;
-            router.replace('/home');
         }
     }
 ];

@@ -44,26 +44,16 @@ import { computed } from 'vue';
 import { exitOutline } from 'ionicons/icons';
 import router from '@/router';
 import { useStore } from 'vuex';
-import storageService from '@/services/storage.service';
-import { useSQLite } from '@/composables/useSQLite';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 
-const { logout } = useSQLite();
 const store = useStore();
 
 ///////////////////////////////
 // Khởi tạo router riêng của Ionic
 const ionRouter = useIonRouter();
 const isRouteUnfinished = computed(() => {
-  const routes = store.state.dataListRoute || [];
-  const selectedId = store.state.routeId;
-  if (!selectedId) return false; // Không có lộ trình thì không chặn
-
-  const currentRoute = routes.find((r: any) => r.routeId == selectedId);
-  if (!currentRoute) return false;
-
-  // Trả về true nếu còn ít nhất 1 điểm chưa xong (status != 1)
-  return currentRoute.routeDetails.some((p: any) => p.status !== 1);
+  const lockedId = store.state.unfinishedRouteId;
+  return !!lockedId;
 });
 
 const goBackAndClearHistory = async () => {
@@ -121,10 +111,6 @@ const handleLogout = async () => {
 </script>
 
 <style>
-.nav-header {
-  padding-top: 15px;
-}
-
 /* CSS giữ nguyên theo thiết kế của bạn */
 :root {
   --ion-color-rose: #d4fcc7;
