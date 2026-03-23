@@ -38,11 +38,17 @@
                     </ion-card-content>
                 </ion-col>
             </ion-row>
+            <ion-row>
+                <ion-col>
+                    {{ store.state.currentLocation }}
+                </ion-col>
+            </ion-row>
         </ion-grid>
     </ion-card>
 </template>
 
 <script setup lang="ts">
+import store from '@/composables/useVuex';
 import { IonCard, IonGrid, IonRow, IonCol, IonCardHeader, IonCardTitle, IonCardSubtitle, IonCardContent, IonIcon } from '@ionic/vue';
 import { timeOutline } from 'ionicons/icons';
 

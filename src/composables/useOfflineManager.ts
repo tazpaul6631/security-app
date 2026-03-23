@@ -6,6 +6,7 @@ import PatrolShiftView from '@/api/PatrolShiftView';
 import store from '@/composables/useVuex';
 import { toastController } from '@ionic/vue';
 import PatrolShift from '@/api/PatrolShift';
+import Sync from '@/api/Sync';
 
 // Các biến trạng thái dùng chung giữa các instance của composable
 const pendingItems = ref<PendingItem[]>([]);
@@ -89,9 +90,11 @@ export function useOfflineManager() {
       routeId: item.data.routeId,
       rdId: item.data.rdId,
       cpId: item.data.cpId,
-      prLat: 0,
-      prLng: 0,
-      prAccuracy: 0,
+      cpLat: item.data.cpLat,
+      cpLng: item.data.cpLng,
+      prLat: item.data.prLat,
+      prLng: item.data.prLng,
+      prAccuracy: item.data.prAccuracy,
       cpName: item.data.cpName || 'Điểm quét (Offline)',
       createdName: userData?.fullName || 'Tôi (Offline)',
       createdAt: item.data.createdAt || new Date().toISOString(),
@@ -175,6 +178,24 @@ export function useOfflineManager() {
 
         // Cập nhật lại Storage một lần duy nhất sau khi chạy xong vòng lặp
         await storage.set('offline_delete_queue', failedDeletes);
+      }
+
+      try {
+        const wrongScanQueue = await storage.get('offline_wrong_scan_queue');
+
+        console.log(wrongScanQueue);
+
+        if (Array.isArray(wrongScanQueue) && wrongScanQueue.length > 0) {
+          console.log("Đang đồng bộ mảng Log quét sai:", wrongScanQueue);
+
+          await Sync.syncScanCpQrLog(wrongScanQueue);
+
+          // Thành công thì dọn dẹp hàng chờ
+          await storage.remove('offline_wrong_scan_queue');
+          console.log("✅ Đã đồng bộ và dọn dẹp Log quét sai thành công!");
+        }
+      } catch (err) {
+        console.error("❌ Lỗi đồng bộ mảng Log quét sai (Sẽ thử lại lần sau):", err);
       }
 
       // 2. Xử lý hàng chờ gửi API

@@ -22,6 +22,7 @@ const store = createStore({
       routeId: null,
       psId: null,
       unfinishedRouteId: null,
+      currentLocation: null,
 
       syncProgress: 0,
       syncMessage: '',
@@ -200,6 +201,10 @@ const store = createStore({
         storageService.remove('unfinished_route_id');
         storageService.remove('current_ps_id');
       }
+    },
+
+    SET_CURRENT_LOCATION(state, payload) {
+      state.currentLocation = payload;
     },
 
     // Cập nhật lại RESET_ROUTE_DATA để xóa cả khóa cứng

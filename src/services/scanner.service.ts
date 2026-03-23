@@ -4,6 +4,7 @@ import { Router } from 'vue-router';
 import storageService from '@/services/storage.service';
 import CheckPointScanQr from '@/api/CheckPointScanQr';
 import presentAlert from '@/mixins/presentAlert';
+import ScanCpQrLog from '@/api/ScanCpQrLog';
 
 export const scannerService = {
     async requestPermissions() {
@@ -32,21 +33,16 @@ export const scannerService = {
     },
 
     // 2. Hàm mới: Xử lý chuỗi QR (Bất kể chuỗi đó lấy từ Camera hay từ nút bấm Unitech)
-    async processQRString(store: Store<any>, router: Router, routeId: number, qrCodeString: string) {
+    async processQRString(store: Store<any>, router: Router, routeId: number, qrCodeString: string, locationData: any) {
         const now = new Date();
         const currentTimeString = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 19);
         const dataListRoute = store.state.dataListRoute;
 
-        // Lưu routeId đang thực hiện vào store/storage
         await storageService.set('current_route_id', routeId);
 
-        // ==========================================
-        // 1. CHỐT KHÓA 1: TÌM LỘ TRÌNH PHẢI CÓ PSID ĐỂ KHÔNG NHẢY CA
-        // ==========================================
         const targetPsId = store.state.psId;
         let currentRoute;
 
-        // Ưu tiên 1: Tìm bằng CẢ routeId VÀ psId
         if (targetPsId) {
             currentRoute = dataListRoute.find((r: any) =>
                 Number(r.routeId) === Number(routeId) &&
@@ -54,7 +50,6 @@ export const scannerService = {
             );
         }
 
-        // Ưu tiên 2: Fallback tìm mỗi routeId (Dành cho ca mới tinh chưa lưu khóa psId)
         if (!currentRoute) {
             currentRoute = dataListRoute.find((r: any) => Number(r.routeId) === Number(routeId));
         }
@@ -66,12 +61,11 @@ export const scannerService = {
 
         const listScanQr = { cpwId: '', cpwCode: '' };
 
-        // Parse URL từ chuỗi QR
         if (qrCodeString) {
             try {
                 const url = new URL(qrCodeString);
                 const segments = url.pathname.split('/');
-                listScanQr.cpwId = segments[3];   // ID của checkpoint từ QR
+                listScanQr.cpwId = segments[3];
                 listScanQr.cpwCode = segments[4];
             } catch (e) {
                 await presentAlert.presentAlert('Lỗi', '', 'Mã QR không hợp lệ');
@@ -81,7 +75,6 @@ export const scannerService = {
             return;
         }
 
-        // --- BẮT ĐẦU LOGIC KIỂM TRA LỘ TRÌNH ---
         const nextPointRequired = currentRoute.routeDetails.find((point: any) => point.status !== 1);
 
         if (!nextPointRequired) {
@@ -93,6 +86,48 @@ export const scannerService = {
         const isCodeMismatch = String(listScanQr.cpwCode) !== String(nextPointRequired.cpCode);
 
         if (isIdMismatch || isCodeMismatch) {
+            const userData = store.state.dataUser?.data || store.state.dataUser;
+
+            // 1. TẠO PAYLOAD SCAN SAI (KÈM TỌA ĐỘ)
+            const wrongScanPayload = {
+                psId: Number(currentRoute.psId) || 0,
+                routeId: Number(currentRoute.routeId) || 0,
+                rdId: Number(nextPointRequired.rdId) || 0,
+                wrongCpId: Number(listScanQr.cpwId) || 0,
+                correctCpId: Number(nextPointRequired.cpId) || 0,
+                createdAt: currentTimeString,
+                createdBy: userData?.userId || '',
+                // THÊM TỌA ĐỘ ĐỂ SERVER LOG LẠI NẾU CẦN
+                prLat: locationData?.lat || 0,
+                prLng: locationData?.lng || 0,
+                prAccuracy: locationData?.accuracy || 0
+            };
+
+            const handleWrongScanSync = async () => {
+                const isOnline = store.state.isOnline;
+                if (isOnline) {
+                    try {
+                        await ScanCpQrLog.createScanCpQrLog(wrongScanPayload);
+                    } catch (error) {
+                        await saveWrongScanOffline(wrongScanPayload);
+                    }
+                } else {
+                    await saveWrongScanOffline(wrongScanPayload);
+                }
+            };
+
+            const saveWrongScanOffline = async (payload: any) => {
+                let wrongQueue = await storageService.get('offline_wrong_scan_queue');
+                console.log(wrongQueue);
+
+                if (!Array.isArray(wrongQueue)) wrongQueue = [];
+                wrongQueue.push(payload);
+                console.log(wrongQueue);
+                await storageService.set('offline_wrong_scan_queue', wrongQueue);
+            };
+
+            handleWrongScanSync();
+
             await presentAlert.presentAlert(
                 'Sai thứ tự tuần tra',
                 nextPointRequired.cpName,
@@ -101,13 +136,14 @@ export const scannerService = {
             );
             return;
         }
-        // --- KẾT THÚC LOGIC KIỂM TRA LỘ TRÌNH ---
 
+        // ==========================================
+        // QUÉT ĐÚNG LOGIC TỪ ĐÂY XUỐNG
+        // ==========================================
         try {
             let finalData = null;
             const isOnline = store.state.isOnline;
 
-            // Xử lý lấy dữ liệu Online
             if (isOnline) {
                 try {
                     const res = await CheckPointScanQr.getCheckPointScanQr(listScanQr);
@@ -115,7 +151,6 @@ export const scannerService = {
                     if (Array.isArray(actualData)) actualData = actualData[0];
                     if (actualData) {
                         finalData = actualData;
-                        // Lưu bản nháp CHẤT LƯỢNG CAO xuống máy
                         await storageService.set(`checkpoint_${listScanQr.cpwId}`, actualData);
                     }
                 } catch (e) {
@@ -123,55 +158,40 @@ export const scannerService = {
                 }
             }
 
-            // ==========================================
-            // 2. CHỐT KHÓA 2: XỬ LÝ LẤY DATA OFFLINE THÔNG MINH
-            // ==========================================
             if (!finalData) {
-                // Ưu tiên 1: Bản nháp chất lượng cao (giữ nguyên)
                 finalData = await storageService.get(`checkpoint_${listScanQr.cpwId}`);
 
-                // Ưu tiên 2: Tìm trong kho tổng
                 if (!finalData) {
                     const response = await storageService.get('checkpoints');
-                    console.log("Dữ liệu kho checkpoints lấy lên:", response);
-
                     let allCheckpoints = [];
-
-                    // BÓC TÁCH CHUẨN THEO JSON BẠN CUNG CẤP
-                    // Vì JSON của bạn là { data: [ {cpId: 0, ...} ], success: true }
                     if (response && response.data && Array.isArray(response.data)) {
                         allCheckpoints = response.data;
                     } else if (Array.isArray(response)) {
                         allCheckpoints = response;
                     }
-
-                    // TIẾN HÀNH TÌM KIẾM
-                    finalData = allCheckpoints.find((item: any) =>
-                        String(item.cpId) === String(listScanQr.cpwId)
-                    );
+                    finalData = allCheckpoints.find((item: any) => String(item.cpId) === String(listScanQr.cpwId));
                 }
             }
 
             if (finalData) {
-                console.log("Tìm thấy điểm tuần tra:", finalData);
+                // 2. KHI QUÉT ĐÚNG: LƯU TỌA ĐỘ VÀO VUEX & SQLITE
+                // Trang Create gọi ra là dùng được luôn, không cần load lại!
+                if (locationData) {
+                    store.commit('SET_CURRENT_LOCATION', locationData);
+                    await storageService.set('last_known_location', locationData);
+                }
+
                 store.commit('SET_DATASCANQR', finalData);
                 await storageService.set('data_scanqr', finalData);
                 await storageService.set('currentTime_scanqr', currentTimeString);
 
-                // Chuyển sang màn hình tạo báo cáo
                 router.replace({
                     path: '/checkpoint/create',
-                    query: {
-                        routeId: routeId,
-                        t: Date.now()
-                    }
+                    query: { routeId: routeId, t: Date.now() }
                 });
             } else {
                 await presentAlert.presentAlert('Thông báo', '', 'Không tìm thấy thông tin điểm này trong dữ liệu hệ thống.');
             }
-
-            console.log("ID cần tìm:", listScanQr.cpwId);
-            console.log("Kết quả tìm thấy:", finalData);
         } catch (error) {
             await presentAlert.presentAlert('Lỗi', '', 'Hệ thống không thể xử lý mã quét.');
         }

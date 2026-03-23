@@ -389,6 +389,12 @@ const handleSubmit = async (): Promise<void> => {
     const scanAt = await storageService.get('currentTime_scanqr');
     const activeRoute = currentActiveRoute.value;
     const finalPsId = activeRoute?.psId || store.state.psId;
+    let loc = store.state.currentLocation;
+    if (!loc) {
+      loc = await storageService.get('last_known_location') || { lat: 0, lng: 0, accuracy: 0 };
+    }
+
+    console.log(dataScanQr.value);
 
     // Tạo Payload hoàn chỉnh
     const formSubmitData = {
@@ -400,9 +406,11 @@ const handleSubmit = async (): Promise<void> => {
       prNote: formData.prNote,
       cpId: currentCpId,
       createdBy: userId,
-      prLat: 0,
-      prLng: 0,
-      prAccuracy: 0,
+      cpLat: dataScanQr.value.cpLat,
+      cpLng: dataScanQr.value.cpLng,
+      prLat: loc.lat,
+      prLng: loc.lng,
+      prAccuracy: loc.accuracy,
       scanAt: scanAt || currentTimeString,
       noteGroups: finalNoteGroups,
     };

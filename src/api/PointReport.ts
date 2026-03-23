@@ -23,9 +23,11 @@ export default {
       scanAt: data.scanAt,
       noteGroups: data.noteGroups,
       prNote: data.prNote,
+      cpLat: data.cpLat,
+      cpLng: data.cpLng,
       prLat: data.prLat,
       prLng: data.prLng,
-      prprAccuracy: data.prprAccuracy
+      prAccuracy: data.prAccuracy
     })
   }
 };

@@ -95,7 +95,8 @@ const safeSync = async (isInitApp = false) => {
   // Đọc xem trong máy có báo cáo Offline nào đang kẹt không?
   await loadPendingItems();
   const deleteQueue = (await storage.get('offline_delete_queue')) || [];
-  const hasOfflineData = pendingItems.value.length > 0 || deleteQueue.length > 0;
+  const wrongScanQueue = (await storage.get('offline_wrong_scan_queue')) || [];
+  const hasOfflineData = pendingItems.value.length > 0 || deleteQueue.length > 0 || wrongScanQueue.length > 0;;
 
   // LƯỚI LỌC LOGIC THÔNG MINH Ở ĐÂY:
   // Nếu chỉ là có mạng lại (không phải F5) VÀ không có data offline -> THOÁT LUÔN!

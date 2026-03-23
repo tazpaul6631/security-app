@@ -89,6 +89,7 @@ import { scannerService } from '@/services/scanner.service';
 import storageService from '@/services/storage.service';
 import PatrolShiftView from '@/api/PatrolShiftView';
 import presentAlert from '@/mixins/presentAlert';
+import { Geolocation } from '@capacitor/geolocation';
 
 // IMPORT GLOBAL TIMER
 import { useRouteTimer } from '@/composables/useRouteTimer';
@@ -231,7 +232,7 @@ watch(() => currentActiveRoute.value, async (newRoute) => {
 // 3. CÁC HÀM XỬ LÝ QUÉT MÃ (Sắp xếp lên trên)
 // ==========================================
 // Hàm xử lý kết quả quét chung (Cả Camera và Unitech đều gọi hàm này)
-const processScannedData = async (qrCodeString: string, routeId: number) => {
+const processScannedData = async (qrCodeString: string, routeId: number, locationData: any) => {
     if (!qrCodeString) return;
 
     // 1. Khởi tạo Loading
@@ -245,7 +246,7 @@ const processScannedData = async (qrCodeString: string, routeId: number) => {
 
     try {
         // Gọi logic xử lý nặng (Check lộ trình, API, SQLite)
-        await scannerService.processQRString(store, router, routeId, qrCodeString);
+        await scannerService.processQRString(store, router, routeId, qrCodeString, locationData);
 
     } catch (error) {
         console.error("Lỗi xử lý dữ liệu quét:", error);
@@ -259,11 +260,17 @@ const processScannedData = async (qrCodeString: string, routeId: number) => {
 let scanBuffer = '';
 let scanTimeout: any = null;
 
-const handleHardwareScan = (e: KeyboardEvent) => {
+const handleHardwareScan = async (e: KeyboardEvent) => {
     if (store.state.isSyncing) return;
     if (e.key === 'Enter') {
         if (scanBuffer.length > 3 && currentActiveRoute.value) {
-            processScannedData(scanBuffer, currentActiveRoute.value.routeId);
+            const bufferCopy = scanBuffer;
+            scanBuffer = '';
+
+            const locData = await checkLocationReady();
+            if (!locData) return;
+
+            processScannedData(bufferCopy, currentActiveRoute.value.routeId, locData);
         }
         scanBuffer = '';
         return;
@@ -285,14 +292,17 @@ const handleContinueScanning = async (routeId: number) => {
         document.activeElement.blur();
     }
     if (isScanning.value) return;
-    isScanning.value = true;
+
+    isScanning.value = true; // Khóa nút bấm ngay lập tức để tránh bấm đúp
 
     try {
         const result: any = await scannerService.startScanning(store, router, routeId);
 
         // Nếu user bấm dấu X, kết quả thường trả về null hoặc undefined (không nhảy vào catch)
         if (result && typeof result === 'string') {
-            await processScannedData(result, routeId);
+            const locData = await checkLocationReady();
+            if (!locData) return;
+            await processScannedData(result, routeId, locData);
         }
     } catch (error: any) {
         console.error("Lỗi scanner:", error);
@@ -415,10 +425,14 @@ onMounted(async () => {
     window.addEventListener('keydown', handleHardwareScan);
 
     // 2. Lắng nghe từ Android Bridge
-    (window as any).returnResult = (data: any) => {
+    (window as any).returnResult = async (data: any) => {
         if (currentActiveRoute.value && data) {
+
+            const locData = await checkLocationReady();
+            if (!locData) return;
+
             let qrString = typeof data === 'string' ? data : JSON.stringify(data);
-            processScannedData(qrString, currentActiveRoute.value.routeId);
+            processScannedData(qrString, currentActiveRoute.value.routeId, locData);
         }
     };
 
@@ -450,7 +464,7 @@ const cancelButtons = [
         role: 'confirm',
         cssClass: 'alert-button-confirm',
         handler: async () => {
-            if (isCancelling.value) return false; // Chặn nếu đang xử lý
+            if (isCancelling.value) return false;
             isCancelling.value = true;
             try {
                 const currentRoute = currentActiveRoute.value;
@@ -502,6 +516,43 @@ const cancelButtons = [
         }
     }
 ];
+
+// ==========================================
+// KIỂM TRA ĐỊNH VỊ (GPS)
+// ==========================================
+const checkLocationReady = async (): Promise<any | null> => {
+    try {
+        let perm = await Geolocation.checkPermissions();
+        if (perm.location !== 'granted') {
+            perm = await Geolocation.requestPermissions();
+        }
+        if (perm.location !== 'granted') {
+            await presentAlert.presentAlert('Cảnh báo', '', 'Bạn cần cấp quyền vị trí để đi tuần tra.');
+            return null; // Trả về null nếu thất bại
+        }
+
+        const position = await Geolocation.getCurrentPosition({
+            timeout: 15000,
+            enableHighAccuracy: true,
+            maximumAge: 10000
+        });
+
+        // TRẢ VỀ DATA TỌA ĐỘ THAY VÌ LƯU VUEX TẠI ĐÂY
+        return {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+            accuracy: position.coords.accuracy
+        };
+    } catch (error: any) {
+        console.error("Lỗi GPS:", error);
+        await presentAlert.presentAlert(
+            'Chưa bật Định vị',
+            '',
+            'Vui lòng BẬT ĐỊNH VỊ (GPS) trên điện thoại trước khi quét mã!'
+        );
+        return null;
+    }
+};
 </script>
 
 <style scoped>
