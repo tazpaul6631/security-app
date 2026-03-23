@@ -39,31 +39,51 @@ const { syncData, loadPendingItems, pendingItems } = useOfflineManager();
 const { initDatabase } = useSQLite();
 const isAppReady = ref(false);
 
+const getDynamicAreaIds = (userAreaId: number) => {
+  const areaMapping: Record<number, number[]> = {
+    1: [1, 2],
+    3: [3]
+  };
+  return areaMapping[userAreaId] || [userAreaId];
+};
+
 // --- CHỐT CHẶN BẰNG WINDOW ĐỂ CHỐNG RE-MOUNT ---
-const getGlobalApiList = (userData: any) => ({
-  checkpoints: () => CheckPointScanQr.postCheckPointView(),
-  checkpoints_id: () => PointReport.postPointReportView(),
-  area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),
+const getGlobalApiList = (userData: any) => {
+  if (!userData) {
+    console.warn("Chưa có userData khi gọi getGlobalApiList");
+    return {};
+  }
 
-  list_route: () => {
-    // Lấy khóa dở dang từ Store
-    const lockedPsId = store.state.psId;
+  const checkpointPayload = {
+    areaIds: getDynamicAreaIds(userData.userAreaId),
+    roleIdStr: String(userData.userRoleId)
+  };
 
-    // Nếu có khóa, gửi yêu cầu lấy đích danh ca trực đó
-    if (lockedPsId) {
-      return PatrolShiftView.postPatrolShiftView({
-        ...userData,
-        psId: lockedPsId
-      });
-    }
+  return {
+    checkpoints: () => CheckPointScanQr.postCheckPointView(checkpointPayload),
+    checkpoints_id: () => PointReport.postPointReportView(),
+    area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),
 
-    // Nếu không có khóa (rảnh rỗi), lấy ca theo giờ hiện tại bình thường
-    return PatrolShiftView.postPatrolShiftView(userData);
-  },
+    list_route: () => {
+      // Lấy khóa dở dang từ Store
+      const lockedPsId = store.state.psId;
 
-  report_note_category: () => ReportNoteCategory.getReportNoteCategory(),
-  base_point_report: () => PointReport.postBasePointReportView(0),
-});
+      // Nếu có khóa, gửi yêu cầu lấy đích danh ca trực đó
+      if (lockedPsId) {
+        return PatrolShiftView.postPatrolShiftView({
+          ...userData,
+          psId: lockedPsId
+        });
+      }
+
+      // Nếu không có khóa (rảnh rỗi), lấy ca theo giờ hiện tại bình thường
+      return PatrolShiftView.postPatrolShiftView(userData);
+    },
+
+    report_note_category: () => ReportNoteCategory.getReportNoteCategory(),
+    base_point_report: () => PointReport.postBasePointReportView(0),
+  };
+};
 
 // Hàm đồng bộ an toàn dùng chung
 let isSafeSyncing = false;

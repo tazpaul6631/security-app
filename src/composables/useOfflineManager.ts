@@ -101,6 +101,9 @@ export function useOfflineManager() {
       reportImages: [] // Giao diện ảo cũng không cần ôm ảnh
     };
 
+    console.log(mockReport);
+
+
     await presentToast('Đã lưu vào hàng chờ. Sẽ tự động gửi khi có mạng.');
     storeInstance.commit('ADD_OFFLINE_REPORT', mockReport);
   };
@@ -123,6 +126,8 @@ export function useOfflineManager() {
 
     if (storeInstance.state.isOnline) {
       try {
+        console.log(newItem.data);
+
         const result = await PointReport.createPointReport(newItem.data);
         const realReport = result?.data?.data || result?.data || result;
 
@@ -233,6 +238,8 @@ export function useOfflineManager() {
         }
 
         try {
+          console.log(item);
+
           const result = await PointReport.createPointReport(item.data);
           const realReport = result?.data?.data || result?.data || result;
 

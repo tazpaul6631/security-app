@@ -23,7 +23,6 @@ const store = createStore({
       psId: null,
       unfinishedRouteId: null,
 
-      // Quản lý đồng bộ
       syncProgress: 0,
       syncMessage: '',
       isOnline: true,
@@ -67,7 +66,7 @@ const store = createStore({
       const mappedApiData = apiData.map((apiRoute: any) => {
         const localRoute = localRoutes.find((r: any) =>
           Number(r.routeId) === Number(apiRoute.routeId) &&
-          Number(r.psId) === Number(apiRoute.psId) // Thêm check psId để không map nhầm ca mới
+          Number(r.psId) === Number(apiRoute.psId)
         );
         return {
           ...apiRoute,
@@ -199,7 +198,7 @@ const store = createStore({
         }
       } else {
         storageService.remove('unfinished_route_id');
-        storageService.remove('current_ps_id'); // Xóa luôn khi không còn ca dở dang
+        storageService.remove('current_ps_id');
       }
     },
 
@@ -316,7 +315,7 @@ const store = createStore({
           ...route,
           routeDetails: route.routeDetails.map((detail: any) => ({
             ...detail,
-            status: 0 // Ép tất cả về 0
+            status: 0
           }))
         };
       });
@@ -341,8 +340,8 @@ const store = createStore({
       state.currentTime = null;
       state.isHydrated = false;
       state.routeId = null;
-      state.psId = null;              // Thêm dòng này
-      state.unfinishedRouteId = null;  // Thêm dòng này
+      state.psId = null;
+      state.unfinishedRouteId = null;
       state.syncProgress = 0;
       state.syncMessage = '';
       state.isSyncing = false;
@@ -461,11 +460,9 @@ const store = createStore({
           'restoreCheckpoints',
           'restoreCheckpointsId',
           'restoreAreaBU',
-          // ĐƯA 3 HÀM RESTORE KHÓA LÊN TRƯỚC TIÊN
           'restoreRouteId',
           'restoreUnfinishedRouteId',
           'restorePsId',
-          // LẤY DANH SÁCH LỘ TRÌNH SAU KHI ĐÃ CÓ KHÓA
           'restoreListRoute',
           'restoreReportNoteCategory',
           'restoreBasePointReportView',
@@ -697,16 +694,28 @@ const store = createStore({
       }
     },
 
-    // Thêm vào phần actions trong store/index.ts
-    // Trong store/index.ts -> actions
     async logout({ commit }) {
       console.log('--- [LOGOUT] Đang dọn dẹp dữ liệu ---');
 
-      // 1. Xóa sạch RAM
+      // 1. BẢO LƯU DANH SÁCH TÀI KHOẢN OFFLINE TRƯỚC KHI XÓA
+      let offlineUsers = null;
+      try {
+        offlineUsers = await storageService.get('offline_users_dict');
+      } catch (e) {
+        console.error("Không lấy được danh sách offline trước khi xóa", e);
+      }
+
+      // 2. Xóa sạch RAM
       commit('CLEAR_ALL_DATA');
 
-      // 2. Xóa sạch Ổ CỨNG thông qua Service đã có
+      // 3. Xóa sạch Ổ CỨNG
       await storageService.clear();
+
+      // 4. PHỤC HỒI LẠI DANH SÁCH TÀI KHOẢN OFFLINE
+      if (offlineUsers && Object.keys(offlineUsers).length > 0) {
+        await storageService.set('offline_users_dict', offlineUsers);
+        console.log('✅ Đã phục hồi danh sách tài khoản Offline an toàn.');
+      }
 
       console.log('✅ Đã dọn dẹp xong RAM và SQLite.');
     }

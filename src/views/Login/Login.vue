@@ -79,6 +79,14 @@ const hashPassword = (password: string) => {
     return CryptoJS.SHA256(password).toString();
 };
 
+const getDynamicAreaIds = (userAreaId: number) => {
+    const areaMapping: Record<number, number[]> = {
+        1: [1, 2],
+        3: [3]
+    };
+    return areaMapping[userAreaId] || [userAreaId];
+};
+
 const handleLogin = async () => {
     if (isButtonDisabled.value) return;
 
@@ -119,9 +127,14 @@ const handleLogin = async () => {
                 };
                 await storageService.set('offline_users_dict', offlineUsers);
 
+                const checkpointPayload = {
+                    areaIds: getDynamicAreaIds(userData.userAreaId),
+                    roleIdStr: String(userData.userRoleId) // Ép kiểu thành string "4" theo như API yêu cầu
+                };
+
                 // 2. CHUẨN BỊ DANH SÁCH ĐỒNG BỘ RIÊNG CHO USER NÀY
                 const apiList = {
-                    checkpoints: () => CheckPointScanQr.postCheckPointView(),
+                    checkpoints: () => CheckPointScanQr.postCheckPointView(checkpointPayload),
                     checkpoints_id: () => PointReport.postPointReportView(),
                     // Lấy khu vực của User
                     area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),

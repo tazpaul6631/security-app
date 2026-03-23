@@ -6,7 +6,7 @@
                     <ion-back-button default-href="/home"></ion-back-button>
                 </ion-buttons>
                 <ion-title>
-                    User
+                    Users
                 </ion-title>
             </ion-toolbar>
         </ion-header>
@@ -38,7 +38,7 @@
                                 </p> - {{ user.userRoleCode }}
                             </ion-card-subtitle>
                             <ion-card-subtitle class="padding-text">{{ user.userAreaName }} - {{ user.userAreaCode
-                                }}</ion-card-subtitle>
+                            }}</ion-card-subtitle>
                         </div>
                     </div>
                 </ion-card-header>

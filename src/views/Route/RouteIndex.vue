@@ -5,7 +5,7 @@
                 <ion-buttons slot="start">
                     <ion-back-button default-href="/home"></ion-back-button>
                 </ion-buttons>
-                <ion-title>Lộ trình tuần tra</ion-title>
+                <ion-title>Routes</ion-title>
             </ion-toolbar>
         </ion-header>
 

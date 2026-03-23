@@ -21,7 +21,11 @@ export default {
       createdAt: data.createdAt,
       createdBy: data.createdBy,
       scanAt: data.scanAt,
-      noteGroups: data.noteGroups
+      noteGroups: data.noteGroups,
+      prNote: data.prNote,
+      prLat: data.prLat,
+      prLng: data.prLng,
+      prprAccuracy: data.prprAccuracy
     })
   }
 };
