@@ -5,7 +5,7 @@
                 <ion-buttons slot="start">
                     <ion-back-button default-href="/home"></ion-back-button>
                 </ion-buttons>
-                <ion-title>Tutorial</ion-title>
+                <ion-title>{{ $t('page.tutorial') }}</ion-title>
             </ion-toolbar>
         </ion-header>
 

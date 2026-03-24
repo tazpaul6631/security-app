@@ -5,7 +5,7 @@
                 <ion-buttons slot="start">
                     <ion-back-button default-href="/home"></ion-back-button>
                 </ion-buttons>
-                <ion-title>Role Management</ion-title>
+                <ion-title>{{ $t('page.roles') }}</ion-title>
             </ion-toolbar>
         </ion-header>
 

@@ -3,14 +3,18 @@
     <div class="ion-page" id="main-app-content">
       <ion-header class="nav-header">
         <ion-toolbar>
-          <ion-button fill="clear" @click="goBackAndClearHistory" color="medium" slot="start">
-            <strong>
-              Internal
-              <ion-text color="danger" style="margin-left: 1px;">Patrol</ion-text>
-            </strong>
-          </ion-button>
 
-          <div slot="end" style="display: flex; align-items: center;">
+          <ion-buttons slot="start">
+            <ion-button fill="clear" @click="goBackAndClearHistory" color="medium">
+              <img class="logo-company" src="/assets/icon.png" alt="logo-company"></img>
+              <strong>
+                Internal
+                <ion-text color="danger" style="margin-left: 1px;">Patrol</ion-text>
+              </strong>
+            </ion-button>
+          </ion-buttons>
+
+          <ion-buttons slot="end" style="display: flex; align-items: center;">
 
             <div :style="{ visibility: isSyncing ? 'visible' : 'hidden' }" class="sync-container pulse-animation">
               <ion-spinner name="crescent" color="primary" class="small-spinner"></ion-spinner>
@@ -20,11 +24,15 @@
             </div>
 
             <ion-badge :class="isOnline ? 'status-online' : 'status-offline'" class="ion-margin-horizontal">
-              {{ isOnline ? 'Online' : 'Offline' }}
+              {{ isOnline ? $t('layout.online') : $t('layout.offline') }}
             </ion-badge>
 
-            <ion-icon class="ion-margin-end button_logout" :icon="exitOutline" @click="handleLogout"></ion-icon>
-          </div>
+            <ion-button @click="handleLogout" color="dark">
+              <ion-icon class="button_logout" :icon="exitOutline"></ion-icon>
+            </ion-button>
+
+          </ion-buttons>
+
         </ion-toolbar>
       </ion-header>
 
@@ -38,7 +46,7 @@
 <script setup lang="ts">
 import {
   IonButton, IonContent, IonHeader, IonPage, IonToolbar, IonRouterOutlet,
-  IonIcon, alertController, IonBadge, useIonRouter, IonText, IonSpinner
+  IonIcon, alertController, IonBadge, useIonRouter, IonText, IonSpinner, IonButtons
 } from '@ionic/vue';
 import { computed } from 'vue';
 import { exitOutline } from 'ionicons/icons';
@@ -236,5 +244,50 @@ div[slot='content'] {
 .ion-margin-horizontal {
   width: fit-content;
   border-radius: 10px;
+}
+
+.logo-company {
+  width: fit-content;
+  max-height: 17px;
+  object-fit: contain;
+  margin-right: 4px;
+}
+
+
+/* 1. NGĂN RỚT DÒNG CỤM LOGO & TITLE BÊN TRÁI */
+.nav-header ion-button strong {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  /* Nếu màn hình quá nhỏ sẽ hiển thị "Internal..." thay vì tràn ra ngoài */
+}
+
+/* 2. ÉP CỤM BÊN PHẢI NẰM TRÊN 1 HÀNG NGANG */
+.nav-header ion-buttons[slot="end"] {
+  flex-wrap: nowrap;
+  /* Cấm bẻ dòng */
+}
+
+/* 3. NGĂN CÁC PHẦN TỬ BỊ BÓP MÉO KHI MÀN HÌNH NHỎ */
+.sync-container {
+  white-space: nowrap;
+  flex-shrink: 0;
+  /* Giữ nguyên kích thước, không bị ép nhỏ lại */
+  margin-right: 8px;
+  /* Chỉnh lại margin cho vừa vặn */
+}
+
+.status-online,
+.status-offline {
+  white-space: nowrap;
+  flex-shrink: 0;
+  /* Không cho badge bị ép lún chữ */
+}
+
+/* 4. TỐI ƯU KHOẢNG CÁCH NÚT LOGOUT CHO MÀN HÌNH NHỎ */
+.nav-header ion-buttons[slot="end"] ion-button {
+  --padding-start: 8px;
+  --padding-end: 8px;
+  margin: 0;
+  /* Cắt giảm margin thừa mặc định của Ionic */
 }
 </style>

@@ -1,0 +1,36 @@
+{
+    "login": {
+        "title": "Đăng nhập",
+        "username": "Tên đăng nhập",
+        "password": "Mật khẩu",
+        "btn_login": "Đăng nhập",
+        "lang_select": "Chọn ngôn ngữ",
+        "cancel": "Hủy bỏ"
+    },
+    "layout": {
+        "warning": "Cảnh báo",
+        "understood": "Đã hiểu",
+        "online": "Trực tuyến",
+        "offline": "Ngoại tuyến"
+    },
+    "home": {
+        "roles": "Vai Trò",
+        "users": "Người Dùng",
+        "areas": "Khu Vực",
+        "routes": "Lộ Trình",
+        "reports": "Báo Cáo",
+        "tutorial": "Hướng Dẫn"
+    },
+    "page": {
+        "roles": "Vai Trò",
+        "users": "Người Dùng",
+        "areas": {
+            "index": "Khu vực",
+            "detail": "Chi tiết khu vực",
+            "report": "Báo cáo khu vực"
+        },
+        "routes": "Lộ Trình",
+        "reports": "Báo Cáo",
+        "tutorial": "Hướng Dẫn"
+    }
+}

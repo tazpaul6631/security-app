@@ -36,7 +36,7 @@
               <div :button="true" v-if="item.roleId" class="menu-item" @click="handleClickIcon(item.mcId)">
                 <ion-icon :icon="getRoleData(item.mcId).icon" class="menu-icon" :class="getRoleData(item.mcId).color">
                 </ion-icon>
-                <span class="text-mcName">{{ item.mcName }}</span>
+                <span class="text-mcName">{{ $t(getRoleData(item.mcId).name) }}</span>
               </div>
             </ion-col>
           </ion-row>
@@ -65,20 +65,19 @@ const store = useStore();
 // Lấy dataUser từ Vuex, nếu không có sẽ hiển thị giá trị mặc định trong template
 const dataUser = computed(() => store.state.dataUser);
 const allowViews = computed(() => dataUser.value?.allowViews || []);
-console.log(dataUser);
 
 const listRoles = ref([
-  { mcId: 1, icon: `${personCircle}`, color: 'color-orange', router: '/role' },
-  { mcId: 2, icon: `${people}`, color: 'color-slate', router: '/user' },
-  { mcId: 3, icon: `${location}`, color: 'color-red', router: '/area' },
-  { mcId: 4, icon: `${footstepsOutline}`, color: 'color-gold', router: '/route' },
-  { mcId: 5, icon: `${barChartOutline}`, color: 'color-blue', router: '/report' },
-  { mcId: 6, icon: `${alertCircleOutline}`, color: 'color-grey', router: '/tutorial' },
+  { mcId: 1, icon: `${personCircle}`, name: 'home.roles', color: 'color-orange', router: '/role' },
+  { mcId: 2, icon: `${people}`, name: 'home.users', color: 'color-slate', router: '/user' },
+  { mcId: 3, icon: `${location}`, name: 'home.areas', color: 'color-red', router: '/area' },
+  { mcId: 4, icon: `${footstepsOutline}`, name: 'home.users', color: 'color-gold', router: '/route' },
+  { mcId: 5, icon: `${barChartOutline}`, name: 'home.reports', color: 'color-blue', router: '/report' },
+  { mcId: 6, icon: `${alertCircleOutline}`, name: 'home.tutorial', color: 'color-grey', router: '/tutorial' },
 ])
 
 const getRoleData = (mcId: number) => {
   const role = listRoles.value.find(r => r.mcId === mcId);
-  return role ? role : { icon: '', color: '', router: '' };
+  return role ? role : { icon: '', color: '', router: '', name: '' };
 };
 
 const handleClickIcon = (id: number) => {

@@ -5,7 +5,7 @@
                 <ion-buttons slot="start">
                     <ion-back-button default-href="/home"></ion-back-button>
                 </ion-buttons>
-                <ion-title>Areas</ion-title>
+                <ion-title>{{ $t('page.areas.index') }}</ion-title>
             </ion-toolbar>
         </ion-header>
 
@@ -73,7 +73,7 @@
                                     <ion-col size="6" class="ion-text-end">
                                         <div class="note-container">
                                             <ion-label class="labelItem" color="medium">{{ item.reportName || 'Tuần tra'
-                                            }}</ion-label>
+                                                }}</ion-label>
 
                                             <ion-badge
                                                 :color="item.realityPoint >= item.planPoint ? 'success' : 'medium'"
@@ -155,7 +155,7 @@
                                 <ion-col class="ion-text-end">
                                     <ion-label class="labelItem">{{ item.reportName }}</ion-label>
                                     <ion-note class="labelItem">{{ item.reportAt?.replace('T', ' ').slice(0, 16)
-                                        }}</ion-note>
+                                    }}</ion-note>
                                 </ion-col>
                             </ion-row>
                         </ion-grid>

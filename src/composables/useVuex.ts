@@ -714,7 +714,18 @@ const store = createStore({
       commit('CLEAR_ALL_DATA');
 
       // 3. Xóa sạch Ổ CỨNG
-      await storageService.clear();
+      const keysToRemove = [
+        'user_token',
+        'user_data',
+        'current_route_id',
+        'unfinished_route_id',
+        'current_ps_id',
+        'data_scanqr',
+      ];
+
+      for (const key of keysToRemove) {
+        await storageService.remove(key);
+      }
 
       // 4. PHỤC HỒI LẠI DANH SÁCH TÀI KHOẢN OFFLINE
       if (offlineUsers && Object.keys(offlineUsers).length > 0) {

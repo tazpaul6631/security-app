@@ -16,10 +16,7 @@
                             </ion-col>
                         </ion-row>
                         <ion-row>
-                            <ion-col>{{ dataScanQr.cpCode }}</ion-col>
-                        </ion-row>
-                        <ion-row>
-                            <ion-col>{{ dataScanQr.cpName }}</ion-col>
+                            <ion-col>{{ dataScanQr.cpCode }} - {{ dataScanQr.cpName }}</ion-col>
                         </ion-row>
                     </ion-card-header>
                 </ion-col>

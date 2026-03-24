@@ -1,34 +1,37 @@
 <template>
     <ion-page>
+        <ion-fab vertical="top" horizontal="end" slot="fixed" class="ion-padding">
+            <ion-button fill="clear" color="dark" @click="openLanguageSheet">
+                <ion-icon :icon="globeOutline" slot="start"></ion-icon>
+                {{ currentLangLabel }}
+            </ion-button>
+        </ion-fab>
+
         <ion-content class="login-content">
             <div class="flex-container">
                 <ion-card class="login-card">
                     <ion-card-header>
-                        <ion-card-title size="large">Login</ion-card-title>
+                        <ion-card-title size="large">{{ $t('login.title') }}</ion-card-title>
                     </ion-card-header>
 
                     <ion-card-content>
-                        <ion-input v-model="loginDetail.userCode" label="Username" label-placement="floating"
-                            fill="outline" type="email" placeholder="Enter Username" :clear-input="true"
+                        <ion-input v-model="loginDetail.userCode" :label="$t('login.username')"
+                            label-placement="floating" fill="outline" type="text" :clear-input="true"
                             class="ion-margin-bottom" @ion-blur="markTouched"></ion-input>
 
                         <br>
 
-                        <ion-input v-model="loginDetail.userPassword" label="Password" label-placement="floating"
-                            fill="outline" placeholder="Enter Password" type="password" @keyup.enter="handleLogin">
+                        <ion-input v-model="loginDetail.userPassword" :label="$t('login.password')"
+                            label-placement="floating" fill="outline" type="password" @keyup.enter="handleLogin">
                             <ion-input-password-toggle slot="end"></ion-input-password-toggle>
                         </ion-input>
 
                         <br>
 
-                        <div v-if="errorMessage" style="color: red; text-align: center;">
-                            {{ errorMessage }}
-                        </div>
-
                         <ion-button :disabled="isButtonDisabled || isLoading" @click="handleLogin" expand="block"
                             color="success" class="ion-margin-top">
                             <ion-spinner v-if="isLoading" name="crescent"></ion-spinner>
-                            <span v-else>Login</span>
+                            <span v-else>{{ $t('login.btn_login') }}</span>
                         </ion-button>
                     </ion-card-content>
                 </ion-card>
@@ -40,12 +43,15 @@
 <script setup lang="ts">
 import {
     IonCardHeader, IonCardTitle, IonButton, IonCard, IonInput, IonInputPasswordToggle,
-    IonCardContent, IonPage, IonSpinner, IonContent
+    IonCardContent, IonPage, IonSpinner, IonContent, IonFab, actionSheetController,
+    IonIcon
 } from '@ionic/vue';
+import { globeOutline } from 'ionicons/icons';
 import { useRouter } from 'vue-router';
-import { reactive, ref, computed } from 'vue';
+import { reactive, ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import CryptoJS from 'crypto-js';
+import { useI18n } from 'vue-i18n';
 
 // Các API và Service
 import Login from '@/api/Login';
@@ -188,6 +194,44 @@ const handleLogin = async () => {
         isLoading.value = false;
     }
 };
+
+// Khởi tạo i18n
+const { t, locale } = useI18n();
+
+// Hiển thị tên ngôn ngữ đang chọn
+const currentLangLabel = computed(() => {
+    if (locale.value === 'en') return 'EN';
+    if (locale.value === 'zh') return '中文';
+    return 'VN';
+});
+
+// Hàm mở bảng chọn ngôn ngữ
+const openLanguageSheet = async () => {
+    const actionSheet = await actionSheetController.create({
+        header: t('login.lang_select'),
+        buttons: [
+            { text: 'Tiếng Việt', handler: () => changeLanguage('vi') },
+            { text: 'English', handler: () => changeLanguage('en') },
+            { text: '中文', handler: () => changeLanguage('zh') },
+            { text: t('login.cancel'), role: 'cancel' }
+        ]
+    });
+    await actionSheet.present();
+};
+
+// Hàm lưu ngôn ngữ
+const changeLanguage = async (lang: string) => {
+    locale.value = lang; // Đổi UI lập tức
+    await storageService.set('app_language', lang); // Lưu xuống máy
+};
+
+// Khôi phục ngôn ngữ khi mở app
+onMounted(async () => {
+    const savedLang = await storageService.get('app_language');
+    if (savedLang) {
+        locale.value = savedLang;
+    }
+});
 </script>
 
 <style scoped>

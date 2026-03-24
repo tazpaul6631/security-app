@@ -1,0 +1,36 @@
+{
+    "login": {
+        "title": "Login",
+        "username": "Username",
+        "password": "Password",
+        "btn_login": "Login",
+        "lang_select": "Select Language",
+        "cancel": "Cancel"
+    },
+    "layout": {
+        "warning": "Warning",
+        "understood": "Got it",
+        "online": "Online",
+        "offline": "Offline"
+    },
+    "home": {
+        "roles": "Roles",
+        "users": "Users",
+        "areas": "Areas",
+        "routes": "Routes",
+        "reports": "Reports",
+        "tutorial": "Tutorial"
+    },
+    "page": {
+        "roles": "Roles",
+        "users": "Users",
+        "areas": {
+            "index": "Areas",
+            "detail": "Area Details",
+            "report": "Area Report"
+        },
+        "routes": "Routes",
+        "reports": "Reports",
+        "tutorial": "Tutorial"
+    }
+}

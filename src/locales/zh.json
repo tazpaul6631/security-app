@@ -1,0 +1,36 @@
+{
+    "login": {
+        "title": "登录",
+        "username": "用户名",
+        "password": "密码",
+        "btn_login": "登录",
+        "lang_select": "选择语言",
+        "cancel": "取消"
+    },
+    "layout": {
+        "warning": "警告",
+        "understood": "知道了",
+        "online": "在线",
+        "offline": "离线"
+    },
+    "home": {
+        "roles": "角色",
+        "users": "用户",
+        "areas": "区域",
+        "routes": "路线",
+        "reports": "报表",
+        "tutorial": "教程"
+    },
+    "page": {
+        "roles": "角色",
+        "users": "用户",
+        "areas": {
+            "index": "区域",
+            "detail": "区域详情",
+            "report": "区域报告"
+        },
+        "routes": "路线",
+        "reports": "报表",
+        "tutorial": "教程"
+    }
+}

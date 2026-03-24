@@ -5,9 +5,7 @@
         <ion-buttons slot="start">
           <ion-back-button default-href="/checkpoint"></ion-back-button>
         </ion-buttons>
-        <ion-title>
-          {{ getPrIdData?.cpCode || 'Chi tiết' }} #{{ getPrIdData?.prId || '' }}
-        </ion-title>
+        <ion-title>{{ $t('page.areas.detail') }}</ion-title>
       </ion-toolbar>
     </ion-header>
 

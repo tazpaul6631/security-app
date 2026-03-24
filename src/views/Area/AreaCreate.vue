@@ -7,7 +7,7 @@
             <ion-icon slot="icon-only" :icon="arrowBackOutline"></ion-icon>
           </ion-button>
         </ion-buttons>
-        <ion-title>Report Areas</ion-title>
+        <ion-title>{{ $t('page.areas.report') }}</ion-title>
       </ion-toolbar>
     </ion-header>
 

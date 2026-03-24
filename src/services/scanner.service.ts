@@ -28,7 +28,7 @@ export const scannerService = {
             return barcodes[0].rawValue || null;
         } catch (error) {
             console.error("Camera scan error:", error);
-            throw error; // Quăng lỗi để bên Vue component bắt được (như lỗi không có camera)
+            throw error;
         }
     },
 

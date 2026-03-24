@@ -27,6 +27,9 @@ import store from '@/composables/useVuex';
 import { Network } from '@capacitor/network';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 import storage from '@/services/storage.service';
+import { useI18n } from 'vue-i18n';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
 
 // Import APIs
 import PointReport from '@/api/PointReport';
@@ -157,7 +160,23 @@ const safeSync = async (isInitApp = false) => {
   }
 };
 
+const { locale } = useI18n();
+
 onMounted(async () => {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      // Style.Light có nghĩa là "Nền sáng" -> Hệ điều hành sẽ tự đổi chữ/icon thành MÀU ĐEN
+      await StatusBar.setStyle({ style: Style.Light });
+
+      // (Tùy chọn) Ép luôn nền của thanh trạng thái thành màu trắng cho đồng bộ (Thường dùng cho Android)
+      if (Capacitor.getPlatform() === 'android') {
+        await StatusBar.setBackgroundColor({ color: '#ffffff' });
+      }
+    } catch (error) {
+      console.warn('Không thể can thiệp thanh trạng thái:', error);
+    }
+  }
+
   // 1. Kiểm tra khóa ngay lập tức
   if ((window as any).APP_INITIALIZING || (window as any).APP_READY_LOCK) {
     console.log("Hệ thống đang khởi tạo hoặc đã sẵn sàng. Chặn luồng trùng lặp.");
@@ -171,6 +190,12 @@ onMounted(async () => {
   try {
     // Luồng khởi tạo chính
     await initDatabase();
+
+    const savedLang = await storage.get('app_language');
+    if (savedLang) {
+      locale.value = savedLang;
+    }
+
     await Promise.all([
       store.dispatch('restoreToken'),
       store.dispatch('restoreUser')

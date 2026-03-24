@@ -5,7 +5,7 @@
                 <ion-buttons slot="start">
                     <ion-back-button default-href="/home"></ion-back-button>
                 </ion-buttons>
-                <ion-title>Routes</ion-title>
+                <ion-title>{{ $t('page.routes') }}</ion-title>
             </ion-toolbar>
         </ion-header>
 
@@ -232,21 +232,24 @@ watch(() => currentActiveRoute.value, async (newRoute) => {
 // 3. CÁC HÀM XỬ LÝ QUÉT MÃ (Sắp xếp lên trên)
 // ==========================================
 // Hàm xử lý kết quả quét chung (Cả Camera và Unitech đều gọi hàm này)
-const processScannedData = async (qrCodeString: string, routeId: number, locationData: any) => {
+const processScannedData = async (qrCodeString: string, routeId: number) => {
     if (!qrCodeString) return;
 
     // 1. Khởi tạo Loading
     const loading = await loadingController.create({
         message: 'Đang kiểm tra điểm quét...',
         spinner: 'crescent',
-        cssClass: 'custom-loading' // Nếu bạn muốn style riêng
+        cssClass: 'custom-loading' // Nếu muốn style riêng
     });
 
     await loading.present();
 
     try {
+
+        const locData = await checkLocationReady();
+        if (!locData) return;
         // Gọi logic xử lý nặng (Check lộ trình, API, SQLite)
-        await scannerService.processQRString(store, router, routeId, qrCodeString, locationData);
+        await scannerService.processQRString(store, router, routeId, qrCodeString, locData);
 
     } catch (error) {
         console.error("Lỗi xử lý dữ liệu quét:", error);
@@ -267,10 +270,7 @@ const handleHardwareScan = async (e: KeyboardEvent) => {
             const bufferCopy = scanBuffer;
             scanBuffer = '';
 
-            const locData = await checkLocationReady();
-            if (!locData) return;
-
-            processScannedData(bufferCopy, currentActiveRoute.value.routeId, locData);
+            processScannedData(bufferCopy, currentActiveRoute.value.routeId);
         }
         scanBuffer = '';
         return;
@@ -300,9 +300,7 @@ const handleContinueScanning = async (routeId: number) => {
 
         // Nếu user bấm dấu X, kết quả thường trả về null hoặc undefined (không nhảy vào catch)
         if (result && typeof result === 'string') {
-            const locData = await checkLocationReady();
-            if (!locData) return;
-            await processScannedData(result, routeId, locData);
+            await processScannedData(result, routeId);
         }
     } catch (error: any) {
         console.error("Lỗi scanner:", error);
@@ -358,11 +356,15 @@ const hasDataButFinished = computed(() => {
 // ==========================================
 // 4. LIFECYCLE VÀ API (onMounted để bên dưới các hàm trên)
 // ==========================================
-const updateSystemTime = () => {
+const updateSystemTime = async () => {
     const now = new Date();
     const hourNow = now.getHours();
     if (hourNow !== currentHour.value) {
         currentHour.value = hourNow;
+
+        if (currentActiveRoute.value == null || lockedRouteId.value === null) {
+            await loadRouteData();
+        }
     }
 };
 
@@ -372,16 +374,8 @@ const handleAppWakeUp = () => {
     }
 };
 
-onIonViewWillEnter(async () => {
+const loadRouteData = async () => {
     isLoading.value = true;
-
-    // Đảm bảo Store đã khôi phục dữ liệu từ SQLite (bao gồm cả unfinishedRouteId)
-    if (!store.state.isHydrated) {
-        await store.dispatch('initApp');
-    }
-
-    updateSystemTime();
-    userRoleIsAdmin.value = store.state.dataUser?.userRoleIsAdmin;
 
     if (!navigator.onLine) {
         shiftDataList.value = store.state.dataListRoute || [];
@@ -393,7 +387,7 @@ onIonViewWillEnter(async () => {
                 psDay: now.getDate(),
                 psMonth: now.getMonth() + 1,
                 psYear: now.getFullYear(),
-                psHour: now.getHours(),
+                psHour: currentHour.value, // Đã lấy theo currentHour thay vì getHours() cứng
                 isComplete: false,
                 areaId: areaId
             };
@@ -401,19 +395,30 @@ onIonViewWillEnter(async () => {
             const response: any = await PatrolShiftView.postPatrolShiftView(dateInfo);
             const apiDataRaw = response?.data?.data || response?.data || [];
 
-            // Store sẽ tự động thực hiện Merge Status và giữ ca dở dang trong mutation này
             store.commit('SET_DATA_LIST_ROUTE', apiDataRaw);
-
-            // Cập nhật lại biến hiển thị từ dữ liệu đã được Store xử lý xong
             shiftDataList.value = store.state.dataListRoute;
-
-            // Lưu bản sao xuống máy
             await storageService.set('list_route', store.state.dataListRoute);
         } catch (error) {
             shiftDataList.value = store.state.dataListRoute || [];
         }
     }
+
     isLoading.value = false;
+};
+
+onIonViewWillEnter(async () => {
+    // Đảm bảo Store đã khôi phục dữ liệu từ SQLite
+    if (!store.state.isHydrated) {
+        await store.dispatch('initApp');
+    }
+
+    // Cập nhật giờ trước khi load
+    const now = new Date();
+    currentHour.value = now.getHours();
+    userRoleIsAdmin.value = store.state.dataUser?.userRoleIsAdmin;
+
+    // Gọi hàm kéo dữ liệu
+    await loadRouteData();
 });
 
 onMounted(async () => {
@@ -427,12 +432,8 @@ onMounted(async () => {
     // 2. Lắng nghe từ Android Bridge
     (window as any).returnResult = async (data: any) => {
         if (currentActiveRoute.value && data) {
-
-            const locData = await checkLocationReady();
-            if (!locData) return;
-
             let qrString = typeof data === 'string' ? data : JSON.stringify(data);
-            processScannedData(qrString, currentActiveRoute.value.routeId, locData);
+            processScannedData(qrString, currentActiveRoute.value.routeId);
         }
     };
 
@@ -528,13 +529,13 @@ const checkLocationReady = async (): Promise<any | null> => {
         }
         if (perm.location !== 'granted') {
             await presentAlert.presentAlert('Cảnh báo', '', 'Bạn cần cấp quyền vị trí để đi tuần tra.');
-            return null; // Trả về null nếu thất bại
+            return null;
         }
 
         const position = await Geolocation.getCurrentPosition({
-            timeout: 15000,
-            enableHighAccuracy: true,
-            maximumAge: 10000
+            timeout: 5000,
+            enableHighAccuracy: false,
+            maximumAge: 15000
         });
 
         // TRẢ VỀ DATA TỌA ĐỘ THAY VÌ LƯU VUEX TẠI ĐÂY
