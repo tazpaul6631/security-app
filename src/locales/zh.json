@@ -1,36 +1,110 @@
 {
     "login": {
-        "title": "登录",
-        "username": "用户名",
-        "password": "密码",
-        "btn_login": "登录",
-        "lang_select": "选择语言",
+        "title": "登入",
+        "username": "使用者名稱",
+        "password": "密碼",
+        "btn_login": "登入",
+        "lang_select": "選擇語言",
         "cancel": "取消"
     },
     "layout": {
         "warning": "警告",
         "understood": "知道了",
-        "online": "在线",
-        "offline": "离线"
+        "online": "線上",
+        "offline": "離線"
     },
     "home": {
         "roles": "角色",
-        "users": "用户",
-        "areas": "区域",
-        "routes": "路线",
-        "reports": "报表",
-        "tutorial": "教程"
+        "users": "使用者",
+        "areas": "區域",
+        "routes": "路線",
+        "reports": "報表",
+        "tutorial": "教學",
+        "adm": "管理員",
+        "it": "資訊人員",
+        "expat": "外派人員",
+        "security": "保全",
+        "info-areas": "正在載入個人資料..."
     },
     "page": {
         "roles": "角色",
-        "users": "用户",
+        "users": "使用者",
         "areas": {
-            "index": "区域",
-            "detail": "区域详情",
-            "report": "区域报告"
+            "index": "區域",
+            "detail": "區域詳情",
+            "report": "區域報告"
         },
-        "routes": "路线",
-        "reports": "报表",
-        "tutorial": "教程"
+        "routes": "路線",
+        "reports": "報表",
+        "tutorial": "教學"
+    },
+    "routes": {
+        "cancel": "取消",
+        "scan": "掃描",
+        "code": "代碼:",
+        "shift": "班次:",
+        "countdown": "倒數計時器:",
+        "loading-route": "正在載入路線...",
+        "txt-info": "{currentHour}時的路線已完成",
+        "all-scanned": "您已完成此時段的所有掃描點位。",
+        "route-not-found": "找不到 {currentHour}時的路線",
+        "no-shift-data": "班次資料尚未載入，或此時段無班次。",
+        "go-home": "返回首頁",
+        "warning-title": "警告！",
+        "cancel-confirm-msg": "確定要取消嗎？所有已掃描的資料將會遺失。",
+        "confirm-cancel": "確認取消"
+    },
+    "areas": {
+        "index": {
+            "selected": "已選擇:",
+            "cancel": "關閉",
+            "await-sync": "等待伺服器同步",
+            "points": "點位",
+            "emty-data": "暫無資料",
+            "please-route": "請選擇路線",
+            "go-home": "返回首頁",
+            "load-more": "正在載入更多..."
+        },
+        "detail": {
+            "emty-data": "暫無資料",
+            "go-home": "返回首頁",
+            "cancel": "關閉",
+            "area": "區域:",
+            "position": "位置:",
+            "estimated-time": "預計時間:",
+            "actual-time": "實際時間:",
+            "user-report": "回報人:",
+            "date-report": "回報日期:",
+            "user-update": "更新人:",
+            "date-update": "更新日期:",
+            "cp-desc": "點位說明:",
+            "general-notes": "總備註:",
+            "pic-rp": "回報照片",
+            "stt-pending": "待處理",
+            "stt-processing": "處理中",
+            "stt-completed": "已完成",
+            "stt-no-issue": "無異常",
+            "issue-none": "無異常狀況",
+            "issue-found": "有異常狀況"
+        },
+        "report": {
+            "no-issue": "未發現問題 / 異常",
+            "camera": "相機",
+            "gallery": "相簿",
+            "placeholder-input": "請輸入...",
+            "issue-detected": "發現問題 / 異常",
+            "select-status": "選擇狀態",
+            "btn-submit": "送出回報",
+            "issue-type": "異常類型",
+            "close": "關閉",
+            "selected-status": "已選狀態:",
+            "other-note": "其他 (輸入備註)...",
+            "btn-confirm": "確認",
+            "detail-note": "輸入詳細備註",
+            "pending-sync": "等待同步",
+            "offline": "離線",
+            "loading-more": "正在載入更多報告...",
+            "content": "內容"
+        }
     }
 }

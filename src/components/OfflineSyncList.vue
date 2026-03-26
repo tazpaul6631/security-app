@@ -1,7 +1,7 @@
 <template>
     <div v-if="displayItems.length > 0" class="ion-margin-top">
         <ion-list-header>
-            <ion-label color="primary">Chờ đồng bộ ({{ displayItems.length }})</ion-label>
+            <ion-label color="primary">{{ $t('areas.report.pending-sync') }} ({{ displayItems.length }})</ion-label>
         </ion-list-header>
 
         <ion-list lines="full">
@@ -14,7 +14,8 @@
                     <ion-label>
                         <h3>{{ getCheckpointName(item.data?.cpId) }}</h3>
                         <p class="info-offline">
-                            <ion-badge class="badge-offline" color="warning">Offline</ion-badge>
+                            <ion-badge class="badge-offline" color="warning">{{ $t('areas.report.offline')
+                            }}</ion-badge>
                             {{ formatDate(item.data?.createdAt) }}
                         </p>
                     </ion-label>
@@ -28,7 +29,7 @@
         </ion-list>
 
         <ion-infinite-scroll @ionInfinite="onLoadMore" :disabled="loadedCount >= displayItems.length">
-            <ion-infinite-scroll-content loading-spinner="bubbles" loading-text="Đang tải thêm báo cáo...">
+            <ion-infinite-scroll-content loading-spinner="bubbles" :loading-text="$t('areas.report.loading-more')">
             </ion-infinite-scroll-content>
         </ion-infinite-scroll>
     </div>

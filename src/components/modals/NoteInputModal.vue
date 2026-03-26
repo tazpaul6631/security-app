@@ -4,18 +4,18 @@
             <div class="flex-center-container">
                 <ion-card class="popup-card">
                     <ion-card-header>
-                        <ion-card-title style="font-size: 18px;">Nhập ghi chú chi tiết</ion-card-title>
+                        <ion-card-title style="font-size: 18px;">{{ $t('areas.report.detail-note') }}</ion-card-title>
                     </ion-card-header>
                     <ion-card-content>
-                        <ion-textarea label="Nội dung" label-placement="floating" fill="outline" v-model="localNote"
-                            :rows="4" placeholder="Nhập tại đây...">
+                        <ion-textarea :label="$t('areas.report.content')" label-placement="floating" fill="outline"
+                            v-model="localNote" :rows="4" :placeholder="$t('areas.report.placeholder-input')">
                         </ion-textarea>
 
                         <ion-button expand="block" color="success" class="ion-margin-top" @click="confirm">
-                            Xác nhận
+                            {{ $t('areas.report.btn-confirm') }}
                         </ion-button>
                         <ion-button expand="block" fill="clear" color="medium" @click="closeModal">
-                            Đóng
+                            {{ $t('areas.report.close') }}
                         </ion-button>
                     </ion-card-content>
                 </ion-card>

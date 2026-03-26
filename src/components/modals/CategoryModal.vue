@@ -2,9 +2,9 @@
     <ion-modal :is-open="isOpen" @didDismiss="$emit('close')">
         <ion-header>
             <ion-toolbar color="primary" class="text-padding">
-                <ion-title>LOẠI SỰ CỐ</ion-title>
+                <ion-title>{{ $t('areas.report.issue-type') }}</ion-title>
                 <ion-buttons slot="end">
-                    <ion-button @click="$emit('close')">Đóng</ion-button>
+                    <ion-button @click="$emit('close')">{{ $t('areas.report.close') }}</ion-button>
                 </ion-buttons>
             </ion-toolbar>
         </ion-header>
@@ -27,7 +27,7 @@
             </ion-accordion-group>
 
             <div v-if="groupedNotes.length > 0" class="ion-margin-top">
-                <ion-label color="medium">Tình trạng đã chọn:</ion-label>
+                <ion-label color="medium">{{ $t('areas.report.selected-status') }}</ion-label>
                 <ion-card v-for="(group, index) in groupedNotes" :key="group.id" class="note-group-card">
                     <ion-card-header>
                         <ion-card-title style="font-size: 15px;">{{ index + 1 }}. {{ group.priImageNote
@@ -42,12 +42,12 @@
                         <ion-row>
                             <ion-col size="6">
                                 <ion-button expand="block" size="small" @click="$emit('addPhoto', index)">
-                                    <ion-icon slot="start" :icon="camera"></ion-icon> Máy ảnh
+                                    <ion-icon slot="start" :icon="camera"></ion-icon> {{ $t('areas.report.camera') }}
                                 </ion-button>
                             </ion-col>
                             <ion-col size="6">
                                 <ion-button expand="block" size="small" @click="$emit('pickPhotos', index)">
-                                    <ion-icon slot="start" :icon="images"></ion-icon> Thư viện
+                                    <ion-icon slot="start" :icon="images"></ion-icon> {{ $t('areas.report.gallery') }}
                                 </ion-button>
                             </ion-col>
                         </ion-row>

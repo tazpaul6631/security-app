@@ -20,7 +20,7 @@
           <ion-card-content>
             <ion-item v-if="!formData.prHasProblem" lines="none">
               <ion-checkbox v-model="formData.prNoProblem" @ionChange="handleCheckedNoProblem">
-                Không Phát hiện vấn đề / Sự cố
+                {{ $t('areas.report.no-issue') }}
               </ion-checkbox>
             </ion-item>
 
@@ -28,12 +28,12 @@
               <ion-row>
                 <ion-col size="6">
                   <ion-button expand="block" size="small" @click="addNoProblemPhoto">
-                    <ion-icon slot="start" :icon="camera"></ion-icon> Máy ảnh
+                    <ion-icon slot="start" :icon="camera"></ion-icon> {{ $t('areas.report.camera') }}
                   </ion-button>
                 </ion-col>
                 <ion-col size="6">
                   <ion-button expand="block" size="small" @click="pickNoProblemImages">
-                    <ion-icon slot="start" :icon="images"></ion-icon> Thư viện
+                    <ion-icon slot="start" :icon="images"></ion-icon> {{ $t('areas.report.gallery') }}
                   </ion-button>
                 </ion-col>
               </ion-row>
@@ -53,8 +53,8 @@
 
               <ion-row>
                 <ion-col>
-                  <ion-textarea label="Nội dung" label-placement="floating" fill="outline" v-model="formData.prNote"
-                    :rows="4" placeholder="Nhập tại đây...">
+                  <ion-textarea :label="$t('areas.report.content')" label-placement="floating" fill="outline"
+                    v-model="formData.prNote" :rows="4" :placeholder="$t('areas.report.placeholder-input')">
                   </ion-textarea>
                 </ion-col>
               </ion-row>
@@ -62,7 +62,7 @@
 
             <ion-item v-if="!formData.prNoProblem" lines="none">
               <ion-checkbox v-model="formData.prHasProblem" @ionChange="handleCheckedHasProblem">
-                Phát hiện vấn đề / Sự cố
+                {{ $t('areas.report.issue-detected') }}
               </ion-checkbox>
             </ion-item>
 
@@ -71,7 +71,7 @@
                 <ion-col>
                   <ion-button expand="block" fill="outline" @click="openCategoryModal = true">
                     <ion-icon slot="start" :icon="images"></ion-icon>
-                    Chọn tình trạng ({{ groupedNotes.length }})
+                    {{ $t('areas.report.select-status') }} ({{ groupedNotes.length }})
                   </ion-button>
                 </ion-col>
               </ion-row>
@@ -80,7 +80,7 @@
             <ion-button expand="block" color="success" class="ion-margin-top" @mousedown.prevent="handleSubmit"
               @click="handleSubmit">
               <ion-icon slot="start" :icon="sendOutline"></ion-icon>
-              GỬI BÁO CÁO
+              {{ $t('areas.report.btn-submit') }}
             </ion-button>
           </ion-card-content>
         </ion-card>
@@ -107,7 +107,7 @@ import { computed, reactive, ref, onMounted, watch, markRaw } from 'vue';
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonItem, IonTextarea,
   IonCheckbox, IonButton, IonIcon, IonCard, IonCardContent, IonGrid, IonRow,
-  IonCol, IonImg, loadingController, onIonViewWillEnter, toastController,
+  IonCol, IonImg, loadingController, onIonViewWillEnter,
   IonButtons, onIonViewDidLeave, alertController
 } from '@ionic/vue';
 import {

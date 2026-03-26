@@ -19,7 +19,12 @@
         "areas": "Areas",
         "routes": "Routes",
         "reports": "Reports",
-        "tutorial": "Tutorial"
+        "tutorial": "Tutorial",
+        "adm": "Administrator",
+        "it": "IT",
+        "expat": "Expatriate",
+        "security": "Security",
+        "info-areas": "Loading personal information..."
     },
     "page": {
         "roles": "Roles",
@@ -32,5 +37,74 @@
         "routes": "Routes",
         "reports": "Reports",
         "tutorial": "Tutorial"
+    },
+    "routes": {
+        "cancel": "Cancel",
+        "scan": "Scan",
+        "code": "Code:",
+        "shift": "Shift:",
+        "countdown": "Countdown timer:",
+        "loading-route": "Loading route...",
+        "txt-info": "The {currentHour}h route is completed",
+        "all-scanned": "You have completed all checkpoints for this time slot.",
+        "route-not-found": "{currentHour}h route not found",
+        "no-shift-data": "Shift data is not loaded or there is no shift in this time slot.",
+        "go-home": "Back to Home",
+        "warning-title": "Warning!",
+        "cancel-confirm-msg": "Are you sure you want to cancel? All scanned data will be lost.",
+        "confirm-cancel": "Confirm Cancel"
+    },
+    "areas": {
+        "index": {
+            "selected": "Selected:",
+            "cancel": "Close",
+            "await-sync": "Waiting for sync",
+            "points": "Points",
+            "emty-data": "No data available",
+            "please-route": "Please select a route",
+            "go-home": "Back to Home",
+            "load-more": "Loading more..."
+        },
+        "detail": {
+            "emty-data": "No data available",
+            "go-home": "Back to Home",
+            "cancel": "Close",
+            "area": "Area:",
+            "position": "Location:",
+            "estimated-time": "Estimated time:",
+            "actual-time": "Actual time:",
+            "user-report": "Reported by:",
+            "date-report": "Report date:",
+            "user-update": "Updated by:",
+            "date-update": "Update date:",
+            "cp-desc": "Checkpoint description:",
+            "general-notes": "General Notes:",
+            "pic-rp": "Report photos",
+            "stt-pending": "Pending",
+            "stt-processing": "In Progress",
+            "stt-completed": "Completed",
+            "stt-no-issue": "No Issues",
+            "issue-none": "No issues found",
+            "issue-found": "Issues found"
+        },
+        "report": {
+            "no-issue": "No issues / incidents detected",
+            "camera": "Camera",
+            "gallery": "Gallery",
+            "placeholder-input": "Enter here...",
+            "issue-detected": "Issue / incident detected",
+            "select-status": "Select status",
+            "btn-submit": "SUBMIT REPORT",
+            "issue-type": "ISSUE TYPE",
+            "close": "Close",
+            "selected-status": "Selected status:",
+            "other-note": "Other (Enter note)...",
+            "btn-confirm": "CONFIRM",
+            "detail-note": "Enter detailed notes",
+            "pending-sync": "Pending sync",
+            "offline": "Offline",
+            "loading-more": "Loading more reports...",
+            "content": "Content"
+        }
     }
 }

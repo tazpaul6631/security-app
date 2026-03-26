@@ -244,6 +244,8 @@ div[slot='content'] {
 .ion-margin-horizontal {
   width: fit-content;
   border-radius: 10px;
+  margin: 0 !important;
+  padding: 5px;
 }
 
 .logo-company {

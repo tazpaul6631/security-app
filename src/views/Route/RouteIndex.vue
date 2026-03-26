@@ -12,7 +12,7 @@
         <ion-content>
             <div v-if="isLoading" class="ion-padding ion-text-center">
                 <ion-spinner name="crescent"></ion-spinner>
-                <p>Đang tải lộ trình...</p>
+                <p>{{ $t('routes.loading-route') }}</p>
             </div>
 
             <transition v-else name="fade-route" mode="out-in">
@@ -21,11 +21,12 @@
                         <ion-card-header>
                             <ion-card-title>{{ currentActiveRoute.routeName }}</ion-card-title>
                             <ion-card-subtitle>
-                                Mã: {{ currentActiveRoute.routeCode }} | Giờ trực: {{ currentActiveRoute.psHourFrom }}h
+                                {{ $t('routes.code') }} {{ currentActiveRoute.routeCode }} | {{ $t('routes.shift') }} {{
+                                    currentActiveRoute.psHourFrom }}h
                                 <br />
                                 <span class="timer-display" :class="timerColorClass" v-if="formattedTime">
-                                    <ion-icon class="icon-clock" :icon="timeOutline"></ion-icon>
-                                    Thời gian: {{ formattedTime }}
+                                    <ion-icon :icon="timeOutline"></ion-icon>
+                                    {{ $t('routes.countdown') }} {{ formattedTime }}
                                 </span>
                             </ion-card-subtitle>
                         </ion-card-header>
@@ -36,12 +37,12 @@
                             <div class="route-actions-bar active-controls">
                                 <ion-button color="danger" @click="confirmCancelRoute" class="btn-cancel">
                                     <ion-icon slot="start" :icon="trashOutline"></ion-icon>
-                                    HỦY BỎ
+                                    {{ $t('routes.cancel') }}
                                 </ion-button>
                                 <ion-button color="success" class="btn-continue"
                                     @click="handleContinueScanning(currentActiveRoute.routeId)">
                                     <ion-icon slot="start" :icon="qrCodeOutline"></ion-icon>
-                                    SCAN
+                                    {{ $t('routes.scan') }}
                                 </ion-button>
                             </div>
                         </ion-card-content>
@@ -53,22 +54,22 @@
                         <ion-icon :icon="calendarOutline" class="big-icon"></ion-icon>
 
                         <div v-if="hasDataButFinished">
-                            <h3>Lộ trình {{ currentHour }}h đã hoàn thành</h3>
-                            <p>Bạn đã hoàn tất tất cả các điểm quét trong khung giờ này.</p>
+                            <h3>{{ $t('routes.txt-info', { currentHour: currentHour }) }}</h3>
+                            <p>{{ $t('routes.all-scanned') }}</p>
                         </div>
                         <div v-else>
-                            <h3>Không tìm thấy lộ trình {{ currentHour }}h</h3>
-                            <p>Dữ liệu ca trực chưa được tải hoặc không có ca trực trong khung giờ này.</p>
+                            <h3>{{ $t('routes.route-not-found', { currentHour: currentHour }) }}</h3>
+                            <p>{{ $t('routes.no-shift-data') }}</p>
                         </div>
                         <ion-button fill="outline" @click="router.replace('/home')" class="ion-margin-top">
-                            Quay lại trang chủ
+                            {{ $t('routes.go-home') }}
                         </ion-button>
                     </div>
                 </div>
             </transition>
 
-            <ion-alert :is-open="isCancelAlertOpen" header="Cảnh báo!"
-                message="Bạn có chắc chắn muốn hủy? Toàn bộ dữ liệu đã quét sẽ bị mất." :buttons="cancelButtons"
+            <ion-alert :is-open="isCancelAlertOpen" :header="$t('routes.warning-title')"
+                :message="$t('routes.cancel-confirm-msg')" :buttons="cancelButtons"
                 @didDismiss="isCancelAlertOpen = false" />
         </ion-content>
     </ion-page>
@@ -95,6 +96,7 @@ import { Geolocation } from '@capacitor/geolocation';
 import { useRouteTimer } from '@/composables/useRouteTimer';
 import PatrolShift from '@/api/PatrolShift';
 import { useOfflineManager } from '@/composables/useOfflineManager';
+import { useI18n } from 'vue-i18n';
 
 // Lấy biến và hàm từ Global Timer ra sử dụng
 const { formattedTime, timerColorClass, clearTimer, restoreTimer, stopTimer, remainingSeconds, currentTimerRouteId } = useRouteTimer();
@@ -132,6 +134,7 @@ const shiftDataList = ref<Route[]>([]);
 const currentHour = ref(new Date().getHours());
 let timer: any = null;
 const lockedRouteId = computed(() => store.state.unfinishedRouteId);
+const { t } = useI18n();
 
 // ==========================================
 // 1. KHAI BÁO LỘ TRÌNH HIỆN TẠI
@@ -246,8 +249,9 @@ const processScannedData = async (qrCodeString: string, routeId: number) => {
 
     try {
 
-        const locData = await checkLocationReady();
-        if (!locData) return;
+        // const locData = await checkLocationReady();
+        // if (!locData) return;
+        const locData = 0;
         // Gọi logic xử lý nặng (Check lộ trình, API, SQLite)
         await scannerService.processQRString(store, router, routeId, qrCodeString, locData);
 
@@ -387,7 +391,7 @@ const loadRouteData = async () => {
                 psDay: now.getDate(),
                 psMonth: now.getMonth() + 1,
                 psYear: now.getFullYear(),
-                psHour: currentHour.value, // Đã lấy theo currentHour thay vì getHours() cứng
+                psHour: currentHour.value,
                 isComplete: false,
                 areaId: areaId
             };
@@ -459,9 +463,9 @@ const confirmCancelRoute = () => {
 
 const isCancelling = ref(false);
 const cancelButtons = [
-    { text: 'Đóng', role: 'cancel' },
+    { text: t('routes.cancel'), role: 'cancel' },
     {
-        text: 'Đồng ý hủy',
+        text: t('routes.confirm-cancel'),
         role: 'confirm',
         cssClass: 'alert-button-confirm',
         handler: async () => {
@@ -521,53 +525,48 @@ const cancelButtons = [
 // ==========================================
 // KIỂM TRA ĐỊNH VỊ (GPS)
 // ==========================================
-const checkLocationReady = async (): Promise<any | null> => {
-    try {
-        let perm = await Geolocation.checkPermissions();
-        if (perm.location !== 'granted') {
-            perm = await Geolocation.requestPermissions();
-        }
-        if (perm.location !== 'granted') {
-            await presentAlert.presentAlert('Cảnh báo', '', 'Bạn cần cấp quyền vị trí để đi tuần tra.');
-            return null;
-        }
+// const checkLocationReady = async (): Promise<any | null> => {
+//     try {
+//         let perm = await Geolocation.checkPermissions();
+//         if (perm.location !== 'granted') {
+//             perm = await Geolocation.requestPermissions();
+//         }
+//         if (perm.location !== 'granted') {
+//             await presentAlert.presentAlert('Cảnh báo', '', 'Bạn cần cấp quyền vị trí để đi tuần tra.');
+//             return null;
+//         }
 
-        const position = await Geolocation.getCurrentPosition({
-            timeout: 5000,
-            enableHighAccuracy: false,
-            maximumAge: 15000
-        });
+//         const position = await Geolocation.getCurrentPosition({
+//             timeout: 5000,
+//             enableHighAccuracy: false,
+//             maximumAge: 15000
+//         });
 
-        // TRẢ VỀ DATA TỌA ĐỘ THAY VÌ LƯU VUEX TẠI ĐÂY
-        return {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-            accuracy: position.coords.accuracy
-        };
-    } catch (error: any) {
-        console.error("Lỗi GPS:", error);
-        await presentAlert.presentAlert(
-            'Chưa bật Định vị',
-            '',
-            'Vui lòng BẬT ĐỊNH VỊ (GPS) trên điện thoại trước khi quét mã!'
-        );
-        return null;
-    }
-};
+//         // TRẢ VỀ DATA TỌA ĐỘ THAY VÌ LƯU VUEX TẠI ĐÂY
+//         return {
+//             lat: position.coords.latitude,
+//             lng: position.coords.longitude,
+//             accuracy: position.coords.accuracy
+//         };
+//     } catch (error: any) {
+//         console.error("Lỗi GPS:", error);
+//         await presentAlert.presentAlert(
+//             'Chưa bật Định vị',
+//             '',
+//             'Vui lòng BẬT ĐỊNH VỊ (GPS) trên điện thoại trước khi quét mã!'
+//         );
+//         return null;
+//     }
+// };
 </script>
 
 <style scoped>
 /* Thêm CSS cho Timer */
 .timer-display {
-    display: flex;
     margin-top: 5px;
     font-size: 0.9rem;
     color: #666;
     transition: color 0.3s ease;
-}
-
-.icon-clock {
-    padding-right: 5px;
 }
 
 .text-success {
@@ -611,6 +610,7 @@ const checkLocationReady = async (): Promise<any | null> => {
 .btn-cancel,
 .btn-continue {
     --border-radius: 8px;
+    --ion-color-contrast: white !important;
     height: 50px;
     font-weight: bold;
     flex: 1;

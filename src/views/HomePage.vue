@@ -12,7 +12,7 @@
               <h3>{{ dataUser?.userName }}</h3>
               <div class="text-code-roleName">
                 <p class="mr-code">{{ dataUser?.userCode }}</p> - <p class="badge-it ml-roleName">{{
-                  dataUser?.userRoleName }}</p>
+                  $t(getRoleData(dataUser?.userRoleId).name) }}</p>
               </div>
             </div>
           </div>
@@ -34,9 +34,9 @@
           <ion-row>
             <ion-col v-for="item in allowViews" :key="item.mcId" size="4" size-md="2">
               <div :button="true" v-if="item.roleId" class="menu-item" @click="handleClickIcon(item.mcId)">
-                <ion-icon :icon="getRoleData(item.mcId).icon" class="menu-icon" :class="getRoleData(item.mcId).color">
+                <ion-icon :icon="getAreaData(item.mcId).icon" class="menu-icon" :class="getAreaData(item.mcId).color">
                 </ion-icon>
-                <span class="text-mcName">{{ $t(getRoleData(item.mcId).name) }}</span>
+                <span class="text-mcName">{{ $t(getAreaData(item.mcId).name) }}</span>
               </div>
             </ion-col>
           </ion-row>
@@ -45,7 +45,7 @@
 
       <div v-show="!dataUser && store.state.isSyncingOffline" class="loading-state">
         <ion-spinner name="crescent"></ion-spinner>
-        <p>Đang tải thông tin cá nhân...</p>
+        <p>{{ $t('home.info-areas') }}</p>
       </div>
     </ion-content>
   </ion-page>
@@ -66,22 +66,34 @@ const store = useStore();
 const dataUser = computed(() => store.state.dataUser);
 const allowViews = computed(() => dataUser.value?.allowViews || []);
 
-const listRoles = ref([
+const listAreas = ref([
   { mcId: 1, icon: `${personCircle}`, name: 'home.roles', color: 'color-orange', router: '/role' },
   { mcId: 2, icon: `${people}`, name: 'home.users', color: 'color-slate', router: '/user' },
   { mcId: 3, icon: `${location}`, name: 'home.areas', color: 'color-red', router: '/area' },
-  { mcId: 4, icon: `${footstepsOutline}`, name: 'home.users', color: 'color-gold', router: '/route' },
+  { mcId: 4, icon: `${footstepsOutline}`, name: 'home.routes', color: 'color-gold', router: '/route' },
   { mcId: 5, icon: `${barChartOutline}`, name: 'home.reports', color: 'color-blue', router: '/report' },
   { mcId: 6, icon: `${alertCircleOutline}`, name: 'home.tutorial', color: 'color-grey', router: '/tutorial' },
 ])
 
-const getRoleData = (mcId: number) => {
-  const role = listRoles.value.find(r => r.mcId === mcId);
-  return role ? role : { icon: '', color: '', router: '', name: '' };
+const getAreaData = (mcId: number) => {
+  const area = listAreas.value.find(r => r.mcId === mcId);
+  return area ? area : { icon: '', color: '', router: '', name: '' };
+};
+
+const listRoles = ref([
+  { roleId: 1, name: 'home.adm' },
+  { roleId: 2, name: 'home.it' },
+  { roleId: 3, name: 'home.expat' },
+  { roleId: 4, name: 'home.security' }
+]);
+
+const getRoleData = (userRoleId: number) => {
+  const role = listRoles.value.find(r => r.roleId === userRoleId);
+  return role ? role : { name: '' };
 };
 
 const handleClickIcon = (id: number) => {
-  const role = getRoleData(id);
+  const role = getAreaData(id);
   // Chỉ chuyển trang nếu tìm thấy router hợp lệ
   if (role && role.router) {
     router.replace({ path: role.router });
@@ -189,7 +201,7 @@ ion-col {
 }
 
 .text-content p {
-  margin: 2px 0 0 0;
+  margin: 0;
   font-size: 13px;
   color: #64748b;
 }
@@ -216,7 +228,7 @@ ion-col {
   color: #7c3aed;
   font-size: 12px;
   font-weight: bold;
-  padding: 4px 10px;
+  padding: 4px;
   border-radius: 8px;
 }
 

@@ -19,7 +19,12 @@
         "areas": "Khu Vực",
         "routes": "Lộ Trình",
         "reports": "Báo Cáo",
-        "tutorial": "Hướng Dẫn"
+        "tutorial": "Hướng Dẫn",
+        "adm": "Quản trị viên",
+        "it": "IT",
+        "expat": "Chuyên gia",
+        "security": "Bảo vệ",
+        "info-areas": "Đang tải thông tin cá nhân..."
     },
     "page": {
         "roles": "Vai Trò",
@@ -32,5 +37,74 @@
         "routes": "Lộ Trình",
         "reports": "Báo Cáo",
         "tutorial": "Hướng Dẫn"
+    },
+    "routes": {
+        "cancel": "Hủy",
+        "scan": "Quét",
+        "code": "Mã:",
+        "shift": "Ca Trực:",
+        "countdown": "Đồng hồ đếm ngược:",
+        "loading-route": "Đang tải lộ trình...",
+        "txt-info": "Lộ trình {currentHour}h đã hoàn thành",
+        "all-scanned": "Bạn đã hoàn tất tất cả các điểm quét trong khung giờ này.",
+        "route-not-found": "Không tìm thấy lộ trình {{ currentHour }}h",
+        "no-shift-data": "Dữ liệu ca trực chưa được tải hoặc không có ca trực trong khung giờ này.",
+        "go-home": "Quay lại trang chủ",
+        "warning-title": "Cảnh báo!",
+        "cancel-confirm-msg": "Bạn có chắc chắn muốn hủy? Toàn bộ dữ liệu đã quét sẽ bị mất.",
+        "confirm-cancel": "Đồng ý hủy"
+    },
+    "areas": {
+        "index": {
+            "selected": "Chọn:",
+            "cancel": "Đóng",
+            "await-sync": "Chờ đồng bộ server",
+            "points": "Điểm",
+            "emty-data": "Danh sách chưa có",
+            "please-route": "Vui lòng chọn lộ trình",
+            "go-home": "Quay lại trang chủ",
+            "load-more": "Đang tải thêm..."
+        },
+        "detail": {
+            "emty-data": "Danh sách chưa có",
+            "go-home": "Quay lại trang chủ",
+            "cancel": "Đóng",
+            "area": "Khu vực:",
+            "position": "Vị trí:",
+            "estimated-time": "Thời gian dự kiến:",
+            "actual-time": "Thời gian thực tế:",
+            "user-report": "Người báo cáo:",
+            "date-report": "Ngày báo cáo:",
+            "user-update": "Người cập nhật:",
+            "date-update": "Ngày cập nhật:",
+            "cp-desc": "Mô tả điểm quét:",
+            "general-notes": "Ghi chú tổng:",
+            "pic-rp": "Hình ảnh báo cáo",
+            "stt-pending": "Đang chờ xử lý",
+            "stt-processing": "Đang xử lý",
+            "stt-completed": "Hoàn thành",
+            "stt-no-issue": "Không vấn đề gì",
+            "issue-none": "Không có vấn đề phát sinh",
+            "issue-found": "Có vấn đề phát sinh"
+        },
+        "report": {
+            "no-issue": "Không Phát hiện vấn đề / Sự cố",
+            "camera": "Máy ảnh",
+            "gallery": "Thư viện",
+            "placeholder-input": "Nhập tại đây...",
+            "issue-detected": "Phát hiện vấn đề / Sự cố",
+            "select-status": "Chọn tình trạng",
+            "btn-submit": "GỬI BÁO CÁO",
+            "issue-type": "LOẠI SỰ CỐ",
+            "close": "Đóng",
+            "selected-status": "Tình trạng đã chọn:",
+            "other-note": "Khác (Nhập ghi chú)...",
+            "btn-confirm": "XÁC NHẬN",
+            "detail-note": "Nhập ghi chú chi tiết",
+            "pending-sync": "Chờ đồng bộ",
+            "offline": "Offline",
+            "loading-more": "Đang tải thêm báo cáo...",
+            "content": "Nội dung"
+        }
     }
 }

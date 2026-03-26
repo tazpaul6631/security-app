@@ -17,11 +17,12 @@
                 <ion-item button @click="$emit('toggleIssue', 'note')">
                     <ion-checkbox slot="start" :checked="selectedValues.includes('note')"
                         aria-hidden="true"></ion-checkbox>
-                    <ion-label>Khác (Nhập ghi chú)...</ion-label>
+                    <ion-label>{{ $t('areas.report.other-note') }}</ion-label>
                 </ion-item>
             </ion-list>
 
-            <ion-button expand="block" class="ion-margin-top" @click="$emit('confirm')">XÁC NHẬN</ion-button>
+            <ion-button expand="block" class="ion-margin-top" @click="$emit('confirm')">{{
+                $t('areas.report.btn-confirm') }}</ion-button>
         </ion-content>
     </ion-modal>
 </template>

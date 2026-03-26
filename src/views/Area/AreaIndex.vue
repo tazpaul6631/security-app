@@ -23,9 +23,9 @@
                 :breakpoints="[0, 0.5, 0.8]">
                 <ion-header>
                     <ion-toolbar>
-                        <ion-title>Chọn {{ activeSegment }}</ion-title>
+                        <ion-title>{{ $t('areas.index.selected') }} {{ activeSegment }}</ion-title>
                         <ion-buttons slot="end">
-                            <ion-button @click="isModalOpen = false">Đóng</ion-button>
+                            <ion-button @click="isModalOpen = false">{{ $t('areas.index.cancel') }}</ion-button>
                         </ion-buttons>
                     </ion-toolbar>
                     <ion-progress-bar v-show="isLoading" type="indeterminate" color="primary"></ion-progress-bar>
@@ -48,7 +48,7 @@
 
                                             <div v-if="item.isOfflineDone">
                                                 <ion-badge color="warning" mode="ios" style="font-size: 0.7em;">
-                                                    Chờ đồng bộ server
+                                                    {{ $t('areas.index.await-sync') }}
                                                 </ion-badge>
                                             </div>
 
@@ -63,10 +63,6 @@
                                                     :color="item.shiftProblem ? 'danger' : 'success'">
                                                 </ion-icon>
                                             </div>
-                                            <div>
-                                                <ion-label class="labelItem" color="medium">{{
-                                                    item.shiftStart.replace('T', ' ').slice(0, 16) }}</ion-label>
-                                            </div>
                                         </ion-label>
                                     </ion-col>
 
@@ -78,7 +74,8 @@
                                             <ion-badge
                                                 :color="item.realityPoint >= item.planPoint ? 'success' : 'medium'"
                                                 style="margin-top: 4px; color: white;">
-                                                {{ item.realityPoint || 0 }}/{{ item.planPoint || 0 }} điểm
+                                                {{ item.realityPoint || 0 }}/{{ item.planPoint || 0 }} {{
+                                                    $t('areas.index.points') }}
                                             </ion-badge>
 
                                             <p v-if="item.realityHours || item.realityMinutes"
@@ -89,10 +86,16 @@
                                                 {{ item.realitySeconds ? `${item.realitySeconds}s` : '' }}
                                             </p>
                                         </div>
-                                        <div>
-                                            <ion-label class="labelItem" color="medium">{{
-                                                item.shiftEnd.replace('T', ' ').slice(0, 16) }}</ion-label>
-                                        </div>
+                                    </ion-col>
+                                </ion-row>
+                                <ion-row>
+                                    <ion-col size="6" class="pad-0">
+                                        <ion-label class="labelItem" color="medium">{{
+                                            item.shiftStart.replace('T', ' ').slice(0, 16) }}</ion-label>
+                                    </ion-col>
+                                    <ion-col size="6" class="ion-text-end pad-0">
+                                        <ion-label class="labelItem" color="medium">{{
+                                            item.shiftEnd.replace('T', ' ').slice(0, 16) }}</ion-label>
                                     </ion-col>
                                 </ion-row>
                             </ion-grid>
@@ -101,7 +104,7 @@
 
                     <div v-else-if="!isLoading" class="ion-padding ion-text-center">
                         <ion-icon :icon="calendarOutline" style="font-size: 64px; color: #ccc;"></ion-icon>
-                        <p>Danh sách chưa có</p>
+                        <p>{{ $t('areas.index.emty-data') }}</p>
                     </div>
                 </ion-content>
             </ion-modal>
@@ -125,17 +128,17 @@
 
                 <div v-else-if="displayedItems.length === 0" class="ion-padding ion-text-center no-route-container">
                     <ion-icon :icon="calendarOutline" style="font-size: 64px; color: #ccc;"></ion-icon>
-                    <p>Danh sách trống: <strong style="color: red;">
-                            Vui lòng chọn lộ trình
+                    <p>{{ $t('areas.index.emty-data') }}: <strong style="color: red;">
+                            {{ $t('areas.index.please-route') }}
                         </strong></p>
                     <ion-button fill="outline" @click="router.replace('/home')" class="ion-margin-top">
-                        Quay lại trang chủ
+                        {{ $t('areas.index.go-home') }}
                     </ion-button>
                 </div>
 
                 <ion-list v-else>
                     <ion-item v-for="item in displayedItems" :key="item.prId" :button="true"
-                        @click="handleSelectedRow(Number(item.prId))"
+                        @click="handleSelectedRow(Number(item.prId), $event)"
                         :class="item.prHasProblem ? 'custom-item-false' : 'custom-item-true'">
                         <ion-grid>
                             <ion-row class="ion-align-items-center">
@@ -148,7 +151,7 @@
                                         <strong>{{ item.cpName }}</strong>
                                         <ion-text color="warning" v-if="item.isOfflineMock"
                                             style="font-size: 0.8em; display: block;">
-                                            <ion-text color="danger">* </ion-text> Đang chờ đồng bộ...
+                                            <ion-text color="danger">* </ion-text> {{ $t('areas.index.await-sync') }}...
                                         </ion-text>
                                     </ion-label>
                                 </ion-col>
@@ -164,7 +167,7 @@
 
                 <ion-infinite-scroll ref="infiniteScrollRef" @ionInfinite="loadMoreData($event)"
                     :disabled="isInfiniteDisabled">
-                    <ion-infinite-scroll-content loading-text="Đang tải thêm..."
+                    <ion-infinite-scroll-content :loading-text="$t('areas.index.load-more')"
                         loading-spinner="bubbles"></ion-infinite-scroll-content>
                 </ion-infinite-scroll>
             </div>
@@ -288,6 +291,7 @@ const fetchAreasData = async (areaId: number) => {
                 shifts = shifts.filter((s: any) => String(s.reportBy) === String(currentUserId));
             }
             currentOptions.value = shifts;
+            console.log(currentOptions.value);
 
         } else {
             // OFFLINE: Lấy từ Store nhưng lọc gắt gao theo reportBy
@@ -338,6 +342,10 @@ const openSelect = async (parent: string, children: any[], id: number) => {
 
 // --- CÁC METHODS XỬ LÝ CHỌN LỘ TRÌNH ---
 const handleModalSelection = async (item: any) => {
+    if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+    }
+
     isModalOpen.value = false;
     currentPage.value = 1;
 
@@ -406,9 +414,15 @@ const handleModalSelection = async (item: any) => {
     }, 300);
 };
 
-const handleSelectedRow = async (prId: number) => {
+const handleSelectedRow = async (prId: number, event?: any) => {
     console.log("Đang mở chi tiết PR_ID:", prId);
-
+    if (event && event.currentTarget) {
+        event.currentTarget.blur();
+    }
+    // Dọn dẹp nốt focus thừa (nếu có)
+    if (document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+    }
     const loading = await loadingController.create({
         message: 'Đang tải chi tiết...',
         spinner: 'crescent'
@@ -472,6 +486,11 @@ const handleSelectedRow = async (prId: number) => {
 
         // Đẩy data vào store và chuyển trang
         store.commit('SET_CURRENT_CHECKPOINT', detailData);
+
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+
         router.push({ path: `/checkpoint/detail/${prId}` });
 
     } catch (error) {
@@ -510,6 +529,10 @@ const loadMoreData = (event: any) => {
 .pointProblem-success,
 .timeProblem-success {
     color: #2dd36f;
+}
+
+.pad-0 {
+    padding: 0;
 }
 
 .labelItem-time {

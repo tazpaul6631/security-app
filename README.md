@@ -25,9 +25,6 @@
 # Cài đặt các thư viện Node.js
 npm install
 
-# Đồng bộ code Web sang thư mục Android
-npx cap sync
-
 # Thay đổi capacitor
 
 npm run build

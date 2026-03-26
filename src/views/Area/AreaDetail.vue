@@ -12,15 +12,15 @@
     <ion-content>
       <div v-if="!getPrIdData" class="ion-padding ion-text-center no-route-container">
         <ion-icon :icon="calendarOutline" style="font-size: 64px; color: #ccc;"></ion-icon>
-        <h3>Chưa có danh sách</h3>
-        <ion-button fill="clear" @click="router.replace('/home')">Quay lại trang chủ</ion-button>
+        <h3>{{ $t('areas.detail.emty-data') }}</h3>
+        <ion-button fill="clear" @click="goHome">{{ $t('areas.detail.go-home') }}</ion-button>
       </div>
 
       <ion-card v-else>
         <ion-modal :is-open="isModalOpen" @didDismiss="closeModal" class="image-modal">
           <div class="modal-wrapper">
             <ion-button fill="clear" color="light" class="close-modal-btn" @click="closeModal">
-              Đóng
+              {{ $t('areas.detail.cancel') }}
             </ion-button>
 
             <swiper :initial-slide="currentSlideIndex" :centered-slides="true" :space-between="20"
@@ -38,21 +38,24 @@
         <ion-card-header>
           <div class="status-badge"
             :class="getPrIdData.prHasProblem && getPrIdData.prStatus === 0 ? 'problem1' : getPrIdData.prHasProblem && getPrIdData.prStatus === 1 ? 'problem2' : 'normal'">
-            {{ getPrIdData.prHasProblem && getPrIdData.prStatus === 0 ? 'Đang chờ xử lý' : getPrIdData.prHasProblem &&
-              getPrIdData.prStatus === 1 ? 'Đang xử lý' : getPrIdData.prStatus === 2 ? 'Hoàn thành' : 'Không vấn đề gì' }}
+            {{ getPrIdData.prHasProblem && getPrIdData.prStatus === 0 ? $t('areas.detail.stt-pending') :
+              getPrIdData.prHasProblem &&
+                getPrIdData.prStatus === 1 ? $t('areas.detail.stt-processing') : getPrIdData.prStatus === 2 ?
+                $t('areas.detail.stt-completed') : $t('areas.detail.stt-no-issue') }}
           </div>
-          <ion-card-title>Khu vực: {{ getPrIdData.areaName }}</ion-card-title>
-          <ion-card-subtitle>Vị trí: {{ getPrIdData.cpName }}</ion-card-subtitle>
+          <ion-card-title>{{ $t('areas.detail.area') }} {{ getPrIdData.areaName }}</ion-card-title>
+          <ion-card-subtitle>{{ $t('areas.detail.position') }} {{ getPrIdData.cpName }}</ion-card-subtitle>
         </ion-card-header>
 
         <ion-card-content>
           <ion-list lines="none">
             <ion-item>
               <ion-label>
-                <h2>Thời gian dự kiến: <strong>{{ getPrIdData.planHours ? `${getPrIdData.planHours}h` : '' }} {{
-                  getPrIdData.planMinutes ? `${getPrIdData.planMinutes}m` : '' }} {{ getPrIdData.planSeconds ?
+                <h2>{{ $t('areas.detail.estimated-time') }} <strong>{{ getPrIdData.planHours ?
+                  `${getPrIdData.planHours}h` : '' }} {{
+                      getPrIdData.planMinutes ? `${getPrIdData.planMinutes}m` : '' }} {{ getPrIdData.planSeconds ?
                       `${getPrIdData.planSeconds}s` : '' }}</strong></h2>
-                <h3 :class="getPrIdData.timeProblem ? 'time-problem' : ''">Thời gian thực tế: {{
+                <h3 :class="getPrIdData.timeProblem ? 'time-problem' : ''">{{ $t('areas.detail.actual-time') }} {{
                   getPrIdData.realityHours ? `${getPrIdData.realityHours}h` : '' }} {{
                     getPrIdData.realityMinutes ? `${getPrIdData.realityMinutes}m` : '' }} {{
                     getPrIdData.realitySeconds ? `${getPrIdData.realitySeconds}s` : '' }}
@@ -62,36 +65,38 @@
 
             <ion-item>
               <ion-label>
-                <h2>Người báo cáo: <strong>{{ getPrIdData.reportName }}</strong></h2>
-                <h3 :class="getPrIdData.shiftProblem ? 'shift-problem' : ''">Ngày báo cáo: {{
+                <h2>{{ $t('areas.detail.user-report') }} <strong>{{ getPrIdData.reportName }}</strong></h2>
+                <h3 :class="getPrIdData.shiftProblem ? 'shift-problem' : ''">{{ $t('areas.detail.date-report') }} {{
                   formatDate(getPrIdData.reportAt) }}</h3>
               </ion-label>
             </ion-item>
 
             <ion-item v-if="getPrIdData.prHasProblem">
               <ion-label>
-                <h2>Người cập nhật: <strong>{{ getPrIdData.updatedName }}</strong></h2>
-                <h3>Ngày cập nhật: {{ formatDate(getPrIdData.updatedAt) }}</h3>
+                <h2>{{ $t('areas.detail.user-update') }} <strong>{{ getPrIdData.updatedName }}</strong></h2>
+                <h3>{{ $t('areas.detail.date-update') }} {{ formatDate(getPrIdData.updatedAt) }}</h3>
               </ion-label>
             </ion-item>
 
             <ion-item v-if="getPrIdData.cpDescription">
               <ion-label>
-                <h3>Mô tả Checkpoint:</h3>
+                <h3>{{ $t('areas.detail.cp-desc') }}</h3>
                 <p class="description-text">{{ getPrIdData.cpDescription }}</p>
               </ion-label>
             </ion-item>
 
             <ion-item class="note-item">
               <ion-label>
-                <h3>Ghi chú tổng:</h3>
-                <div class="note-content">{{ getPrIdData.prNote || 'Không có ghi chú tổng' }}</div>
+                <h3>{{ $t('areas.detail.general-notes') }}</h3>
+                <div class="note-content">{{ $t(getProblemData(getPrIdData.prNote).name) ?
+                  $t(getProblemData(getPrIdData.prNote).name) : getPrIdData.prNote }}
+                </div>
               </ion-label>
             </ion-item>
           </ion-list>
 
           <div v-if="listGroups.length > 0" class="groups-container">
-            <h2 class="group-section-title">Hình ảnh báo cáo</h2>
+            <h2 class="group-section-title">{{ $t('areas.detail.pic-rp') }}</h2>
 
             <div v-for="(group, index) in listGroups" :key="index" class="group-box">
               <div class="group-header">
@@ -126,12 +131,12 @@ import {
   IonList, IonItem, IonIcon, IonButton
 } from '@ionic/vue'
 import { calendarOutline, documentTextOutline } from 'ionicons/icons';
-import { ref, computed, watch } from 'vue'; // Thêm watch
+import { ref, computed, watch } from 'vue';
 import { useStore } from 'vuex';
 import { Swiper, SwiperSlide } from 'swiper/vue';
 import 'swiper/css';
 import '@ionic/vue/css/ionic-swiper.css';
-import { ImageService } from '@/services/image.service'; // Đảm bảo import này đúng
+import { ImageService } from '@/services/image.service';
 
 const store = useStore();
 
@@ -233,7 +238,28 @@ const openModal = (img: { url: string; note?: string }) => {
 };
 
 const closeModal = () => {
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
   isModalOpen.value = false;
+};
+
+const goHome = () => {
+  // Bỏ focus của nút "Quay lại" trước khi đổi route
+  if (document.activeElement instanceof HTMLElement) {
+    document.activeElement.blur();
+  }
+  router.replace('/home');
+};
+
+const listProblems = ref([
+  { problem: 'Không có vấn đề phát sinh', name: 'areas.detail.issue-none' },
+  { problem: 'Có vấn đề phát sinh', name: 'areas.detail.issue-found' }
+]);
+
+const getProblemData = (text: string) => {
+  const problem = listProblems.value.find(r => r.problem === text);
+  return problem ? problem : { name: '' };
 };
 </script>
 
