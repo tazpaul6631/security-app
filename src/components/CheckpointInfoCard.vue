@@ -8,10 +8,10 @@
                             <ion-col>
                                 <ion-card-title>{{ dataScanQr.areaName }}</ion-card-title>
                             </ion-col>
-                            <ion-col v-if="formattedTime">
+                            <ion-col size="auto" class="ion-text-end" v-if="formattedTime">
                                 <span class="timer-display" :class="timerColorClass">
                                     <ion-icon class="icon-clock" :icon="timeOutline"></ion-icon>
-                                    Thời gian: {{ formattedTime }}
+                                    {{ $t('areas.report.countdown') }} {{ formattedTime }}
                                 </span>
                             </ion-col>
                         </ion-row>
@@ -24,7 +24,8 @@
             <ion-row v-if="currentActiveRoute">
                 <ion-col>
                     <ion-card-subtitle>
-                        Mã: {{ currentActiveRoute.routeCode }} | Giờ trực: {{ currentActiveRoute.psHourFrom }}h
+                        {{ $t('areas.report.code') }} {{ currentActiveRoute.routeCode }} | {{ $t('areas.report.shift')
+                        }} {{ currentActiveRoute.psHourFrom }}h
                     </ion-card-subtitle>
                 </ion-col>
             </ion-row>

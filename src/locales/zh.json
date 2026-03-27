@@ -43,7 +43,7 @@
         "scan": "掃描",
         "code": "代碼:",
         "shift": "班次:",
-        "countdown": "倒數計時器:",
+        "countdown": "倒數計時：",
         "loading-route": "正在載入路線...",
         "txt-info": "{currentHour}時的路線已完成",
         "all-scanned": "您已完成此時段的所有掃描點位。",
@@ -104,7 +104,15 @@
             "pending-sync": "等待同步",
             "offline": "離線",
             "loading-more": "正在載入更多報告...",
-            "content": "內容"
+            "content": "內容",
+            "code": "代碼:",
+            "shift": "班次:",
+            "countdown": "剩餘時間：",
+            "validate-img": "驗證圖片",
+            "label_requirement": "要求：",
+            "msg_capture_before_report": "報告前請先拍攝巡邏點照片。",
+            "btn_take_checkin": "拍入點打卡照",
+            "status_photo_confirmed": "已拍攝確認照片"
         }
     }
 }

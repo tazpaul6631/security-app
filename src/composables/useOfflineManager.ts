@@ -90,18 +90,13 @@ export function useOfflineManager() {
       routeId: item.data.routeId,
       rdId: item.data.rdId,
       cpId: item.data.cpId,
-      cpLat: item.data.cpLat,
-      cpLng: item.data.cpLng,
-      prLat: item.data.prLat,
-      prLng: item.data.prLng,
-      prAccuracy: item.data.prAccuracy,
       cpName: item.data.cpName || 'Điểm quét (Offline)',
       createdName: userData?.fullName || 'Tôi (Offline)',
       createdAt: item.data.createdAt || new Date().toISOString(),
       prHasProblem: item.data.prHasProblem,
       prNote: item.data.prNote,
       isOfflineMock: true,
-      reportImages: [] // Giao diện ảo cũng không cần ôm ảnh
+      reportImages: []
     };
 
     console.log(mockReport);

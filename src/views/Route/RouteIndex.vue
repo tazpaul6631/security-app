@@ -90,7 +90,6 @@ import { scannerService } from '@/services/scanner.service';
 import storageService from '@/services/storage.service';
 import PatrolShiftView from '@/api/PatrolShiftView';
 import presentAlert from '@/mixins/presentAlert';
-import { Geolocation } from '@capacitor/geolocation';
 
 // IMPORT GLOBAL TIMER
 import { useRouteTimer } from '@/composables/useRouteTimer';
@@ -248,12 +247,8 @@ const processScannedData = async (qrCodeString: string, routeId: number) => {
     await loading.present();
 
     try {
-
-        // const locData = await checkLocationReady();
-        // if (!locData) return;
-        const locData = 0;
         // Gọi logic xử lý nặng (Check lộ trình, API, SQLite)
-        await scannerService.processQRString(store, router, routeId, qrCodeString, locData);
+        await scannerService.processQRString(store, router, routeId, qrCodeString);
 
     } catch (error) {
         console.error("Lỗi xử lý dữ liệu quét:", error);
@@ -381,7 +376,7 @@ const handleAppWakeUp = () => {
 const loadRouteData = async () => {
     isLoading.value = true;
 
-    if (!navigator.onLine) {
+    if (!store.state.isOnline) {
         shiftDataList.value = store.state.dataListRoute || [];
     } else {
         try {
@@ -521,43 +516,6 @@ const cancelButtons = [
         }
     }
 ];
-
-// ==========================================
-// KIỂM TRA ĐỊNH VỊ (GPS)
-// ==========================================
-// const checkLocationReady = async (): Promise<any | null> => {
-//     try {
-//         let perm = await Geolocation.checkPermissions();
-//         if (perm.location !== 'granted') {
-//             perm = await Geolocation.requestPermissions();
-//         }
-//         if (perm.location !== 'granted') {
-//             await presentAlert.presentAlert('Cảnh báo', '', 'Bạn cần cấp quyền vị trí để đi tuần tra.');
-//             return null;
-//         }
-
-//         const position = await Geolocation.getCurrentPosition({
-//             timeout: 5000,
-//             enableHighAccuracy: false,
-//             maximumAge: 15000
-//         });
-
-//         // TRẢ VỀ DATA TỌA ĐỘ THAY VÌ LƯU VUEX TẠI ĐÂY
-//         return {
-//             lat: position.coords.latitude,
-//             lng: position.coords.longitude,
-//             accuracy: position.coords.accuracy
-//         };
-//     } catch (error: any) {
-//         console.error("Lỗi GPS:", error);
-//         await presentAlert.presentAlert(
-//             'Chưa bật Định vị',
-//             '',
-//             'Vui lòng BẬT ĐỊNH VỊ (GPS) trên điện thoại trước khi quét mã!'
-//         );
-//         return null;
-//     }
-// };
 </script>
 
 <style scoped>

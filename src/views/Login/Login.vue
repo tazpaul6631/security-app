@@ -1,7 +1,7 @@
 <template>
     <ion-page>
-        <ion-fab vertical="top" horizontal="end" slot="fixed" class="ion-padding">
-            <ion-button fill="clear" color="dark" @click="openLanguageSheet">
+        <ion-fab vertical="top" horizontal="end" slot="fixed" class="lenguages">
+            <ion-button fill="clear" color="light" @click="openLanguageSheet">
                 <ion-icon :icon="globeOutline" slot="start"></ion-icon>
                 {{ currentLangLabel }}
             </ion-button>
@@ -266,5 +266,11 @@ onMounted(async () => {
 
 .ion-margin-bottom {
     margin-bottom: 15px;
+}
+
+.lenguages {
+    margin: 40px 10px 0 0;
+    background-color: rgb(192, 214, 172);
+    border-radius: 15px;
 }
 </style>

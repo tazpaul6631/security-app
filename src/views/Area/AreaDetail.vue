@@ -88,8 +88,9 @@
             <ion-item class="note-item">
               <ion-label>
                 <h3>{{ $t('areas.detail.general-notes') }}</h3>
-                <div class="note-content">{{ $t(getProblemData(getPrIdData.prNote).name) ?
-                  $t(getProblemData(getPrIdData.prNote).name) : getPrIdData.prNote }}
+                <div class="note-content">
+                  {{ getProblemData(getPrIdData.prNote).name ? $t(getProblemData(getPrIdData.prNote).name) :
+                  getPrIdData.prNote }}
                 </div>
               </ion-label>
             </ion-item>

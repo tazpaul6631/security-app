@@ -43,7 +43,7 @@
         "scan": "Scan",
         "code": "Code:",
         "shift": "Shift:",
-        "countdown": "Countdown timer:",
+        "countdown": "Countdown:",
         "loading-route": "Loading route...",
         "txt-info": "The {currentHour}h route is completed",
         "all-scanned": "You have completed all checkpoints for this time slot.",
@@ -104,7 +104,15 @@
             "pending-sync": "Pending sync",
             "offline": "Offline",
             "loading-more": "Loading more reports...",
-            "content": "Content"
+            "content": "Content",
+            "code": "Code:",
+            "shift": "Shift:",
+            "countdown": "Time remaining:",
+            "validate-img": "Validate image",
+            "label_requirement": "Requirement:",
+            "msg_capture_before_report": "Take a photo of the patrol point before reporting.",
+            "btn_take_checkin": "Take Check-in Photo",
+            "status_photo_confirmed": "Confirmation photo taken"
         }
     }
 }

@@ -33,7 +33,7 @@ export const scannerService = {
     },
 
     // 2. Hàm mới: Xử lý chuỗi QR (Bất kể chuỗi đó lấy từ Camera hay từ nút bấm Unitech)
-    async processQRString(store: Store<any>, router: Router, routeId: number, qrCodeString: string, locationData: any) {
+    async processQRString(store: Store<any>, router: Router, routeId: number, qrCodeString: string) {
         const now = new Date();
         const currentTimeString = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 19);
         const dataListRoute = store.state.dataListRoute;
@@ -96,11 +96,7 @@ export const scannerService = {
                 wrongCpId: Number(listScanQr.cpwId) || 0,
                 correctCpId: Number(nextPointRequired.cpId) || 0,
                 createdAt: currentTimeString,
-                createdBy: userData?.userId || '',
-                // THÊM TỌA ĐỘ ĐỂ SERVER LOG LẠI NẾU CẦN
-                prLat: locationData?.lat || 0,
-                prLng: locationData?.lng || 0,
-                prAccuracy: locationData?.accuracy || 0
+                createdBy: userData?.userId || ''
             };
 
             const handleWrongScanSync = async () => {
@@ -174,13 +170,7 @@ export const scannerService = {
             }
 
             if (finalData) {
-                // 2. KHI QUÉT ĐÚNG: LƯU TỌA ĐỘ VÀO VUEX & SQLITE
-                // Trang Create gọi ra là dùng được luôn, không cần load lại!
-                if (locationData) {
-                    store.commit('SET_CURRENT_LOCATION', locationData);
-                    await storageService.set('last_known_location', locationData);
-                }
-
+                // KHI QUÉT ĐÚNG: LƯU TỌA ĐỘ VÀO VUEX & SQLITE
                 store.commit('SET_DATASCANQR', finalData);
                 await storageService.set('data_scanqr', finalData);
                 await storageService.set('currentTime_scanqr', currentTimeString);

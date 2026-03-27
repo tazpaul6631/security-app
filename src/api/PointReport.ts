@@ -22,12 +22,7 @@ export default {
       createdBy: data.createdBy,
       scanAt: data.scanAt,
       noteGroups: data.noteGroups,
-      prNote: data.prNote,
-      cpLat: data.cpLat,
-      cpLng: data.cpLng,
-      prLat: data.prLat,
-      prLng: data.prLng,
-      prAccuracy: data.prAccuracy
+      prNote: data.prNote
     })
   }
 };

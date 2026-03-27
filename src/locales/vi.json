@@ -47,7 +47,7 @@
         "loading-route": "Đang tải lộ trình...",
         "txt-info": "Lộ trình {currentHour}h đã hoàn thành",
         "all-scanned": "Bạn đã hoàn tất tất cả các điểm quét trong khung giờ này.",
-        "route-not-found": "Không tìm thấy lộ trình {{ currentHour }}h",
+        "route-not-found": "Không tìm thấy lộ trình { currentHour }h",
         "no-shift-data": "Dữ liệu ca trực chưa được tải hoặc không có ca trực trong khung giờ này.",
         "go-home": "Quay lại trang chủ",
         "warning-title": "Cảnh báo!",
@@ -104,7 +104,15 @@
             "pending-sync": "Chờ đồng bộ",
             "offline": "Offline",
             "loading-more": "Đang tải thêm báo cáo...",
-            "content": "Nội dung"
+            "content": "Nội dung",
+            "code": "Mã:",
+            "shift": "Ca Trực:",
+            "countdown": "Thời gian còn:",
+            "validate-img": "Xác thực hình ảnh",
+            "label_requirement": "Yêu cầu:",
+            "msg_capture_before_report": "Chụp điểm tuần tra trước khi báo cáo.",
+            "btn_take_checkin": "Chụp ảnh Check-in",
+            "status_photo_confirmed": "Đã chụp ảnh xác nhận"
         }
     }
 }
