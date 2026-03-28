@@ -14,10 +14,12 @@ const request = {
   async send(method: HttpMethod, url: string, data: any = null): Promise<any> {
     // LẤY TOKEN TỪ SQLITE/STORAGE TRƯỚC KHI GỬI
     const token = await storageService.get('user_token');
+    const headers: HeadersInit = {}; // KHÔNG để mặc định là application/json
 
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
+    // Nếu data KHÔNG PHẢI là FormData thì mới set application/json
+    if (!(data instanceof FormData)) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
@@ -28,9 +30,13 @@ const request = {
       headers: headers,
     };
 
-    // Fetch không được phép có body nếu là GET hoặc HEAD
     if (data && method !== 'GET') {
-      options.body = JSON.stringify(data);
+      if (data instanceof FormData) {
+        // Nếu là FormData, để fetch tự xử lý body, KHÔNG stringify
+        options.body = data;
+      } else {
+        options.body = JSON.stringify(data);
+      }
     }
 
     try {

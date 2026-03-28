@@ -34,3 +34,8 @@ http://ionicframework.com/docs/theming/ */
 .none-padding {
     padding-top: 0 !important;
 }
+
+/* Đẩy nội dung của tất cả các trang lên một khoảng bằng với thanh điều hướng */
+ion-content {
+    --padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px) !important;
+}

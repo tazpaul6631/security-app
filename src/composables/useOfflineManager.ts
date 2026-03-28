@@ -23,6 +23,56 @@ interface PendingItem {
 export function useOfflineManager() {
   const storeInstance = store;
 
+  const buildFormData = async (item: PendingItem): Promise<FormData> => {
+    const fb = new FormData();
+
+    // 1. Append các trường phẳng (Primitive)
+    fb.append('psId', item.data.psId.toString());
+    fb.append('routeId', item.data.routeId.toString());
+    fb.append('rdId', item.data.rdId.toString());
+    fb.append('prHasProblem', item.data.prHasProblem ? 'true' : 'false');
+    fb.append('prNote', item.data.prNote || '');
+    fb.append('createdAt', item.data.createdAt);
+    fb.append('createdBy', item.data.createdBy);
+    fb.append('scanAt', item.data.scanAt || item.data.createdAt);
+
+    // 2. Xử lý noteGroups theo chuẩn Index lồng nhau
+    if (item.data.noteGroups && Array.isArray(item.data.noteGroups)) {
+      let globalImageIndex = 0;
+
+      // SỬA: Dùng vòng lặp for...of để await có tác dụng
+      for (let i = 0; i < item.data.noteGroups.length; i++) {
+        const group = item.data.noteGroups[i];
+
+        // Append Metadata cho từng Group
+        fb.append(`noteGroups[${i}].prGroup`, group.prGroup.toString());
+        fb.append(`noteGroups[${i}].priImageNote`, group.priImageNote || '');
+
+        // 3. Xử lý ảnh lồng trong từng Group
+        if (group.reportImages && group.reportImages.length > 0) {
+          // SỬA: Tiếp tục dùng vòng lặp for để đợi đọc ảnh
+          for (let j = 0; j < group.reportImages.length; j++) {
+            const fileName = item.imageFiles[globalImageIndex];
+
+            if (fileName) {
+              const base64 = await ImageService.readImage(fileName);
+              if (base64) {
+                const res = await fetch(`data:image/jpeg;base64,${base64}`);
+                const blob = await res.blob();
+
+                // Append đúng cấu trúc List<IFormFile> lồng trong List<Group>
+                fb.append(`noteGroups[${i}].reportImages`, blob, `group${i}_img${j}.jpg`);
+              }
+            }
+            globalImageIndex++;
+          }
+        }
+      }
+    }
+
+    return fb;
+  };
+
   const presentToast = async (message: string, color: string = 'warning') => {
     const toast = await toastController.create({
       message,
@@ -126,7 +176,10 @@ export function useOfflineManager() {
       try {
         console.log(newItem.data);
 
-        const result = await PointReport.createPointReport(newItem.data);
+        const bodyFormData = await buildFormData(newItem);
+        console.log(bodyFormData);
+
+        const result = await PointReport.createPointReport(bodyFormData);
         const realReport = result?.data?.data || result?.data || result;
 
         // Thành công: Xóa ảnh và Queue ngay
@@ -256,7 +309,8 @@ export function useOfflineManager() {
         try {
           console.log(item);
 
-          const result = await PointReport.createPointReport(item.data);
+          const bodyFormData = await buildFormData(item);
+          const result = await PointReport.createPointReport(bodyFormData);
           const realReport = result?.data?.data || result?.data || result;
 
           await cleanUpItem(item);

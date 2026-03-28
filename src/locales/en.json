@@ -63,7 +63,10 @@
             "emty-data": "No data available",
             "please-route": "Please select a route",
             "go-home": "Back to Home",
-            "load-more": "Loading more..."
+            "load-more": "Loading more...",
+            "expat": "Expatriate",
+            "security": "Security",
+            "all": "All"
         },
         "detail": {
             "emty-data": "No data available",

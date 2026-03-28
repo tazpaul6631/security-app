@@ -63,7 +63,10 @@
             "emty-data": "暫無資料",
             "please-route": "請選擇路線",
             "go-home": "返回首頁",
-            "load-more": "正在載入更多..."
+            "load-more": "正在載入更多...",
+            "expat": "外派人員",
+            "security": "保全",
+            "all": "全部"
         },
         "detail": {
             "emty-data": "暫無資料",

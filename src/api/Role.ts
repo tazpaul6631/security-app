@@ -4,4 +4,7 @@ export default {
   postRole() {
     return request.post(`/Role/getlist`, {});
   },
+  postBaseRole() {
+    return request.post(`/Role/getbaselist`, {});
+  },
 };

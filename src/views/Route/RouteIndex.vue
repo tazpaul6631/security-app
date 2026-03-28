@@ -33,18 +33,6 @@
 
                         <ion-card-content>
                             <card-route-points :details="currentActiveRoute.routeDetails" />
-
-                            <div class="route-actions-bar active-controls">
-                                <ion-button color="danger" @click="confirmCancelRoute" class="btn-cancel">
-                                    <ion-icon slot="start" :icon="trashOutline"></ion-icon>
-                                    {{ $t('routes.cancel') }}
-                                </ion-button>
-                                <ion-button color="success" class="btn-continue"
-                                    @click="handleContinueScanning(currentActiveRoute.routeId)">
-                                    <ion-icon slot="start" :icon="qrCodeOutline"></ion-icon>
-                                    {{ $t('routes.scan') }}
-                                </ion-button>
-                            </div>
                         </ion-card-content>
                     </ion-card>
                 </div>
@@ -72,6 +60,23 @@
                 :message="$t('routes.cancel-confirm-msg')" :buttons="cancelButtons"
                 @didDismiss="isCancelAlertOpen = false" />
         </ion-content>
+
+        <ion-footer v-if="!isLoading && currentActiveRoute" class="ion-no-border">
+            <ion-toolbar class="ion-padding-horizontal ion-padding-bottom">
+                <div class="active-controls">
+                    <ion-button color="danger" @click="confirmCancelRoute" class="btn-cancel">
+                        <ion-icon slot="start" :icon="trashOutline"></ion-icon>
+                        {{ $t('routes.cancel') }}
+                    </ion-button>
+                    <ion-button color="success" class="btn-continue"
+                        @click="handleContinueScanning(currentActiveRoute.routeId)">
+                        <ion-icon slot="start" :icon="qrCodeOutline"></ion-icon>
+                        {{ $t('routes.scan') }}
+                    </ion-button>
+                </div>
+            </ion-toolbar>
+        </ion-footer>
+
     </ion-page>
 </template>
 
@@ -82,7 +87,8 @@ import { useRouter } from 'vue-router';
 import {
     IonPage, IonHeader, IonToolbar, IonTitle, IonIcon, IonButtons, IonBackButton,
     IonCardContent, IonContent, IonAlert, IonButton, IonCard, IonCardHeader,
-    IonCardSubtitle, IonCardTitle, IonSpinner, onIonViewWillEnter, loadingController
+    IonCardSubtitle, IonCardTitle, IonSpinner, IonFooter, onIonViewWillEnter,
+    loadingController
 } from '@ionic/vue';
 import { qrCodeOutline, calendarOutline, trashOutline, timeOutline } from 'ionicons/icons';
 import CardRoutePoints from '@/components/CardRoutePoints.vue';
@@ -259,31 +265,31 @@ const processScannedData = async (qrCodeString: string, routeId: number) => {
     }
 };
 
-let scanBuffer = '';
-let scanTimeout: any = null;
+// let scanBuffer = '';
+// let scanTimeout: any = null;
 
-const handleHardwareScan = async (e: KeyboardEvent) => {
-    if (store.state.isSyncing) return;
-    if (e.key === 'Enter') {
-        if (scanBuffer.length > 3 && currentActiveRoute.value) {
-            const bufferCopy = scanBuffer;
-            scanBuffer = '';
+// const handleHardwareScan = async (e: KeyboardEvent) => {
+//     if (store.state.isSyncing) return;
+//     if (e.key === 'Enter') {
+//         if (scanBuffer.length > 3 && currentActiveRoute.value) {
+//             const bufferCopy = scanBuffer;
+//             scanBuffer = '';
 
-            processScannedData(bufferCopy, currentActiveRoute.value.routeId);
-        }
-        scanBuffer = '';
-        return;
-    }
+//             processScannedData(bufferCopy, currentActiveRoute.value.routeId);
+//         }
+//         scanBuffer = '';
+//         return;
+//     }
 
-    if (e.ctrlKey || e.altKey || e.metaKey || e.key.length !== 1) return;
+//     if (e.ctrlKey || e.altKey || e.metaKey || e.key.length !== 1) return;
 
-    scanBuffer += e.key;
+//     scanBuffer += e.key;
 
-    clearTimeout(scanTimeout);
-    scanTimeout = setTimeout(() => {
-        scanBuffer = '';
-    }, 50);
-};
+//     clearTimeout(scanTimeout);
+//     scanTimeout = setTimeout(() => {
+//         scanBuffer = '';
+//     }, 50);
+// };
 
 // Nút bấm cho Điện thoại thường (Mở Camera)
 const handleContinueScanning = async (routeId: number) => {
@@ -292,39 +298,28 @@ const handleContinueScanning = async (routeId: number) => {
     }
     if (isScanning.value) return;
 
-    isScanning.value = true; // Khóa nút bấm ngay lập tức để tránh bấm đúp
+    isScanning.value = true;
 
     try {
-        const result: any = await scannerService.startScanning(store, router, routeId);
-
-        // Nếu user bấm dấu X, kết quả thường trả về null hoặc undefined (không nhảy vào catch)
-        if (result && typeof result === 'string') {
+        const result = await scannerService.startScanning(store, router, routeId);
+        if (result) {
             await processScannedData(result, routeId);
         }
     } catch (error: any) {
-        console.error("Lỗi scanner:", error);
+        const errStr = String(error).toLowerCase();
 
-        // Chuyển lỗi về dạng chuỗi để check cho dễ
-        const errString = String(error).toLowerCase();
-        const errMessage = error?.message ? String(error.message).toLowerCase() : '';
-
-        // Danh sách các từ khóa xác định là User chủ động tắt Camera
-        const userClosedCamera =
-            errString.includes('cancel') ||
-            errMessage.includes('cancel') ||
-            errString.includes('closed') ||
-            errMessage.includes('closed');
-
-        // CHỈ HIỆN CẢNH BÁO nếu không phải do user tắt, và lỗi liên quan đến phần cứng/quyền
-        // Máy Unitech khi gọi startScanning thường báo lỗi: "Hardware not available" hoặc "Permission denied"
-        if (!userClosedCamera) {
-            await presentAlert.presentAlert(
-                'Lưu ý thiết bị',
-                '',
-                'Để quét mã trên thiết bị này, vui lòng bấm nút cứng (vật lý) bên hông hoặc đầu máy!',
-                'custom-alert-class'
-            );
+        // Bỏ qua nếu user chủ động tắt giao diện camera
+        if (errStr.includes('canceled') || errStr.includes('user canceled')) {
+            return;
         }
+
+        // TẠM THỜI HIỂN THỊ NGUYÊN VĂN LỖI ĐỂ BẮT BỆNH
+        const realError = error?.message || String(error);
+        await presentAlert.presentAlert(
+            'Lỗi từ hệ thống (Debug)',
+            '',
+            `Chi tiết: ${realError}`
+        );
     } finally {
         isScanning.value = false;
     }
@@ -361,9 +356,7 @@ const updateSystemTime = async () => {
     if (hourNow !== currentHour.value) {
         currentHour.value = hourNow;
 
-        if (currentActiveRoute.value == null || lockedRouteId.value === null) {
-            await loadRouteData();
-        }
+        if (!lockedRouteId.value) await loadRouteData();
     }
 };
 
@@ -380,13 +373,14 @@ const loadRouteData = async () => {
         shiftDataList.value = store.state.dataListRoute || [];
     } else {
         try {
-            const areaId = store.state.dataUser?.userAreaId;
+            const userData = store.state.dataUser?.data || store.state.dataUser || {};
+            const areaId = userData.userAreaId;
+
             const now = new Date();
             const dateInfo = {
                 psDay: now.getDate(),
                 psMonth: now.getMonth() + 1,
                 psYear: now.getFullYear(),
-                psHour: currentHour.value,
                 isComplete: false,
                 areaId: areaId
             };
@@ -426,15 +420,15 @@ onMounted(async () => {
     window.addEventListener('focus', updateSystemTime);
 
     // 1. Lắng nghe Keyboard Wedge từ tia Laser
-    window.addEventListener('keydown', handleHardwareScan);
+    // window.addEventListener('keydown', handleHardwareScan);
 
     // 2. Lắng nghe từ Android Bridge
-    (window as any).returnResult = async (data: any) => {
-        if (currentActiveRoute.value && data) {
-            let qrString = typeof data === 'string' ? data : JSON.stringify(data);
-            processScannedData(qrString, currentActiveRoute.value.routeId);
-        }
-    };
+    // (window as any).returnResult = async (data: any) => {
+    //     if (currentActiveRoute.value && data) {
+    //         let qrString = typeof data === 'string' ? data : JSON.stringify(data);
+    //         processScannedData(qrString, currentActiveRoute.value.routeId);
+    //     }
+    // };
 
     timer = setInterval(updateSystemTime, 5000);
 });
@@ -445,8 +439,8 @@ onUnmounted(() => {
     window.removeEventListener('focus', updateSystemTime);
 
     // Cleanup listeners
-    window.removeEventListener('keydown', handleHardwareScan);
-    delete (window as any).returnResult;
+    // window.removeEventListener('keydown', handleHardwareScan);
+    // delete (window as any).returnResult;
 });
 
 // ==========================================

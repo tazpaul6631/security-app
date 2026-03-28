@@ -63,7 +63,10 @@
             "emty-data": "Danh sách chưa có",
             "please-route": "Vui lòng chọn lộ trình",
             "go-home": "Quay lại trang chủ",
-            "load-more": "Đang tải thêm..."
+            "load-more": "Đang tải thêm...",
+            "expat": "Chuyên gia",
+            "security": "Bảo vệ",
+            "all": "Tất cả"
         },
         "detail": {
             "emty-data": "Danh sách chưa có",

@@ -106,7 +106,7 @@ const handleLogin = async () => {
             psDay: now.getDate(),
             psMonth: now.getMonth() + 1,
             psYear: now.getFullYear(),
-            psHour: now.getHours() // Thêm giờ để đồng bộ lộ trình chính xác hơn
+            // psHour: now.getHours()
         };
 
         if (isOnline) {

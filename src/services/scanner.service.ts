@@ -21,11 +21,25 @@ export const scannerService = {
         }
 
         try {
+            // 1. Kiểm tra xem máy đã có Google Barcode Module chưa
+            const { available } = await BarcodeScanner.isGoogleBarcodeScannerModuleAvailable();
+
+            // 2. Nếu CHƯA CÓ -> Ra lệnh tải, thông báo user chờ, và THOÁT
+            if (!available) {
+                // Lệnh yêu cầu Google Play Services tải ngầm module
+                await BarcodeScanner.installGoogleBarcodeScannerModule();
+
+                // QUAN TRỌNG NHẤT: Return null để chặn không cho chạy lệnh scan() phía dưới
+                return null;
+            }
+
+            // 3. Nếu ĐÃ CÓ SẴN (available === true) -> Bật giao diện Camera quét mã
             const { barcodes } = await BarcodeScanner.scan();
+
             if (!barcodes || barcodes.length === 0) return null;
 
-            // Trả về chuỗi rawValue của mã QR vừa quét bằng Camera
             return barcodes[0].rawValue || null;
+
         } catch (error) {
             console.error("Camera scan error:", error);
             throw error;

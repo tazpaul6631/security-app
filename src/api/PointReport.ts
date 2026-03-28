@@ -10,19 +10,8 @@ export default {
   getPointReportId(id: any) {
     return request.get(`/PointReportView/getone/${id}`);
   },
-  createPointReport(data: any) {
-    console.log(data);
-
-    return request.post(`/PointReport/create`, {
-      psId: data.psId,
-      routeId: data.routeId,
-      rdId: data.rdId,
-      prHasProblem: data.prHasProblem,
-      createdAt: data.createdAt,
-      createdBy: data.createdBy,
-      scanAt: data.scanAt,
-      noteGroups: data.noteGroups,
-      prNote: data.prNote
-    })
+  createPointReport(formData: FormData) {
+    console.log('Gửi dữ liệu lên BE (FormData):', formData);
+    return request.post(`/PointReport/create`, formData);
   }
 };

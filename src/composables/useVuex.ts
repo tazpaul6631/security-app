@@ -220,7 +220,7 @@ const store = createStore({
       }
     },
 
-    // Hàm bơm báo cáo Offline giả vào Store (Đã fix lỗi gạch chân)
+    // Hàm bơm báo cáo Offline giả vào Store
     ADD_OFFLINE_REPORT(state: any, report: any) {
       // 1. Nhét vào kho tổng CheckpointsId (Bây giờ nó chắc chắn là Mảng)
       let allReports = Array.isArray(state.dataCheckpointsId) ? state.dataCheckpointsId : [];

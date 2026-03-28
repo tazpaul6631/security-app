@@ -130,7 +130,7 @@ import { computed, reactive, ref, onMounted, watch, markRaw } from 'vue';
 import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonItem, IonTextarea,
   IonCheckbox, IonButton, IonIcon, IonCard, IonCardContent, IonGrid, IonRow,
-  IonCol, IonImg, loadingController, onIonViewWillEnter, IonLabel,
+  IonCol, IonImg, loadingController, onIonViewWillEnter,
   IonButtons, onIonViewDidLeave, alertController
 } from '@ionic/vue';
 import {
@@ -347,11 +347,13 @@ const isSubmitting = ref(false);
 const handleSubmit = async (): Promise<void> => {
   if (isSubmitting.value) return;
   isSubmitting.value = true;
+
   const now = new Date();
   const currentTimeString = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 19);
 
   if (!dataScanQr.value?.cpId) {
     await showToast('Lỗi: Không tìm thấy dữ liệu Checkpoint', 'danger');
+    isSubmitting.value = false;
     return;
   }
 
@@ -360,8 +362,9 @@ const handleSubmit = async (): Promise<void> => {
 
   try {
     const sourceData: any[] = [];
+    const allBase64ForStorage: string[] = []; // Đây là nơi chứa data ảnh thực tế
 
-    // GROUP 1: Luôn là ảnh Check-in bắt buộc (nếu có)
+    // --- BƯỚC 1: GOM NHÓM DỮ LIỆU ---
     if (mandatoryPhoto.value) {
       sourceData.push({
         prGroup: 1,
@@ -370,47 +373,55 @@ const handleSubmit = async (): Promise<void> => {
       });
     }
 
-    // Xác định logic cho các group tiếp theo
     if (!formData.prHasProblem) {
-      // TRƯỜNG HỢP: KHÔNG CÓ LỖI -> Group 2 là ảnh hiện trạng bình thường
       if (noProblemImages.value.length > 0) {
         sourceData.push({
           prGroup: 2,
-          priImageNote: formData.prNote,
+          priImageNote: formData.prNote || t('areas.report.no-issue'),
           reportImages: [...noProblemImages.value]
         });
       }
     } else {
-      // TRƯỜNG HỢP: CÓ LỖI -> Các group từ 2 trở đi là danh sách sự cố
       groupedNotes.value.forEach((g, index) => {
         sourceData.push({
-          prGroup: index + 2, // Bắt đầu từ 2 để không trùng với ảnh Check-in
+          prGroup: index + 2,
           priImageNote: g.priImageNote,
           reportImages: g.reportImages
         });
       });
     }
 
-    // --- LOGIC MAP BASE64 VÀ GỌI ImageService.saveImage (Giữ nguyên của bạn, chỉ đổi tên mảng loop) ---
-    const finalNoteGroups = await Promise.all(sourceData.map(async (group: any) => {
-      const mappedImages = await Promise.all(group.reportImages.map(async (item: Photo) => {
+    // --- BƯỚC 2: XỬ LÝ ẢNH ---
+    const finalNoteGroups: any[] = [];
+
+    for (const group of sourceData) {
+      const mappedImages: any[] = [];
+
+      for (const item of group.reportImages) {
         const response = await fetch(item.preview);
         const blob = await response.blob();
-        let base64Data = (await convertBlobToBase64(blob)).split(',')[1];
-        await ImageService.saveImage(base64Data);
-        return { priImage: base64Data, priImageType: 'jpg' };
-      }));
+        const base64Full = await convertBlobToBase64(blob);
+        const base64Data = base64Full.split(',')[1];
 
-      return {
+        allBase64ForStorage.push(base64Data);
+
+        mappedImages.push({
+          priImage: "", // Để trống vì BE đọc từ IFormFile
+          priImageType: 'jpg'
+        });
+      }
+
+      finalNoteGroups.push({
         prGroup: group.prGroup,
         priImageNote: group.priImageNote,
         reportImages: mappedImages
-      };
-    }));
+      });
+    }
 
-    // Gom tất cả Base64 ra một mảng riêng để OfflineManager lưu file vật lý (phòng hờ sync sau)
-    const allBase64ForStorage = finalNoteGroups.flatMap((ng: any) => ng.reportImages.map((img: any) => img.priImage));
+    console.log(finalNoteGroups);
 
+
+    // --- BƯỚC 3: TẠO PAYLOAD JSON SẠCH ---
     const currentCpId = dataScanQr.value.cpId;
     const routeId = store.state.routeId;
     const userId = store.state.dataUser?.userId || store.state.dataUser?.data?.userId;
@@ -418,9 +429,8 @@ const handleSubmit = async (): Promise<void> => {
     const activeRoute = currentActiveRoute.value;
     const finalPsId = activeRoute?.psId || store.state.psId;
 
-    console.log(dataScanQr.value);
+    syncToMainForm();
 
-    // Tạo Payload hoàn chỉnh
     const formSubmitData = {
       psId: finalPsId,
       routeId: routeId,
@@ -431,49 +441,40 @@ const handleSubmit = async (): Promise<void> => {
       cpId: currentCpId,
       createdBy: userId,
       scanAt: scanAt || currentTimeString,
-      noteGroups: finalNoteGroups,
+      noteGroups: finalNoteGroups, // metadata
     };
 
-    console.log(formSubmitData);
-
-    // THÊM MỚI: Lấy ảnh đại diện (phụ thuộc vào việc có lỗi hay không)
+    // --- BƯỚC 4: GỬI QUA OFFLINE MANAGER ---
+    // firstPreview dùng để làm ảnh đại diện thumbnail trong danh sách chờ
     const firstPreview = mandatoryPhoto.value?.preview ||
       (formData.prHasProblem ? groupedNotes.value[0]?.reportImages[0]?.preview : noProblemImages.value[0]?.preview);
 
+    console.log(firstPreview);
+
+    // sendData sẽ nhận mảng allBase64ForStorage, lưu thành file và dùng buildFormData để gửi IFormFile
     await sendData(firstPreview || '', formSubmitData, allBase64ForStorage);
 
-    // Cập nhật trạng thái và check Hoàn thành
+    // --- BƯỚC 5: RESET VÀ CHUYỂN TRANG ---
     store.commit('UPDATE_POINT_STATUS', { routeId, cpId: currentCpId, status: 1 });
-
     const updatedRoutes = [...store.state.dataListRoute];
-    const rIdx = updatedRoutes.findIndex((r: Route) =>
-      Number(r.routeId) === Number(routeId) &&
-      Number(r.psId) === Number(finalPsId)
-    );
-    const details = updatedRoutes[rIdx].routeDetails;
-    const allDone = details.every((p: any) => p.status === 1);
+    const rIdx = updatedRoutes.findIndex((r: Route) => Number(r.routeId) === Number(routeId) && Number(r.psId) === Number(finalPsId));
+    const allDone = updatedRoutes[rIdx].routeDetails.every((p: any) => p.status === 1);
 
     isResetting.value = true;
+    if (currentCpId) await storageService.remove(`draft_report_${currentCpId}`);
 
-    // Xóa tận gốc bản nháp trong CSDL máy
-    if (currentCpId) {
-      await storageService.remove(`draft_report_${currentCpId}`);
-    }
-
-    // Reset giao diện
+    // Clear dữ liệu form
     formData.prHasProblem = false;
     formData.prNote = '';
     groupedNotes.value = [];
     selectedValues.value = [];
     noProblemImages.value = [];
-    selectedSubCategory.value = null;
+    mandatoryPhoto.value = null;
 
     setTimeout(() => { isResetting.value = false; }, 300);
 
-    // --- BLOCK IF ALL DONE CỦA BẠN (GIỮ NGUYÊN 100%) ---
     if (allDone) {
       await clearTimer(routeId);
-
       await Promise.all([
         storageService.remove('unfinished_route_id'),
         storageService.remove('current_route_id'),
@@ -481,20 +482,16 @@ const handleSubmit = async (): Promise<void> => {
         storageService.remove('currentTime_scanqr'),
         storageService.remove('current_ps_id')
       ]);
-
       store.commit('SET_UNFINISHED_ROUTE_ID', null);
       store.commit('SET_ROUTE_ID', null);
       store.commit('SET_PSID', null);
       store.commit('SET_DATASCANQR', null);
-
       await storageService.set('list_route', store.state.dataListRoute);
-
       await loading.dismiss();
-      await showToast('Chúc mừng! Bạn đã hoàn thành toàn bộ lộ trình.', 'success');
+      await showToast('Hoàn thành lộ trình thành công!', 'success');
       router.replace('/home');
     } else {
       await storageService.set('list_route', updatedRoutes);
-      await storageService.set('unfinished_route_id', routeId);
       await loading.dismiss();
       router.replace('/route');
     }
@@ -502,6 +499,7 @@ const handleSubmit = async (): Promise<void> => {
   } catch (error) {
     await loading.dismiss();
     console.error("Lỗi:", error);
+    await showToast('Không thể lưu báo cáo', 'danger');
   } finally {
     isSubmitting.value = false;
   }

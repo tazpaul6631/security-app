@@ -10,9 +10,11 @@
             </div>
             <div class="text-content">
               <h3>{{ dataUser?.userName }}</h3>
-              <div class="text-code-roleName">
-                <p class="mr-code">{{ dataUser?.userCode }}</p> - <p class="badge-it ml-roleName">{{
-                  $t(getRoleData(dataUser?.userRoleId).name) }}</p>
+              <div class="text-code-roleName" v-if="dataUser">
+                <p class="mr-code">{{ dataUser.userCode }}</p> -
+                <p class="badge-it ml-roleName">
+                  {{ $t(getRoleData(dataUser.userRoleId).name) }}
+                </p>
               </div>
             </div>
           </div>

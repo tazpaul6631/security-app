@@ -68,19 +68,22 @@ const getGlobalApiList = (userData: any) => {
     area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),
 
     list_route: () => {
-      // Lấy khóa dở dang từ Store
       const lockedPsId = store.state.psId;
+      const now = new Date();
 
-      // Nếu có khóa, gửi yêu cầu lấy đích danh ca trực đó
+      // Tự động build lại ngày tháng hiện tại, ghi đè lên userData cũ
+      const payload = {
+        ...userData,
+        psDay: now.getDate(),
+        psMonth: now.getMonth() + 1,
+        psYear: now.getFullYear(),
+      };
+      delete payload.psHour; // Chắc chắn xóa psHour để lấy trọn ngày
+
       if (lockedPsId) {
-        return PatrolShiftView.postPatrolShiftView({
-          ...userData,
-          psId: lockedPsId
-        });
+        return PatrolShiftView.postPatrolShiftView({ ...payload, psId: lockedPsId });
       }
-
-      // Nếu không có khóa (rảnh rỗi), lấy ca theo giờ hiện tại bình thường
-      return PatrolShiftView.postPatrolShiftView(userData);
+      return PatrolShiftView.postPatrolShiftView(payload);
     },
 
     report_note_category: () => ReportNoteCategory.getReportNoteCategory(),
@@ -143,11 +146,20 @@ const safeSync = async (isInitApp = false) => {
       const lightApiList = {
         list_route: () => {
           const lockedPsId = store.state.psId;
+          const now = new Date();
+
+          const payload = {
+            ...userData,
+            psDay: now.getDate(),
+            psMonth: now.getMonth() + 1,
+            psYear: now.getFullYear(),
+          };
+          delete payload.psHour; // Xóa psHour
+
           if (lockedPsId) {
-            // 2. Dùng userData an toàn ở đây, TypeScript sẽ không báo lỗi nữa
-            return PatrolShiftView.postPatrolShiftView({ ...userData, psId: lockedPsId });
+            return PatrolShiftView.postPatrolShiftView({ ...payload, psId: lockedPsId });
           }
-          return PatrolShiftView.postPatrolShiftView(userData);
+          return PatrolShiftView.postPatrolShiftView(payload);
         }
       };
       await store.dispatch('syncAllData', { apiList: lightApiList, mode: 'silent' });

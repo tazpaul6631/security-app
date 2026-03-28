@@ -17,9 +17,9 @@
       </div>
 
       <ion-card v-else>
-        <ion-modal :is-open="isModalOpen" @didDismiss="closeModal" class="image-modal">
+        <ion-modal :is-open="isModalOpen" @didDismiss="closeModal" class="image-modal" :animated="false">
           <div class="modal-wrapper">
-            <ion-button fill="clear" color="light" class="close-modal-btn" @click="closeModal">
+            <ion-button fill="clear" color="light" class="close-modal-btn" @click.stop="closeModal">
               {{ $t('areas.detail.cancel') }}
             </ion-button>
 
@@ -90,7 +90,7 @@
                 <h3>{{ $t('areas.detail.general-notes') }}</h3>
                 <div class="note-content">
                   {{ getProblemData(getPrIdData.prNote).name ? $t(getProblemData(getPrIdData.prNote).name) :
-                  getPrIdData.prNote }}
+                    getPrIdData.prNote }}
                 </div>
               </ion-label>
             </ion-item>
@@ -168,12 +168,12 @@ const getPrIdData = computed(() => {
 });
 
 /**
- * LOGIC MỚI: Xử lý danh sách ảnh (Hỗ trợ cả Offline File và Online Base64)
+ * LOGIC MỚI: Xử lý danh sách ảnh (Hỗ trợ Offline File, Online URL và Online Base64)
  * Watch này sẽ chạy mỗi khi getPrIdData thay đổi
  */
 watch(() => getPrIdData.value, async (data) => {
   if (data && data.noteGroups && Array.isArray(data.noteGroups)) {
-    // Biến đếm để lấy đúng file từ mảng phẳng imageFiles (lưu lúc sendData)
+    // Biến đếm để lấy đúng file từ mảng phẳng imageFiles (lưu lúc sendData - dùng cho offline)
     let totalImgIdx = 0;
 
     const processedGroups = await Promise.all(data.noteGroups.map(async (group: any) => {
@@ -187,13 +187,20 @@ watch(() => getPrIdData.value, async (data) => {
           imageUrl = localUrl || '';
           totalImgIdx++; // Tăng index để ảnh tiếp theo lấy file tiếp theo
         }
-        // TRƯỜNG HỢP 2: Dữ liệu Online (Ảnh là chuỗi Base64 từ API)
+        // TRƯỜNG HỢP 2: Dữ liệu Online từ API
         else {
-          const base64String = img.priImage || '';
-          const mimeType = img.priImageType || 'jpeg';
-          imageUrl = base64String.startsWith('data:image')
-            ? base64String
-            : `data:image/${mimeType};base64,${base64String}`;
+          // Ưu tiên 1: Dùng link trực tiếp từ API (priUrl) nếu có
+          if (img.priUrl) {
+            imageUrl = img.priUrl;
+          }
+          // Ưu tiên 2: Fallback lại logic Base64 (phòng trường hợp data cũ hoặc lưu tạm)
+          else if (img.priImage) {
+            const base64String = img.priImage || '';
+            const mimeType = img.priImageType || 'jpeg';
+            imageUrl = base64String.startsWith('data:image')
+              ? base64String
+              : `data:image/${mimeType};base64,${base64String}`;
+          }
         }
 
         return { url: imageUrl, note: group.priImageNote };
@@ -420,7 +427,7 @@ h3 {
 
 .close-modal-btn {
   position: absolute;
-  top: 10px;
+  top: 25px;
   right: 10px;
   z-index: 10;
   font-weight: bold;

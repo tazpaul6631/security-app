@@ -28,80 +28,97 @@
                             <ion-button @click="isModalOpen = false">{{ $t('areas.index.cancel') }}</ion-button>
                         </ion-buttons>
                     </ion-toolbar>
+                    <ion-toolbar v-if="isCurrentUserAdmin">
+                        <ion-item lines="none" class="filter-dropdown-item">
+                            <ion-icon :icon="funnelOutline" slot="start" size="small" color="medium"></ion-icon>
+                            <ion-select v-model="filterStatus" @ionChange="handleFilterChange" interface="popover"
+                                mode="ios" aria-label="Filter" class="full-width-select">
+                                <ion-select-option v-for="opt in filterRoleOptions" :key="opt.value" :value="opt.value">
+                                    {{ opt.label }}
+                                </ion-select-option>
+                            </ion-select>
+                        </ion-item>
+                    </ion-toolbar>
                     <ion-progress-bar v-show="isLoading" type="indeterminate" color="primary"></ion-progress-bar>
                 </ion-header>
 
                 <ion-content class="ion-padding">
-                    <ion-list v-if="currentOptions.length > 0" lines="full">
-                        <ion-item v-for="(item, index) in currentOptions" :key="item.psId || item.routeId || index"
-                            :button="true" @click="handleModalSelection(item)">
-                            <ion-grid>
-                                <ion-row class="ion-align-items-center">
-                                    <ion-col>
-                                        <ion-label>
-                                            <strong
-                                                :style="(item.isOfflineDone || item.realityPoint > 0) ? 'color: var(--ion-color-primary)' : ''">
-                                                {{ item.routeCode }}
-                                            </strong>
-                                            <p style="font-size: 0.9em; color: var(--ion-color-step-600);">{{
-                                                item.routeName }}</p>
+                    <template v-if="modalDisplayedItems.length > 0">
+                        <ion-list lines="full">
+                            <ion-item v-for="(item, index) in modalDisplayedItems"
+                                :key="item.psId || item.routeId || index" :button="true"
+                                @click="handleModalSelection(item)">
+                                <ion-grid>
+                                    <ion-row class="ion-align-items-center">
+                                        <ion-col>
+                                            <ion-label>
+                                                <strong
+                                                    :style="(item.isOfflineDone || item.realityPoint > 0) ? 'color: var(--ion-color-primary)' : ''">
+                                                    {{ item.routeCode }}
+                                                </strong>
+                                                <p style="font-size: 0.9em; color: var(--ion-color-step-600);">{{
+                                                    item.routeName }}</p>
 
-                                            <div v-if="item.isOfflineDone">
-                                                <ion-badge color="warning" mode="ios" style="font-size: 0.7em;">
-                                                    {{ $t('areas.index.await-sync') }}
+                                                <div v-if="item.isOfflineDone">
+                                                    <ion-badge color="warning" mode="ios" style="font-size: 0.7em;">
+                                                        {{ $t('areas.index.await-sync') }}
+                                                    </ion-badge>
+                                                </div>
+
+                                                <div style="margin-top: 5px;">
+                                                    <ion-icon class="icon-1" :icon="newspaperOutline"
+                                                        :color="item.pointProblem ? 'danger' : 'success'">
+                                                    </ion-icon>
+                                                    <ion-icon class="icon-2" :icon="timeOutline"
+                                                        :color="item.timeProblem ? 'danger' : 'success'">
+                                                    </ion-icon>
+                                                    <ion-icon class="icon-2" :icon="footstepsOutline"
+                                                        :color="item.shiftProblem ? 'danger' : 'success'">
+                                                    </ion-icon>
+                                                </div>
+                                            </ion-label>
+                                        </ion-col>
+
+                                        <ion-col size="6" class="ion-text-end">
+                                            <div class="note-container">
+                                                <ion-label class="labelItem" color="medium">{{ item.reportName
+                                                    }}</ion-label>
+                                                <ion-badge
+                                                    :color="item.realityPoint >= item.planPoint ? 'success' : 'medium'"
+                                                    style="margin-top: 4px; color: white;">
+                                                    {{ item.realityPoint || 0 }}/{{ item.planPoint || 0 }} {{
+                                                        $t('areas.index.points') }}
                                                 </ion-badge>
+
+                                                <p v-if="item.realityHours || item.realityMinutes"
+                                                    style="font-size: 0.75em; margin: 4px 0 0 0;">
+                                                    <ion-icon :icon="timeOutline" style="font-size: 10px;"></ion-icon>
+                                                    {{ item.realityHours ? `${item.realityHours}h` : '' }}
+                                                    {{ item.realityMinutes ? `${item.realityMinutes}m` : '' }}
+                                                    {{ item.realitySeconds ? `${item.realitySeconds}s` : '' }}
+                                                </p>
                                             </div>
-
-                                            <div style="margin-top: 5px;">
-                                                <ion-icon class="icon-1" :icon="newspaperOutline"
-                                                    :color="item.pointProblem ? 'danger' : 'success'">
-                                                </ion-icon>
-                                                <ion-icon class="icon-2" :icon="timeOutline"
-                                                    :color="item.timeProblem ? 'danger' : 'success'">
-                                                </ion-icon>
-                                                <ion-icon class="icon-2" :icon="footstepsOutline"
-                                                    :color="item.shiftProblem ? 'danger' : 'success'">
-                                                </ion-icon>
-                                            </div>
-                                        </ion-label>
-                                    </ion-col>
-
-                                    <ion-col size="6" class="ion-text-end">
-                                        <div class="note-container">
-                                            <ion-label class="labelItem" color="medium">{{ item.reportName || 'Tuần tra'
-                                                }}</ion-label>
-
-                                            <ion-badge
-                                                :color="item.realityPoint >= item.planPoint ? 'success' : 'medium'"
-                                                style="margin-top: 4px; color: white;">
-                                                {{ item.realityPoint || 0 }}/{{ item.planPoint || 0 }} {{
-                                                    $t('areas.index.points') }}
-                                            </ion-badge>
-
-                                            <p v-if="item.realityHours || item.realityMinutes"
-                                                style="font-size: 0.75em; margin: 4px 0 0 0;">
-                                                <ion-icon :icon="timeOutline" style="font-size: 10px;"></ion-icon>
-                                                {{ item.realityHours ? `${item.realityHours}h` : '' }}
-                                                {{ item.realityMinutes ? `${item.realityMinutes}m` : '' }}
-                                                {{ item.realitySeconds ? `${item.realitySeconds}s` : '' }}
-                                            </p>
-                                        </div>
-                                    </ion-col>
-                                </ion-row>
-                                <ion-row>
-                                    <ion-col size="6" class="pad-0">
-                                        <ion-label class="labelItem" color="medium">{{
-                                            item.shiftStart.replace('T', ' ').slice(0, 16) }}</ion-label>
-                                    </ion-col>
-                                    <ion-col size="6" class="ion-text-end pad-0">
-                                        <ion-label class="labelItem" color="medium">{{
-                                            item.shiftEnd.replace('T', ' ').slice(0, 16) }}</ion-label>
-                                    </ion-col>
-                                </ion-row>
-                            </ion-grid>
-                        </ion-item>
-                    </ion-list>
-
+                                        </ion-col>
+                                    </ion-row>
+                                    <ion-row>
+                                        <ion-col size="6" class="pad-0">
+                                            <ion-label class="labelItem" color="medium">{{
+                                                item.shiftStart?.replace('T', ' ').slice(0, 16) }}</ion-label>
+                                        </ion-col>
+                                        <ion-col size="6" class="ion-text-end pad-0">
+                                            <ion-label class="labelItem" color="medium">{{
+                                                item.shiftEnd?.replace('T', ' ').slice(0, 16) }}</ion-label>
+                                        </ion-col>
+                                    </ion-row>
+                                </ion-grid>
+                            </ion-item>
+                        </ion-list>
+                        <ion-infinite-scroll @ionInfinite="loadMoreModalData($event)"
+                            :disabled="isModalInfiniteDisabled">
+                            <ion-infinite-scroll-content :loading-text="$t('areas.index.load-more')"
+                                loading-spinner="bubbles"></ion-infinite-scroll-content>
+                        </ion-infinite-scroll>
+                    </template>
                     <div v-else-if="!isLoading" class="ion-padding ion-text-center">
                         <ion-icon :icon="calendarOutline" style="font-size: 64px; color: #ccc;"></ion-icon>
                         <p>{{ $t('areas.index.emty-data') }}</p>
@@ -158,7 +175,7 @@
                                 <ion-col class="ion-text-end">
                                     <ion-label class="labelItem">{{ item.reportName }}</ion-label>
                                     <ion-note class="labelItem">{{ item.reportAt?.replace('T', ' ').slice(0, 16)
-                                    }}</ion-note>
+                                        }}</ion-note>
                                 </ion-col>
                             </ion-row>
                         </ion-grid>
@@ -183,46 +200,57 @@ import {
     IonSegment, IonSegmentButton, IonContent, IonIcon, IonGrid, IonRow, IonCol,
     IonText, IonNote, loadingController, IonItem, IonList,
     onIonViewWillEnter, IonProgressBar, IonSkeletonText, IonInfiniteScroll,
-    IonInfiniteScrollContent, IonButton, IonModal, IonBadge
+    IonInfiniteScrollContent, IonButton, IonModal, IonBadge, IonSelect, IonSelectOption
 } from '@ionic/vue';
-import { calendarOutline, footstepsOutline, newspaperOutline, timeOutline } from "ionicons/icons";
+import { calendarOutline, footstepsOutline, newspaperOutline, timeOutline, funnelOutline } from "ionicons/icons";
 import { computed, ref, watch } from 'vue';
 import { useStore } from 'vuex';
 import presentAlert from '@/mixins/presentAlert';
 import AreaBU from '@/api/AreaBU';
-import storageService from '@/services/storage.service';
+import Role from '@/api/Role';
+import { useI18n } from 'vue-i18n';
 
 const store = useStore();
 
-// --- STATE ---
-const currentOptions = ref<any[]>([]);
+// --- STATE QUẢN LÝ UI VÀ PHÂN TRANG ---
 const activeSegment = ref<string>('');
 const selectedItem = ref<any>(null);
 const isModalOpen = ref(false);
 const isLoading = ref(false);
-const currentPage = ref(1);
+const { t } = useI18n();
+
 const displayedItems = ref<any[]>([]);
+const currentPage = ref(1);
 const isInfiniteDisabled = ref(false);
 const itemsPerPage = 15;
 
-const isOnline = computed(() => store.state.isOnline);
+const navAreas = ref<any[]>([]);
+const listRoles = ref<any[]>([]);
+const filterStatus = ref<string | number>('all');
+const currentActiveAreaId = ref<number | null>(null);
 
-// --- 1. COMPUTED DATA ---
+const currentOptions = ref<any[]>([]);
+const modalDisplayedItems = ref<any[]>([]);
+const modalCurrentPage = ref(1);
+const isModalInfiniteDisabled = ref(false);
+const modalItemsPerPage = 5;
+///////////////////////////////////////////////////
+
+// --- COMPUTED: THÔNG TIN USER GOM CHUNG ---
+const userInfo = computed(() => store.state.dataUser?.data || store.state.dataUser || {});
+const isCurrentUserAdmin = computed(() => userInfo.value.userRoleIsAdmin === true);
+const currentUserId = computed(() => userInfo.value.userId);
+const isOnline = computed(() => store.state.isOnline);
+////////////////////////////////////////////////////
+
+// --- COMPUTED: DỮ LIỆU ---
 const datalistNav = computed(() => {
-    const rawData = store.state.dataAreaBU;
+    const rawData = navAreas.value.length > 0 ? navAreas.value : store.state.dataAreaBU;
     const areas = Array.isArray(rawData) ? rawData : (rawData?.data || []);
     const result: [string, any[], number][] = [];
 
-    const userInfo = store.state.dataUser?.data || store.state.dataUser || {};
-    const isAdmin = userInfo.userRoleIsAdmin === true;
-    const userAreaId = userInfo.userAreaId;
-
     for (const item of areas) {
-        // Chỉ check quyền xem Area, KHÔNG lọc patrolShifts ở đây
-        const isAuthorizedArea = isAdmin || (item.areaId === userAreaId);
-
-        if (isAuthorizedArea) {
-            // Trả về toàn bộ ca của Area đó (việc lọc sẽ làm ở Modal)
+        if (isCurrentUserAdmin.value || item.areaId === userInfo.value.userAreaId) {
             result.push([item.areaCode, item.patrolShifts || [], item.areaId]);
         }
     }
@@ -233,12 +261,9 @@ const dataPR = computed(() => {
     if (!selectedItem.value) return { details: [] };
 
     const dataStore = store.state.dataListCP;
-    let listDetails = [];
-    if (Array.isArray(dataStore) && dataStore.length > 0) {
-        listDetails = dataStore[0]?.data || dataStore;
-    } else {
-        listDetails = dataStore?.data || [];
-    }
+    const listDetails = Array.isArray(dataStore) && dataStore.length > 0
+        ? (dataStore[0]?.data || dataStore)
+        : (dataStore?.data || []);
 
     const safeList = Array.isArray(listDetails) ? listDetails : [];
 
@@ -251,12 +276,13 @@ const dataPR = computed(() => {
             prHasProblem: item.prHasProblem,
             isOfflineMock: item.isOfflineMock || false,
             reportName: item.reportName || 'Báo cáo tuần tra',
-            reportAt: item.createdAt
+            reportAt: item.reportAt
         }))
     };
 });
+////////////////////////////////////////////////////////////
 
-// --- 2. WATCHERS ---
+// --- WATCHERS ---
 watch(() => dataPR.value.details, (newVal) => {
     if (currentPage.value === 1) {
         displayedItems.value = newVal.slice(0, itemsPerPage);
@@ -267,72 +293,128 @@ watch(() => dataPR.value.details, (newVal) => {
     isInfiniteDisabled.value = displayedItems.value.length >= newVal.length;
 }, { deep: true, immediate: true });
 
-// --- 3. METHODS CHÍNH (GỌI API THEO ĐIỀU KIỆN) ---
+watch(() => currentOptions.value, (newVal) => {
+    modalCurrentPage.value = 1;
+    modalDisplayedItems.value = newVal.slice(0, modalItemsPerPage);
+    isModalInfiniteDisabled.value = modalDisplayedItems.value.length >= newVal.length;
+}, { deep: true, immediate: true });
+//////////////////////////////////////////////
+
+// --- METHODS TẢI DỮ LIỆU ---
+const fetchAllAreasForTabs = async () => {
+    if (!isOnline.value) return;
+    try {
+        const payload = isCurrentUserAdmin.value ? {} : { areaId: userInfo.value.userAreaId };
+        const response = await AreaBU.postAreaBU(payload);
+        if (response?.data) {
+            navAreas.value = Array.isArray(response.data) ? response.data : (response.data.data || []);
+        }
+    } catch (error) {
+        console.error("Lỗi fetchAllAreasForTabs:", error);
+    }
+};
+
+const fetchRoles = async () => {
+    try {
+        const res = await Role.postBaseRole();
+        if (res?.data) {
+            listRoles.value = Array.isArray(res.data) ? res.data : (res.data.data || []);
+        }
+    } catch (error) {
+        console.error("Lỗi fetchRoles:", error);
+    }
+};
+
 const fetchAreasData = async (areaId: number) => {
     isLoading.value = true;
-    const userInfo = store.state.dataUser?.data || store.state.dataUser || {};
-    const currentUserId = userInfo.userId;
-    const isAdmin = userInfo.userRoleIsAdmin === true;
+    currentActiveAreaId.value = areaId;
 
     try {
         if (isOnline.value) {
-            // Gửi userId lên để Server lọc (nếu Server có hỗ trợ)
-            const payload: any = { areaId: areaId, reportBy: currentUserId };
-            if (!isAdmin) payload.userId = currentUserId;
+            const payload: any = { areaId };
+
+            // Xử lý Payload gọi API
+            if (isCurrentUserAdmin.value && filterStatus.value !== 'all' && filterStatus.value !== 'admin') {
+                payload.roleId = Number(filterStatus.value);
+            } else if (!isCurrentUserAdmin.value) {
+                payload.reportBy = currentUserId.value;
+                payload.userId = currentUserId.value;
+            }
 
             const response = await AreaBU.postAreaBU(payload);
             const fetchedAreas = Array.isArray(response?.data) ? response.data : (response?.data?.data || []);
-
-            // Sau khi lấy về, lọc lại 1 lần nữa ở Client cho chắc chắn
             const foundArea = fetchedAreas.find((item: any) => item.areaId === areaId);
-            let shifts = foundArea ? (foundArea.patrolShifts || []) : [];
 
-            if (!isAdmin) {
-                shifts = shifts.filter((s: any) => String(s.reportBy) === String(currentUserId));
-            }
-            currentOptions.value = shifts;
-            console.log(currentOptions.value);
+            // Lấy thẳng data API trả về, không dùng JS lọc nữa
+            currentOptions.value = foundArea ? (foundArea.patrolShifts || []) : [];
 
         } else {
-            // OFFLINE: Lấy từ Store nhưng lọc gắt gao theo reportBy
+            // Xử lý Offline (Lấy từ Vuex)
             const rawData = store.state.dataAreaBU;
-            let areas = Array.isArray(rawData) ? rawData : (rawData?.data || []);
-
+            const areas = Array.isArray(rawData) ? rawData : (rawData?.data || []);
             const foundArea = areas.find((item: any) => Number(item.areaId) === Number(areaId));
             let shifts = foundArea ? (foundArea.patrolShifts || []) : [];
 
-            // LỌC CHỐT HẠ: Người 2 sẽ không thấy ca của người 1 ở đây
-            if (!isAdmin) {
-                shifts = shifts.filter((s: any) => String(s.reportBy) === String(currentUserId));
+            // Khi offline, nếu là user thường thì lọc ca của chính mình
+            if (!isCurrentUserAdmin.value) {
+                shifts = shifts.filter((s: any) => String(s.reportBy) === String(currentUserId.value));
             }
             currentOptions.value = shifts;
         }
     } catch (error) {
-        console.error("Lỗi:", error);
+        console.error("Lỗi fetchAreasData:", error);
         currentOptions.value = [];
     } finally {
         isLoading.value = false;
     }
 };
+////////////////////////////////////////////
 
+// --- METHODS FILTER LABEL ---
+const labelName = ref([
+    { id: 3, label: 'areas.index.expat' },
+    { id: 4, label: 'areas.index.security' }
+])
+
+const getLabelData = (roleId: number): string => {
+    const item = labelName.value.find(r => r.id === roleId);
+    return item ? item.label : '';
+};
+
+const filterRoleOptions = computed(() => {
+    const normalRoles = listRoles.value.filter(r => r.roleIsAdmin === false);
+    return [
+        { value: 'all', label: t('areas.index.all') },
+        ...normalRoles.map(r => ({ value: r.roleId, label: t(getLabelData(r.roleId)) }))
+    ];
+});
+//////////////////////////////////////
+
+// --- METHODS TƯƠNG TÁC GIAO DIỆN ---
 const initDefaultTab = async () => {
     if (datalistNav.value.length > 0) {
+        filterStatus.value = 'all';
         const firstTab = datalistNav.value[0];
         activeSegment.value = firstTab[0];
         const firstAreaId = firstTab[2];
-
         isModalOpen.value = true;
         await fetchAreasData(firstAreaId);
     }
 };
 
 onIonViewWillEnter(async () => {
+    if (isCurrentUserAdmin.value) {
+        await fetchRoles();
+    }
+    await fetchAllAreasForTabs();
+
     if (!selectedItem.value) {
         await initDefaultTab();
     }
 });
 
 const openSelect = async (parent: string, children: any[], id: number) => {
+    filterStatus.value = 'all';
     activeSegment.value = parent;
     isModalOpen.value = true;
     displayedItems.value = [];
@@ -340,18 +422,17 @@ const openSelect = async (parent: string, children: any[], id: number) => {
     await fetchAreasData(id);
 };
 
-// --- CÁC METHODS XỬ LÝ CHỌN LỘ TRÌNH ---
-const handleModalSelection = async (item: any) => {
-    if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
+const handleFilterChange = async () => {
+    if (isModalOpen.value && currentActiveAreaId.value !== null) {
+        modalDisplayedItems.value = [];
+        await fetchAreasData(currentActiveAreaId.value);
     }
+};
 
+const handleModalSelection = async (item: any) => {
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     isModalOpen.value = false;
     currentPage.value = 1;
-
-    const userInfo = store.state.dataUser?.data || store.state.dataUser || {};
-    const currentUserId = Number(userInfo.userId);
-    const isAdmin = userInfo.userRoleIsAdmin === true;
 
     setTimeout(async () => {
         isLoading.value = true;
@@ -359,41 +440,30 @@ const handleModalSelection = async (item: any) => {
 
         try {
             let finalReports = [];
-
-            // --- CHẾ ĐỘ ONLINE ---
             if (isOnline.value) {
                 try {
                     const responseBU = await PointReport.postBasePointReportView(item.psId);
                     finalReports = Array.isArray(responseBU?.data) ? responseBU.data : (responseBU?.data?.data || []);
-                    // const apiData = Array.isArray(responseBU?.data) ? responseBU.data : (responseBU?.data?.data || []);
-
-                    // // Lọc lại một lần nữa ở Client cho chắc chắn
-                    // finalReports = isAdmin ? apiData : apiData.filter((r: any) => String(r.reportBy) === String(currentUserId));
                 } catch (e) {
                     console.warn("API lỗi, chuyển sang Offline data.");
                 }
             }
 
-            // --- CHẾ ĐỘ OFFLINE (Hoặc khi Online không có data) ---
             if (finalReports.length === 0) {
                 const baseReports = Array.isArray(store.state.dataBasePointReportView)
-                    ? store.state.dataBasePointReportView
-                    : (store.state.dataBasePointReportView?.data || []);
-
+                    ? store.state.dataBasePointReportView : (store.state.dataBasePointReportView?.data || []);
                 const recentReports = Array.isArray(store.state.dataCheckpointsId)
-                    ? store.state.dataCheckpointsId
-                    : (store.state.dataCheckpointsId?.data || []);
+                    ? store.state.dataCheckpointsId : (store.state.dataCheckpointsId?.data || []);
 
                 const combined = [...recentReports, ...baseReports];
 
-                // LỌC OFFLINE THEO psId VÀ userId (reportBy)
                 finalReports = combined.filter((rep: any) => {
                     const isRightShift = Number(rep.psId) === Number(item.psId);
-                    const isRightUser = isAdmin || Number(rep.reportBy) === currentUserId || Number(rep.userId) === currentUserId;
+                    const isRightUser = isCurrentUserAdmin.value || Number(rep.reportBy) === currentUserId.value || Number(rep.userId) === currentUserId.value;
                     return isRightShift && isRightUser;
                 });
 
-                // Khử trùng theo cpId
+                // Lọc trùng cpId
                 const uniqueMap = new Map();
                 finalReports.forEach(r => {
                     if (uniqueMap.has(r.cpId) && !r.isOfflineMock) return;
@@ -402,12 +472,10 @@ const handleModalSelection = async (item: any) => {
                 finalReports = Array.from(uniqueMap.values());
             }
 
-            // Sắp xếp và xử lý Thumbnail (giữ nguyên logic cũ của bạn)
-            finalReports.sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
+            finalReports.sort((a: any, b: any) => new Date(b.reportAt).getTime() - new Date(a.reportAt).getTime());
             store.commit('SET_DATACP', [{ data: finalReports }]);
         } catch (error) {
-            console.error("Lỗi:", error);
+            console.error("Lỗi handleModalSelection:", error);
         } finally {
             isLoading.value = false;
         }
@@ -415,112 +483,75 @@ const handleModalSelection = async (item: any) => {
 };
 
 const handleSelectedRow = async (prId: number, event?: any) => {
-    console.log("Đang mở chi tiết PR_ID:", prId);
-    if (event && event.currentTarget) {
-        event.currentTarget.blur();
-    }
-    // Dọn dẹp nốt focus thừa (nếu có)
-    if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-    }
-    const loading = await loadingController.create({
-        message: 'Đang tải chi tiết...',
-        spinner: 'crescent'
-    });
+    if (event?.currentTarget) event.currentTarget.blur();
+    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+
+    const loading = await loadingController.create({ message: 'Đang tải chi tiết...', spinner: 'crescent' });
+    await loading.present();
 
     try {
-        await loading.present();
         let detailData = null;
-        let found = null;
 
-        // ==========================================
-        // LỚP 1: TÌM TRONG RAM (VUEX) - Cực nhanh
-        // ==========================================
-        // 1.1 Tìm trong danh sách báo cáo vừa quét/mock
-        const recentVuex = Array.isArray(store.state.dataCheckpointsId)
-            ? store.state.dataCheckpointsId
-            : (store.state.dataCheckpointsId?.data || []);
-        found = recentVuex.find((rep: any) => String(rep.prId) === String(prId));
-
-        // 1.2 Tìm trong danh sách base (ca trực)
-        if (!found) {
-            const baseVuex = Array.isArray(store.state.dataBasePointReportView)
-                ? store.state.dataBasePointReportView
-                : (store.state.dataBasePointReportView?.data || []);
-            found = baseVuex.find((rep: any) => String(rep.prId) === String(prId));
-        }
-
-        // ==========================================
-        // LỚP 2: TÌM TRONG Ổ CỨNG (SQLITE) - Nhanh hơn gọi mạng
-        // ==========================================
-        if (!found) {
-            // 2.1 Tìm trong kho checkpoints_id
-            const recentDbRaw = await storageService.get('checkpoints_id');
-            const recentDb = Array.isArray(recentDbRaw) ? recentDbRaw : (recentDbRaw?.data || []);
-            found = recentDb.find((rep: any) => String(rep.prId) === String(prId));
-        }
-
-        if (!found) {
-            // 2.2 Tìm trong kho base_point_report
-            const baseDbRaw = await storageService.get('base_point_report');
-            const baseDb = Array.isArray(baseDbRaw) ? baseDbRaw : (baseDbRaw?.data || []);
-            found = baseDb.find((rep: any) => String(rep.prId) === String(prId));
-        }
-
-        // ==========================================
-        // LỚP 3: ĐƯỜNG CÙNG MỚI GỌI API (Tải Base64 nặng nề)
-        // ==========================================
-        if (found) {
-            console.log("✅ Đã tìm thấy data dưới Local (Vuex/SQLite)");
-            detailData = { data: found };
-        } else if (isOnline.value) {
-            console.log("⚠️ Không có dưới Local, bắt buộc kéo API từ Server...");
+        // 1. CHỈ GỌI TRỰC TIẾP API LẤY CHI TIẾT
+        if (isOnline.value) {
             const res = await PointReport.getPointReportId(prId);
-            if (res?.data) detailData = res.data;
+            if (res?.data) {
+                detailData = res.data;
+            }
+        } else {
+            // Nếu rớt mạng lúc đang bấm vào xem chi tiết
+            throw new Error("Không có kết nối mạng");
         }
 
-        // Kiểm tra chốt hạ
-        if (!detailData?.data) {
-            throw new Error("No data");
-        }
+        if (!detailData?.data) throw new Error("No data");
 
-        // Đẩy data vào store và chuyển trang
+        // 2. Lưu vào Store và chuyển trang
         store.commit('SET_CURRENT_CHECKPOINT', detailData);
-
-        if (document.activeElement instanceof HTMLElement) {
-            document.activeElement.blur();
-        }
-
         router.push({ path: `/checkpoint/detail/${prId}` });
 
-    } catch (error) {
-        console.error("Lỗi mở chi tiết báo cáo:", error);
-        presentAlert.presentAlert('Thông báo', '', 'Không tìm thấy dữ liệu chi tiết.');
+    } catch (error: any) {
+        console.error(error);
+        const msg = error.message === "Không có kết nối mạng"
+            ? "Vui lòng kiểm tra kết nối mạng để xem chi tiết."
+            : "Không tìm thấy dữ liệu chi tiết.";
+        presentAlert.presentAlert('Thông báo', '', msg);
     } finally {
         await loading.dismiss();
     }
 };
+///////////////////////////////////////////////////
 
+// --- METHODS INFINITE SCROLL ---
 const loadMoreData = (event: any) => {
     setTimeout(() => {
-        const nextStartIndex = currentPage.value * itemsPerPage;
-        const nextEndIndex = nextStartIndex + itemsPerPage;
-        const nextBatch = dataPR.value.details.slice(nextStartIndex, nextEndIndex);
-
+        const nextStart = currentPage.value * itemsPerPage;
+        const nextBatch = dataPR.value.details.slice(nextStart, nextStart + itemsPerPage);
         if (nextBatch.length > 0) {
             displayedItems.value.push(...nextBatch);
             currentPage.value++;
         }
-
         event.target.complete();
-        if (displayedItems.value.length >= dataPR.value.details.length) {
-            isInfiniteDisabled.value = true;
-        }
+        isInfiniteDisabled.value = displayedItems.value.length >= dataPR.value.details.length;
     }, 500);
 };
+
+const loadMoreModalData = (event: any) => {
+    setTimeout(() => {
+        const nextStart = modalCurrentPage.value * modalItemsPerPage;
+        const nextBatch = currentOptions.value.slice(nextStart, nextStart + modalItemsPerPage);
+        if (nextBatch.length > 0) {
+            modalDisplayedItems.value.push(...nextBatch);
+            modalCurrentPage.value++;
+        }
+        event.target.complete();
+        isModalInfiniteDisabled.value = modalDisplayedItems.value.length >= currentOptions.value.length;
+    }, 500);
+};
+///////////////////////////////////////////////
 </script>
 
 <style scoped>
+/* Giữ nguyên toàn bộ CSS của bạn */
 .pointProblem-danger,
 .timeProblem-danger {
     color: #eb445a;
@@ -557,8 +588,6 @@ ion-segment {
     padding: 0 2px 0 2px;
 }
 
-/* AreaIndex.vue */
-
 .labelItem {
     font-size: 0.85em;
     display: block;
@@ -572,37 +601,72 @@ ion-segment {
     justify-content: center;
 }
 
-/* Định dạng các icon trạng thái */
 .icon-group {
     margin-top: 8px;
     display: flex;
     gap: 8px;
-    /* Khoảng cách giữa các icon */
 }
 
 .icon-1,
 .icon-2 {
     font-size: 18px;
-    /* Kích thước vừa phải cho mobile */
     filter: drop-shadow(0px 1px 1px rgba(0, 0, 0, 0.1));
 }
 
-/* Hiệu ứng badge offline */
 ion-badge[color="warning"] {
     --color: #000;
     font-weight: bold;
     letter-spacing: 0.3px;
 }
 
-/* Làm cho các hàng có sự cố (Problem) trông khác biệt */
 .custom-item-false {
     --background: #fff5f5;
-    /* Nền hơi đỏ nhạt nếu có sự cố */
 }
 
 div[slot="fixed"] {
     border-bottom: 0.5px solid #e0e0e0;
-    /* Hoặc shadow nhẹ */
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.filter-dropdown-item {
+    --min-height: 38px;
+    --background: var(--ion-color-light);
+    margin: 0 10px 8px 10px;
+    border-radius: 8px;
+    font-size: 14px;
+    width: fit-content;
+}
+
+.full-width-select {
+    width: 100%;
+    --placeholder-color: var(--ion-color-medium);
+    --placeholder-opacity: 1;
+}
+
+ion-icon[slot="start"] {
+    margin-inline-end: 8px;
+}
+
+/* Tắt bóng mờ (hover/focus) trên Segment Button */
+ion-segment-button {
+    --background-hover: transparent;
+    --background-focused: transparent;
+    --indicator-box-shadow: none;
+    /* Dành cho thanh gạch dưới nếu bị bóng */
+}
+
+/* Tắt bóng mờ bị kẹt trên các thẻ danh sách có button="true" */
+ion-item {
+    --background-hover: transparent;
+    --background-focused: transparent;
+}
+
+@media (hover: none) {
+
+    ion-item,
+    ion-segment-button {
+        --background-hover: transparent;
+        --background-focused: transparent;
+    }
 }
 </style>
