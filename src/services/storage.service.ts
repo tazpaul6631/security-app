@@ -2,7 +2,7 @@
 import { useSQLite } from '@/composables/useSQLite';
 
 class StorageService {
-  // Chúng ta không giải nén ở ngoài, mà gọi useSQLite() để lấy các hàm thực thi
+  // Không giải nén ở ngoài, mà gọi useSQLite() để lấy các hàm thực thi
   private sqlite = useSQLite();
 
   // Đảm bảo SQLite đã sẵn sàng trước khi thực hiện bất kỳ thao tác nào

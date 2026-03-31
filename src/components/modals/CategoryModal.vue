@@ -31,7 +31,7 @@
                 <ion-card v-for="(group, index) in groupedNotes" :key="group.id" class="note-group-card">
                     <ion-card-header>
                         <ion-card-title style="font-size: 15px;">{{ index + 1 }}. {{ group.priImageNote
-                        }}</ion-card-title>
+                            }}</ion-card-title>
                         <ion-button fill="clear" color="danger" class="btn-delete-group"
                             @click="$emit('removeGroup', index)">
                             <ion-icon slot="icon-only" :icon="trash"></ion-icon>

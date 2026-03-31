@@ -7,6 +7,7 @@ import store from '@/composables/useVuex';
 import { toastController } from '@ionic/vue';
 import PatrolShift from '@/api/PatrolShift';
 import Sync from '@/api/Sync';
+import { useI18n } from 'vue-i18n';
 
 // Các biến trạng thái dùng chung giữa các instance của composable
 const pendingItems = ref<PendingItem[]>([]);
@@ -22,6 +23,7 @@ interface PendingItem {
 
 export function useOfflineManager() {
   const storeInstance = store;
+  const { t } = useI18n();
 
   const buildFormData = async (item: PendingItem): Promise<FormData> => {
     const fb = new FormData();
@@ -140,8 +142,8 @@ export function useOfflineManager() {
       routeId: item.data.routeId,
       rdId: item.data.rdId,
       cpId: item.data.cpId,
-      cpName: item.data.cpName || 'Điểm quét (Offline)',
-      createdName: userData?.fullName || 'Tôi (Offline)',
+      cpName: item.data.cpName,
+      createdName: userData?.fullName,
       createdAt: item.data.createdAt || new Date().toISOString(),
       prHasProblem: item.data.prHasProblem,
       prNote: item.data.prNote,
@@ -149,10 +151,7 @@ export function useOfflineManager() {
       reportImages: []
     };
 
-    console.log(mockReport);
-
-
-    await presentToast('Đã lưu vào hàng chờ. Sẽ tự động gửi khi có mạng.');
+    await presentToast(t('messages.use-offline.saved-to-queue'));
     storeInstance.commit('ADD_OFFLINE_REPORT', mockReport);
   };
 
@@ -174,10 +173,7 @@ export function useOfflineManager() {
 
     if (storeInstance.state.isOnline) {
       try {
-        console.log(newItem.data);
-
         const bodyFormData = await buildFormData(newItem);
-        console.log(bodyFormData);
 
         const result = await PointReport.createPointReport(bodyFormData);
         const realReport = result?.data?.data || result?.data || result;
@@ -205,12 +201,26 @@ export function useOfflineManager() {
     storeInstance.commit('SET_SYNC_OFFLINE_STATUS', true);
     isSyncing.value = true;
 
+    storeInstance.commit('SET_SYNC_STATUS', {
+      progress: 0,
+      message: t('messages.use-offline.syncing'),
+      isSyncing: true,
+      mode: 'overlay'
+    });
+
     console.log("--- [START] BẮT ĐẦU ĐỒNG BỘ ---");
 
     try {
       // 1. Xử lý hàng chờ xóa
       let deleteQueue = (await storage.get('offline_delete_queue')) || [];
       if (deleteQueue.length > 0) {
+        storeInstance.commit('SET_SYNC_STATUS', {
+          progress: 0,
+          message: t('messages.use-offline.cleaning'),
+          isSyncing: true,
+          mode: 'overlay'
+        });
+
         // Tạo một mảng mới để chứa những cái XÓA THẤT BẠI (để lưu lại lần sau)
         const failedDeletes = [];
 
@@ -231,29 +241,37 @@ export function useOfflineManager() {
       try {
         const wrongScanQueue = await storage.get('offline_wrong_scan_queue');
 
-        console.log(wrongScanQueue);
-
         if (Array.isArray(wrongScanQueue) && wrongScanQueue.length > 0) {
-          console.log("Đang đồng bộ mảng Log quét sai:", wrongScanQueue);
-
           await Sync.syncScanCpQrLog(wrongScanQueue);
 
           // Thành công thì dọn dẹp hàng chờ
           await storage.remove('offline_wrong_scan_queue');
-          console.log("✅ Đã đồng bộ và dọn dẹp Log quét sai thành công!");
+          console.log("Đã đồng bộ và dọn dẹp Log quét sai thành công!");
         }
       } catch (err) {
-        console.error("❌ Lỗi đồng bộ mảng Log quét sai (Sẽ thử lại lần sau):", err);
+        console.error("Lỗi đồng bộ mảng Log quét sai (Sẽ thử lại lần sau):", err);
       }
 
       // 2. Xử lý hàng chờ gửi API
       await loadPendingItems();
       const queue = [...pendingItems.value];
 
+      const totalItems = queue.length;
+      let processedItems = 0;
+
       if (queue.length === 0) return;
 
       for (const item of queue) {
         if (!storeInstance.state.isOnline) break;
+
+        processedItems++;
+        const percent = Math.round((processedItems / totalItems) * 100);
+        storeInstance.commit('SET_SYNC_STATUS', {
+          progress: percent,
+          message: t('messages.use-offline.uploading', { processedItems, totalItems }),
+          isSyncing: true,
+          mode: 'overlay'
+        });
 
         const originalTime = new Date(item.data.createdAt);
         let isAlreadyOnServer = false;
@@ -307,8 +325,6 @@ export function useOfflineManager() {
         }
 
         try {
-          console.log(item);
-
           const bodyFormData = await buildFormData(item);
           const result = await PointReport.createPointReport(bodyFormData);
           const realReport = result?.data?.data || result?.data || result;
@@ -326,7 +342,7 @@ export function useOfflineManager() {
           } else {
             console.error("Lỗi mạng/Server, dừng tiến trình Sync.");
             if (statusCode >= 500) {
-              await presentToast('Hệ thống máy chủ đang bảo trì. Dữ liệu đã được lưu an toàn trên máy và sẽ tự động gửi lại sau.', 'danger');
+              await presentToast(t('messages.use-offline.maintenance'), 'danger');
             }
             break;
           }
@@ -341,8 +357,15 @@ export function useOfflineManager() {
         isProcessing = false;
         storeInstance.commit('SET_SYNC_OFFLINE_STATUS', false);
         isSyncing.value = false;
+
+        storeInstance.commit('SET_SYNC_STATUS', {
+          progress: 100,
+          message: t('messages.use-offline.completed'),
+          isSyncing: false,
+          mode: 'silent'
+        });
         console.log("--- [END] KẾT THÚC ĐỒNG BỘ ---");
-      }, 500);
+      }, 800);
     }
   };
 

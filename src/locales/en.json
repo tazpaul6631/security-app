@@ -5,7 +5,13 @@
         "password": "Password",
         "btn_login": "Login",
         "lang_select": "Select Language",
-        "cancel": "Cancel"
+        "cancel": "Cancel",
+        "message": {
+            "1": "Invalid login credentials.",
+            "2": "This account has never logged in on this device. Network connection is required for the first time!",
+            "3": "Incorrect password (Offline)!",
+            "4": "Cannot connect to the server or an error occurred. Please try again!"
+        }
     },
     "layout": {
         "warning": "Warning",
@@ -52,7 +58,8 @@
         "go-home": "Back to Home",
         "warning-title": "Warning!",
         "cancel-confirm-msg": "Are you sure you want to cancel? All scanned data will be lost.",
-        "confirm-cancel": "Confirm Cancel"
+        "confirm-cancel": "Confirm Cancel",
+        "verifying-checkpoint": "Verifying checkpoint..."
     },
     "areas": {
         "index": {
@@ -66,7 +73,14 @@
             "load-more": "Loading more...",
             "expat": "Expatriate",
             "security": "Security",
-            "all": "All"
+            "all": "All",
+            "message": {
+                "1": "Loading details...",
+                "2": "No network connection",
+                "3": "Please check your network connection to view details.",
+                "4": "Detailed data not found.",
+                "5": "Notification"
+            }
         },
         "detail": {
             "emty-data": "No data available",
@@ -115,7 +129,67 @@
             "label_requirement": "Requirement:",
             "msg_capture_before_report": "Take a photo of the patrol point before reporting.",
             "btn_take_checkin": "Take Check-in Photo",
-            "status_photo_confirmed": "Confirmation photo taken"
+            "status_photo_confirmed": "Confirmation photo taken",
+            "message": {
+                "1": "Error: Checkpoint data not found",
+                "2": "Saving data...",
+                "3": "Error: Image format ${blob.type} is not supported!",
+                "4": "Error: Image size is too large (${sizeInMB}MB). Maximum 10MB!",
+                "5": "Route completed successfully!",
+                "6": "Failed to save report",
+                "7": "Warning",
+                "8": "You are on shift, please complete the remaining checkpoints!",
+                "9": "Got it",
+                "10": "Processing image..."
+            }
+        }
+    },
+    "role": {
+        "load-data": "Loading data...",
+        "role-menu": "Role Menus:",
+        "created-date": "Created date:",
+        "updated-date": "Updated date:",
+        "no-role-data": "No role data.",
+        "loading-more": "Loading more data..."
+    },
+    "users": {
+        "loading": "Loading data...",
+        "no-data": "No user data.",
+        "loading-more": "Loading more data..."
+    },
+    "messages": {
+        "nav": {
+            "got": "Got it",
+            "warning": "Warning",
+            "incomplete-route": "The patrol route is incomplete. You cannot return to the homepage at this time!",
+            "unable-to-logout": "Unable to log out",
+            "incomplete-patrol": "You are currently in an incomplete patrol route. Please finish the route before logging out!",
+            "data-loss": "Data loss warning!",
+            "pending-reports": "You have ${pendingItems.value.length} unsynchronized reports. Please connect to the network to synchronize before logging out!"
+        },
+        "use-camera": {
+            "max-images": "Maximum 10 images allowed!",
+            "limit-reached": "Limit of 10 images reached!",
+            "taking-images": "Taking only the first ${slotsLeft} images to stay within the 10-image limit."
+        },
+        "use-offline": {
+            "saved-to-queue": "Saved to queue. Will send automatically when the network is available.",
+            "maintenance": "Server is under maintenance. Data has been safely saved locally and will be automatically resent later.",
+            "syncing": "Reconnecting and syncing...",
+            "cleaning": "Cleaning up old data...",
+            "uploading": "Uploading reports (${processedItems}/${totalItems})...",
+            "completed": "Sync completed!"
+        },
+        "scanner": {
+            "notification": "Notification",
+            "grant-camera-permission": "Please grant camera permission to scan the code.",
+            "route-not-found": "Selected route information not found.",
+            "invalid-qr-code": "Invalid QR code",
+            "route-completed": "All checkpoints for this route have been completed.",
+            "wrong-patrol-order": "Incorrect patrol order",
+            "next-checkpoint": "is the next checkpoint to scan. Please follow the correct route.",
+            "checkpoint-not-found": "Information for this checkpoint was not found in the system data.",
+            "unable-to-process": "The system cannot process the scanned code."
         }
     }
 }

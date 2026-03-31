@@ -2,6 +2,7 @@
   <ion-app>
     <div v-if="store.state.isSyncing" class="sync-overlay">
       <div class="sync-box">
+        <ion-spinner name="bubbles" color="primary" style="transform: scale(1.5); margin-bottom: 16px;"></ion-spinner>
         <ion-text color="primary">
           <h3>{{ store.state.syncMessage || 'Đang đồng bộ dữ liệu...' }}</h3>
         </ion-text>
@@ -15,7 +16,7 @@
       <p>Đang chuẩn bị dữ liệu an ninh...</p>
     </div>
 
-    <ion-router-outlet v-else />
+    <ion-router-outlet v-if="isAppReady" />
   </ion-app>
 </template>
 
@@ -261,15 +262,20 @@ onMounted(async () => {
   background: #f4f4f4;
 }
 
-/* --- STYLE DÀNH CHO MODAL ĐỒNG BỘ MỚI (KIỂU POPUP NHỎ CŨ) --- */
+/* --- OVERLAY ĐỒNG BỘ: MÀU TRẮNG ĐỤC + BLUR --- */
 .sync-overlay {
   position: fixed;
   top: 0;
   left: 0;
   width: 100vw;
   height: 100vh;
-  background-color: rgba(0, 0, 0, 0.3);
-  /* Nền ngoài tối mờ nhẹ */
+
+  /* Tăng độ đục lên 0.85. Lỡ Android lỗi Blur thì vẫn ra màu trắng mờ, không bị đen màn */
+  background-color: rgba(255, 255, 255, 0.2);
+
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+
   display: flex;
   justify-content: center;
   align-items: center;
@@ -281,12 +287,11 @@ onMounted(async () => {
   width: 80%;
   max-width: 320px;
   background-color: #ffffff;
-  /* Bảng trắng nổi lên */
+  /* Nền trắng đặc cho box */
   padding: 24px 20px;
   border-radius: 16px;
-  /* Bo góc mềm mại */
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
-  /* Đổ bóng 3D */
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  /* Bóng đổ mềm */
   text-align: center;
 }
 
@@ -294,7 +299,6 @@ onMounted(async () => {
   margin-top: 0;
   margin-bottom: 16px;
   font-size: 16px;
-  /* Chữ nhỏ vừa vặn */
   font-weight: 600;
   line-height: 1.4;
 }

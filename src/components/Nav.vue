@@ -49,12 +49,14 @@ import {
   IonIcon, alertController, IonBadge, useIonRouter, IonText, IonSpinner, IonButtons
 } from '@ionic/vue';
 import { computed } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { exitOutline } from 'ionicons/icons';
 import router from '@/router';
 import { useStore } from 'vuex';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 
 const store = useStore();
+const { t } = useI18n();
 
 ///////////////////////////////
 // Khởi tạo router riêng của Ionic
@@ -67,9 +69,9 @@ const isRouteUnfinished = computed(() => {
 const goBackAndClearHistory = async () => {
   if (isRouteUnfinished.value) {
     const alert = await alertController.create({
-      header: 'Cảnh báo',
-      message: 'Lộ trình tuần tra chưa hoàn thành. Bạn không thể quay về trang chủ lúc này!',
-      buttons: ['Đã hiểu']
+      header: t('messages.nav.warning'),
+      message: t('messages.nav.incomplete-route'),
+      buttons: [t('messages.nav.got')]
     });
     await alert.present();
     return;
@@ -87,9 +89,9 @@ const handleLogout = async () => {
   // 1. Chặn nếu chưa hoàn thành lộ trình
   if (isRouteUnfinished.value) {
     const alert = await alertController.create({
-      header: 'Không thể đăng xuất',
-      message: 'Bạn đang trong vòng tuần tra chưa hoàn thành. Vui lòng kết thúc lộ trình trước khi đăng xuất!',
-      buttons: ['Đã hiểu']
+      header: t('messages.nav.unable-to-logout'),
+      message: t('messages.nav.incomplete-patrol'),
+      buttons: [t('messages.nav.got')]
     });
     await alert.present();
     return;
@@ -99,9 +101,9 @@ const handleLogout = async () => {
   await loadPendingItems();
   if (pendingItems.value.length > 0) {
     const alert = await alertController.create({
-      header: 'Cảnh báo mất dữ liệu!',
-      message: `Bạn đang có ${pendingItems.value.length} báo cáo chưa được đồng bộ. Vui lòng kết nối mạng để đồng bộ trước khi đăng xuất!`,
-      buttons: [{ text: 'Đã hiểu', role: 'cancel' }]
+      header: t('messages.nav.data-loss'),
+      message: t('messages.nav.pending-reports', { count: pendingItems.value.length }),
+      buttons: [{ text: t('messages.nav.got'), role: 'cancel' }]
     });
     await alert.present();
     return;

@@ -12,7 +12,7 @@
         <ion-content class="ion-padding">
             <div v-if="isLoading" class="ion-text-center ion-margin-top">
                 <ion-spinner name="crescent"></ion-spinner>
-                <p>Đang tải dữ liệu...</p>
+                <p>{{ $t('role.load-data') }}</p>
             </div>
 
             <ion-card v-for="role in displayedRoles" :key="role.roleId" class="role-card">
@@ -34,27 +34,27 @@
 
                 <ion-card-content>
                     <div class="info-row">
-                        <strong>Role Menus:</strong>
+                        <strong>{{ $t('role.role-menu') }}</strong>
                         <div v-for="menu in role.roleMenus">
                             <ion-icon :icon="checkmarkDoneOutline" color="success"></ion-icon> {{ menu.mcName }} - {{
                                 menu.mcCode }}
                         </div>
                     </div>
                     <div class="info-row">
-                        <strong>Ngày tạo:</strong> {{ formatDate(role.createdAt) }}
+                        <strong>{{ $t('role.created-date') }}</strong> {{ formatDate(role.createdAt) }}
                     </div>
                     <div class="info-row">
-                        <strong>Ngày update:</strong> {{ formatDate(role.createdAt) }}
+                        <strong>{{ $t('role.updated-date') }}</strong> {{ formatDate(role.updatedAt) }}
                     </div>
                 </ion-card-content>
             </ion-card>
 
             <div v-if="!isLoading && displayedRoles.length === 0" class="ion-text-center ion-margin-top">
-                <p>Không có dữ liệu Role.</p>
+                <p>{{ $t('role.no-role-data') }}</p>
             </div>
 
             <ion-infinite-scroll @ionInfinite="loadMoreRoles" :disabled="isAllLoaded">
-                <ion-infinite-scroll-content loading-spinner="bubbles" loading-text="Đang tải thêm dữ liệu...">
+                <ion-infinite-scroll-content loading-spinner="bubbles" :loading-text="$t('role.loading-more')">
                 </ion-infinite-scroll-content>
             </ion-infinite-scroll>
 

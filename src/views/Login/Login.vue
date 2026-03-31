@@ -2,7 +2,7 @@
     <ion-page>
         <ion-fab vertical="top" horizontal="end" slot="fixed" class="lenguages">
             <ion-button fill="clear" color="light" @click="openLanguageSheet">
-                <ion-icon :icon="globeOutline" slot="start"></ion-icon>
+                <ion-icon :icon="languageOutline" slot="start"></ion-icon>
                 {{ currentLangLabel }}
             </ion-button>
         </ion-fab>
@@ -28,6 +28,10 @@
 
                         <br>
 
+                        <div v-if="errorMessage" class="ion-text-center ion-text-danger ">
+                            <ion-label color="danger">{{ errorMessage }}</ion-label>
+                        </div>
+
                         <ion-button :disabled="isButtonDisabled || isLoading" @click="handleLogin" expand="block"
                             color="success" class="ion-margin-top">
                             <ion-spinner v-if="isLoading" name="crescent"></ion-spinner>
@@ -44,9 +48,9 @@
 import {
     IonCardHeader, IonCardTitle, IonButton, IonCard, IonInput, IonInputPasswordToggle,
     IonCardContent, IonPage, IonSpinner, IonContent, IonFab, actionSheetController,
-    IonIcon
+    IonIcon, IonLabel
 } from '@ionic/vue';
-import { globeOutline } from 'ionicons/icons';
+import { languageOutline } from 'ionicons/icons';
 import { useRouter } from 'vue-router';
 import { reactive, ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
@@ -105,8 +109,7 @@ const handleLogin = async () => {
         const dateInfo = {
             psDay: now.getDate(),
             psMonth: now.getMonth() + 1,
-            psYear: now.getFullYear(),
-            // psHour: now.getHours()
+            psYear: now.getFullYear()
         };
 
         if (isOnline) {
@@ -160,14 +163,14 @@ const handleLogin = async () => {
                 router.replace('/home');
 
             } else {
-                errorMessage.value = result?.message || 'Thông tin đăng nhập chưa chính xác';
+                errorMessage.value = result?.message || t('login.message.1');
             }
 
         } else {
             const offlineUsers = await storageService.get('offline_users_dict');
 
             if (!offlineUsers || !offlineUsers[loginDetail.userCode]) {
-                errorMessage.value = 'Tài khoản chưa từng đăng nhập trên thiết bị này. Cần mạng cho lần đầu!';
+                errorMessage.value = t('login.message.2');
                 isLoading.value = false;
                 return;
             }
@@ -184,11 +187,11 @@ const handleLogin = async () => {
                 await store.dispatch('initApp');
                 router.replace('/home');
             } else {
-                errorMessage.value = 'Mật khẩu không chính xác (Offline)!';
+                errorMessage.value = t('login.message.3');
             }
         }
     } catch (err: any) {
-        errorMessage.value = 'Không thể kết nối hoặc có lỗi xảy ra. Vui lòng thử lại!';
+        errorMessage.value = t('login.message.4');
         console.error(err);
     } finally {
         isLoading.value = false;

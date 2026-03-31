@@ -12,7 +12,7 @@
         <ion-content class="ion-padding">
             <div v-if="isLoading" class="ion-text-center ion-margin-top">
                 <ion-spinner name="crescent"></ion-spinner>
-                <p>Đang tải dữ liệu...</p>
+                <p>{{ $t('users.loading') }}</p>
             </div>
 
             <ion-card v-for="user in displayedUsers" :key="user.userId" class="user-card">
@@ -43,11 +43,11 @@
             </ion-card>
 
             <div v-if="!isLoading && displayedUsers.length === 0" class="ion-text-center ion-margin-top">
-                <p>Không có dữ liệu User.</p>
+                <p>{{ $t('users.no-data') }}</p>
             </div>
 
             <ion-infinite-scroll @ionInfinite="loadMoreRoles" :disabled="isAllLoaded">
-                <ion-infinite-scroll-content loading-spinner="bubbles" loading-text="Đang tải thêm dữ liệu...">
+                <ion-infinite-scroll-content loading-spinner="bubbles" :loading-text="$t('users.loading-more')">
                 </ion-infinite-scroll-content>
             </ion-infinite-scroll>
         </ion-content>

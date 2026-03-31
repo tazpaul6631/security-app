@@ -19,10 +19,9 @@
                 </ion-segment>
             </div>
 
-            <ion-modal :is-open="isModalOpen" @didDismiss="isModalOpen = false" :initial-breakpoint="0.5"
-                :breakpoints="[0, 0.5, 0.8]">
+            <ion-modal :is-open="isModalOpen" @didDismiss="isModalOpen = false" class="fixed-bottom-modal">
                 <ion-header>
-                    <ion-toolbar>
+                    <ion-toolbar class="none-padding">
                         <ion-title>{{ $t('areas.index.selected') }} {{ activeSegment }}</ion-title>
                         <ion-buttons slot="end">
                             <ion-button @click="isModalOpen = false">{{ $t('areas.index.cancel') }}</ion-button>
@@ -102,11 +101,11 @@
                                     </ion-row>
                                     <ion-row>
                                         <ion-col size="6" class="pad-0">
-                                            <ion-label class="labelItem" color="medium">{{
+                                            <ion-label class="labelItem" color="secondary">{{
                                                 item.shiftStart?.replace('T', ' ').slice(0, 16) }}</ion-label>
                                         </ion-col>
                                         <ion-col size="6" class="ion-text-end pad-0">
-                                            <ion-label class="labelItem" color="medium">{{
+                                            <ion-label class="labelItem" color="secondary">{{
                                                 item.shiftEnd?.replace('T', ' ').slice(0, 16) }}</ion-label>
                                         </ion-col>
                                     </ion-row>
@@ -275,7 +274,7 @@ const dataPR = computed(() => {
             createdAt: item.createdAt || '',
             prHasProblem: item.prHasProblem,
             isOfflineMock: item.isOfflineMock || false,
-            reportName: item.reportName || 'Báo cáo tuần tra',
+            reportName: item.reportName,
             reportAt: item.reportAt
         }))
     };
@@ -486,7 +485,7 @@ const handleSelectedRow = async (prId: number, event?: any) => {
     if (event?.currentTarget) event.currentTarget.blur();
     if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
-    const loading = await loadingController.create({ message: 'Đang tải chi tiết...', spinner: 'crescent' });
+    const loading = await loadingController.create({ message: t('areas.index.message.1'), spinner: 'crescent' });
     await loading.present();
 
     try {
@@ -511,10 +510,10 @@ const handleSelectedRow = async (prId: number, event?: any) => {
 
     } catch (error: any) {
         console.error(error);
-        const msg = error.message === "Không có kết nối mạng"
-            ? "Vui lòng kiểm tra kết nối mạng để xem chi tiết."
-            : "Không tìm thấy dữ liệu chi tiết.";
-        presentAlert.presentAlert('Thông báo', '', msg);
+        const msg = error.message === t('areas.index.message.2')
+            ? t('areas.index.message.3')
+            : t('areas.index.message.4');
+        presentAlert.presentAlert(t('areas.index.message.5'), '', msg);
     } finally {
         await loading.dismiss();
     }
@@ -628,6 +627,22 @@ div[slot="fixed"] {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
+/* Custom CSS để ép Modal nằm sát đáy và cố định chiều cao */
+ion-modal.fixed-bottom-modal {
+    --height: 75vh;
+    /* Set cứng chiều cao (ví dụ 50% chiều cao màn hình) */
+    --border-radius: 16px 16px 0 0;
+    /* Bo tròn 2 góc trên cho đẹp */
+    align-items: flex-end;
+    /* Căn chỉnh Modal nằm sát dưới đáy */
+}
+
+/* Đảm bảo phần nền mờ (backdrop) hiển thị đầy đủ */
+ion-modal.fixed-bottom-modal::part(backdrop) {
+    opacity: 0.3;
+    /* Độ mờ tùy chỉnh */
+}
+
 .filter-dropdown-item {
     --min-height: 38px;
     --background: var(--ion-color-light);
@@ -645,28 +660,5 @@ div[slot="fixed"] {
 
 ion-icon[slot="start"] {
     margin-inline-end: 8px;
-}
-
-/* Tắt bóng mờ (hover/focus) trên Segment Button */
-ion-segment-button {
-    --background-hover: transparent;
-    --background-focused: transparent;
-    --indicator-box-shadow: none;
-    /* Dành cho thanh gạch dưới nếu bị bóng */
-}
-
-/* Tắt bóng mờ bị kẹt trên các thẻ danh sách có button="true" */
-ion-item {
-    --background-hover: transparent;
-    --background-focused: transparent;
-}
-
-@media (hover: none) {
-
-    ion-item,
-    ion-segment-button {
-        --background-hover: transparent;
-        --background-focused: transparent;
-    }
 }
 </style>

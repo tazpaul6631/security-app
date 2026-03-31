@@ -39,3 +39,38 @@ http://ionicframework.com/docs/theming/ */
 ion-content {
     --padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px) !important;
 }
+
+/* Tắt bóng mờ (hover/focus) trên Segment Button */
+ion-button,
+ion-segment-button {
+    --background-hover: transparent;
+    --background-focused: transparent;
+    --indicator-box-shadow: none;
+    /* Dành cho thanh gạch dưới nếu bị bóng */
+}
+
+/* Tắt bóng mờ bị kẹt trên các thẻ danh sách có button="true" */
+ion-item,
+ion-accordion ion-item {
+    --background-hover: transparent;
+    --background-hover-opacity: 0;
+
+    --background-focused: transparent;
+    --background-focused-opacity: 0;
+
+    /* Tắt luôn hiệu ứng loang nước khi click vào item có thuộc tính button */
+    --ripple-color: transparent;
+}
+
+@media (hover: none) {
+
+    ion-button,
+    ion-item,
+    ion-accordion ion-item,
+    ion-segment-button {
+        --background-hover: transparent;
+        --background-hover-opacity: 0;
+        --background-focused: transparent;
+        --background-focused-opacity: 0;
+    }
+}

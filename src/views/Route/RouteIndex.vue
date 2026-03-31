@@ -32,7 +32,7 @@
                         </ion-card-header>
 
                         <ion-card-content>
-                            <card-route-points :details="currentActiveRoute.routeDetails" />
+                            <card-route-points ref="cardRoutePointsRef" :details="currentActiveRoute.routeDetails" />
                         </ion-card-content>
                     </ion-card>
                 </div>
@@ -95,13 +95,13 @@ import CardRoutePoints from '@/components/CardRoutePoints.vue';
 import { scannerService } from '@/services/scanner.service';
 import storageService from '@/services/storage.service';
 import PatrolShiftView from '@/api/PatrolShiftView';
-import presentAlert from '@/mixins/presentAlert';
 
 // IMPORT GLOBAL TIMER
 import { useRouteTimer } from '@/composables/useRouteTimer';
 import PatrolShift from '@/api/PatrolShift';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 import { useI18n } from 'vue-i18n';
+import presentAlert from '@/mixins/presentAlert';
 
 // Lấy biến và hàm từ Global Timer ra sử dụng
 const { formattedTime, timerColorClass, clearTimer, restoreTimer, stopTimer, remainingSeconds, currentTimerRouteId } = useRouteTimer();
@@ -140,6 +140,7 @@ const currentHour = ref(new Date().getHours());
 let timer: any = null;
 const lockedRouteId = computed(() => store.state.unfinishedRouteId);
 const { t } = useI18n();
+const cardRoutePointsRef = ref<any>(null);
 
 // ==========================================
 // 1. KHAI BÁO LỘ TRÌNH HIỆN TẠI
@@ -245,7 +246,7 @@ const processScannedData = async (qrCodeString: string, routeId: number) => {
 
     // 1. Khởi tạo Loading
     const loading = await loadingController.create({
-        message: 'Đang kiểm tra điểm quét...',
+        message: t('routes.verifying-checkpoint'),
         spinner: 'crescent',
         cssClass: 'custom-loading' // Nếu muốn style riêng
     });
@@ -254,7 +255,7 @@ const processScannedData = async (qrCodeString: string, routeId: number) => {
 
     try {
         // Gọi logic xử lý nặng (Check lộ trình, API, SQLite)
-        await scannerService.processQRString(store, router, routeId, qrCodeString);
+        await scannerService.processQRString(store, router, routeId, qrCodeString, t);
 
     } catch (error) {
         console.error("Lỗi xử lý dữ liệu quét:", error);
@@ -264,32 +265,6 @@ const processScannedData = async (qrCodeString: string, routeId: number) => {
         await loading.dismiss();
     }
 };
-
-// let scanBuffer = '';
-// let scanTimeout: any = null;
-
-// const handleHardwareScan = async (e: KeyboardEvent) => {
-//     if (store.state.isSyncing) return;
-//     if (e.key === 'Enter') {
-//         if (scanBuffer.length > 3 && currentActiveRoute.value) {
-//             const bufferCopy = scanBuffer;
-//             scanBuffer = '';
-
-//             processScannedData(bufferCopy, currentActiveRoute.value.routeId);
-//         }
-//         scanBuffer = '';
-//         return;
-//     }
-
-//     if (e.ctrlKey || e.altKey || e.metaKey || e.key.length !== 1) return;
-
-//     scanBuffer += e.key;
-
-//     clearTimeout(scanTimeout);
-//     scanTimeout = setTimeout(() => {
-//         scanBuffer = '';
-//     }, 50);
-// };
 
 // Nút bấm cho Điện thoại thường (Mở Camera)
 const handleContinueScanning = async (routeId: number) => {
@@ -301,7 +276,7 @@ const handleContinueScanning = async (routeId: number) => {
     isScanning.value = true;
 
     try {
-        const result = await scannerService.startScanning(store, router, routeId);
+        const result = await scannerService.startScanning(store, router, routeId, t);
         if (result) {
             await processScannedData(result, routeId);
         }
@@ -410,25 +385,20 @@ onIonViewWillEnter(async () => {
     currentHour.value = now.getHours();
     userRoleIsAdmin.value = store.state.dataUser?.userRoleIsAdmin;
 
-    // Gọi hàm kéo dữ liệu
+    // Gọi hàm kéo dữ liệu lộ trình (code cũ của bạn)
     await loadRouteData();
+
+    // THÊM ĐOẠN NÀY VÀO CUỐI:
+    // Bắt thẻ con quét lại SQLite để đếm số ảnh offline mới nhất
+    if (cardRoutePointsRef.value) {
+        cardRoutePointsRef.value.loadOfflineQueue();
+    }
 });
 
 onMounted(async () => {
     updateSystemTime();
     window.addEventListener('visibilitychange', handleAppWakeUp);
     window.addEventListener('focus', updateSystemTime);
-
-    // 1. Lắng nghe Keyboard Wedge từ tia Laser
-    // window.addEventListener('keydown', handleHardwareScan);
-
-    // 2. Lắng nghe từ Android Bridge
-    // (window as any).returnResult = async (data: any) => {
-    //     if (currentActiveRoute.value && data) {
-    //         let qrString = typeof data === 'string' ? data : JSON.stringify(data);
-    //         processScannedData(qrString, currentActiveRoute.value.routeId);
-    //     }
-    // };
 
     timer = setInterval(updateSystemTime, 5000);
 });
@@ -437,10 +407,6 @@ onUnmounted(() => {
     if (timer) clearInterval(timer);
     window.removeEventListener('visibilitychange', handleAppWakeUp);
     window.removeEventListener('focus', updateSystemTime);
-
-    // Cleanup listeners
-    // window.removeEventListener('keydown', handleHardwareScan);
-    // delete (window as any).returnResult;
 });
 
 // ==========================================
@@ -451,6 +417,7 @@ const confirmCancelRoute = () => {
 };
 
 const isCancelling = ref(false);
+const { pendingItems, loadPendingItems, removeQueueItem } = useOfflineManager();
 const cancelButtons = [
     { text: t('routes.cancel'), role: 'cancel' },
     {
@@ -471,10 +438,8 @@ const cancelButtons = [
                     isDeleteAction: true
                 };
 
-                console.log(removeData);
-
                 await clearTimer(currentRoute.routeId);
-                const { pendingItems, loadPendingItems, removeQueueItem } = useOfflineManager();
+
                 await loadPendingItems();
 
                 const itemsToDelete = pendingItems.value.filter(
@@ -491,13 +456,25 @@ const cancelButtons = [
                     await PatrolShift.postRemovePatrolShift(removeData);
                 } catch (error) {
                     // NẾU OFFLINE: Kiểm tra xem đã có psId này trong hàng chờ chưa trước khi push
-                    const deleteQueue = (await storageService.get('offline_delete_queue')) || [];
-                    const isExist = deleteQueue.some((item: any) => item.psId === removeData.psId);
+                    try {
+                        let deleteQueue = await storageService.get('offline_delete_queue');
 
-                    if (!isExist) {
-                        deleteQueue.push(removeData);
-                        await storageService.set('offline_delete_queue', deleteQueue);
-                        console.warn("Offline: Đã lưu lệnh xóa vào hàng chờ.");
+                        // Đảm bảo deleteQueue luôn là mảng, kể cả khi parse lỗi
+                        if (!Array.isArray(deleteQueue)) {
+                            deleteQueue = [];
+                        }
+
+                        const isExist = deleteQueue.some((item: any) => item.psId === removeData.psId);
+
+                        if (!isExist) {
+                            deleteQueue.push(removeData);
+                            await storageService.set('offline_delete_queue', deleteQueue);
+                            console.warn("Offline: Đã lưu lệnh xóa vào hàng chờ.");
+                        }
+                    } catch (storageErr) {
+                        console.error("Lỗi parse dữ liệu từ Storage:", storageErr);
+                        // Nếu storage hỏng, reset lại nó luôn
+                        await storageService.set('offline_delete_queue', [removeData]);
                     }
                 }
 
@@ -510,6 +487,13 @@ const cancelButtons = [
         }
     }
 ];
+
+watch(() => store.state.isSyncing, (isSyncingNow) => {
+    // Khi isSyncing chuyển từ true -> false (nghĩa là vừa đồng bộ xong)
+    if (!isSyncingNow && cardRoutePointsRef.value) {
+        cardRoutePointsRef.value.loadOfflineQueue(); // Bắt đếm lại liền!
+    }
+});
 </script>
 
 <style scoped>

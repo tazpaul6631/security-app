@@ -13,10 +13,10 @@ export const scannerService = {
     },
 
     // 1. Hàm này giờ CHỈ DÙNG ĐỂ MỞ CAMERA trên điện thoại và TRẢ VỀ CHUỖI QR
-    async startScanning(store: Store<any>, router: Router, routeId: number): Promise<string | null> {
+    async startScanning(store: Store<any>, router: Router, routeId: number, t: any): Promise<string | null> {
         const granted = await this.requestPermissions();
         if (!granted) {
-            await presentAlert.presentAlert('Lỗi', '', 'Vui lòng cấp quyền sử dụng máy ảnh để quét mã.');
+            await presentAlert.presentAlert(t('messages.scanner.notification'), '', t('messages.scanner.grant-camera-permission'));
             return null;
         }
 
@@ -47,7 +47,7 @@ export const scannerService = {
     },
 
     // 2. Hàm mới: Xử lý chuỗi QR (Bất kể chuỗi đó lấy từ Camera hay từ nút bấm Unitech)
-    async processQRString(store: Store<any>, router: Router, routeId: number, qrCodeString: string) {
+    async processQRString(store: Store<any>, router: Router, routeId: number, qrCodeString: string, t: any) {
         const now = new Date();
         const currentTimeString = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 19);
         const dataListRoute = store.state.dataListRoute;
@@ -69,7 +69,7 @@ export const scannerService = {
         }
 
         if (!currentRoute) {
-            await presentAlert.presentAlert('Lỗi', '', 'Không tìm thấy thông tin lộ trình đã chọn.');
+            await presentAlert.presentAlert(t('messages.scanner.notification'), '', t('messages.scanner.route-not-found'));
             return;
         }
 
@@ -82,7 +82,7 @@ export const scannerService = {
                 listScanQr.cpwId = segments[3];
                 listScanQr.cpwCode = segments[4];
             } catch (e) {
-                await presentAlert.presentAlert('Lỗi', '', 'Mã QR không hợp lệ');
+                await presentAlert.presentAlert(t('messages.scanner.notification'), '', t('messages.scanner.invalid-qr-code'));
                 return;
             }
         } else {
@@ -92,7 +92,7 @@ export const scannerService = {
         const nextPointRequired = currentRoute.routeDetails.find((point: any) => point.status !== 1);
 
         if (!nextPointRequired) {
-            await presentAlert.presentAlert('Thông báo', '', 'Lộ trình này đã được hoàn thành tất cả các điểm.');
+            await presentAlert.presentAlert(t('messages.scanner.notification'), '', t('messages.scanner.route-completed'));
             return;
         }
 
@@ -139,9 +139,9 @@ export const scannerService = {
             handleWrongScanSync();
 
             await presentAlert.presentAlert(
-                'Sai thứ tự tuần tra',
+                t('messages.scanner.wrong-patrol-order'),
                 nextPointRequired.cpName,
-                `Là điểm tiếp theo cần quét. Vui lòng đi đúng lộ trình.`,
+                t('messages.scanner.next-checkpoint'),
                 'custom-error-alert'
             );
             return;
@@ -194,10 +194,10 @@ export const scannerService = {
                     query: { routeId: routeId, t: Date.now() }
                 });
             } else {
-                await presentAlert.presentAlert('Thông báo', '', 'Không tìm thấy thông tin điểm này trong dữ liệu hệ thống.');
+                await presentAlert.presentAlert(t('messages.scanner.notification'), '', t('messages.scanner.checkpoint-not-found'));
             }
         } catch (error) {
-            await presentAlert.presentAlert('Lỗi', '', 'Hệ thống không thể xử lý mã quét.');
+            await presentAlert.presentAlert(t('messages.scanner.notification'), '', t('messages.scanner.unable-to-process'));
         }
     }
 };

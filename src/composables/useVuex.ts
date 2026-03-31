@@ -116,7 +116,7 @@ const store = createStore({
           // TUYỆT ĐỐI KHÔNG GHI ĐÈ nếu state.psId đã được khôi phục chuẩn xác từ lúc F5
           if (!state.psId) {
             state.psId = currentLocked.psId;
-            console.log("🎯 Store: Đã khôi phục psId từ khóa dở dang:", state.psId);
+            console.log("Store: Đã khôi phục psId từ khóa dở dang:", state.psId);
           }
         }
       }
@@ -439,7 +439,7 @@ const store = createStore({
       const id = await storageService.get('unfinished_route_id');
       if (id) {
         commit('SET_UNFINISHED_ROUTE_ID', Number(id));
-        console.log('✅ Đã khôi phục khóa lộ trình dở dang:', id);
+        console.log('Đã khôi phục khóa lộ trình dở dang:', id);
       } else {
         // CHỐT CHẶN AN TOÀN TỐI ĐA: 
         // Nếu bộ nhớ máy (SQLite) không có khóa, ép Vuex phải rỗng để chắc chắn không bị khóa oan
@@ -493,7 +493,7 @@ const store = createStore({
 
         if (actualData) {
           commit('SET_DATA_BASE_POINT_REPORT_VIEW', actualData);
-          console.log('✅ ĐÃ BƠM BASE_POINT_REPORT_VIEW VÀO VUEX:', actualData);
+          console.log('ĐÃ BƠM BASE_POINT_REPORT_VIEW VÀO VUEX:', actualData);
         }
       }
     },
@@ -513,7 +513,7 @@ const store = createStore({
         if (actualData) {
           commit('SET_DATACP', actualData);
           // THÊM DÒNG NÀY ĐỂ CHỨNG MINH DỮ LIỆU ĐÃ LÊN VUEX THÀNH CÔNG
-          console.log('✅ ĐÃ BƠM DATACP VÀO VUEX:', actualData);
+          console.log('ĐÃ BƠM DATACP VÀO VUEX:', actualData);
         }
       }
     },
@@ -533,7 +533,7 @@ const store = createStore({
         if (actualData) {
           commit('SET_DATA_CHECKPOINTS_ID', actualData);
           // THÊM DÒNG NÀY ĐỂ CHỨNG MINH DỮ LIỆU ĐÃ LÊN VUEX THÀNH CÔNG
-          console.log('✅ ĐÃ BƠM CHECKPOINTS_ID VÀO VUEX:', actualData);
+          console.log('ĐÃ BƠM CHECKPOINTS_ID VÀO VUEX:', actualData);
         }
       }
     },
@@ -552,7 +552,7 @@ const store = createStore({
         if (actualData) {
           commit('SET_DATA_AREA_BU', actualData);
           // THÊM DÒNG NÀY ĐỂ CHỨNG MINH DỮ LIỆU ĐÃ LÊN VUEX THÀNH CÔNG
-          console.log('✅ ĐÃ BƠM AREA_BU VÀO VUEX:', actualData);
+          console.log('ĐÃ BƠM AREA_BU VÀO VUEX:', actualData);
         }
       }
     },
@@ -571,7 +571,7 @@ const store = createStore({
         if (actualData) {
           commit('SET_DATA_REPORT_NOTE_CATEGORY', actualData);
           // THÊM DÒNG NÀY ĐỂ CHỨNG MINH DỮ LIỆU ĐÃ LÊN VUEX THÀNH CÔNG
-          console.log('✅ ĐÃ BƠM REPORT_NOTE_CATEGORY VÀO VUEX:', actualData);
+          console.log('ĐÃ BƠM REPORT_NOTE_CATEGORY VÀO VUEX:', actualData);
         }
       }
     },
@@ -592,7 +592,7 @@ const store = createStore({
 
           if (Array.isArray(actualData)) {
             commit('SET_DATA_LIST_ROUTE', actualData);
-            console.log('✅ Restore List Route thành công:', actualData);
+            console.log('Restore List Route thành công:', actualData);
           } else {
             console.warn('Dữ liệu List Route không phải là mảng:', actualData);
           }
@@ -686,7 +686,7 @@ const store = createStore({
         const updatedList = state.dataListRoute;
         await storageService.set('list_route', updatedList);
 
-        console.log('✅ Đã xóa lộ trình và reset trạng thái thành công');
+        console.log('Đã xóa lộ trình và reset trạng thái thành công');
       } catch (error) {
         console.error('Lỗi khi reset lộ trình:', error);
       }
@@ -730,10 +730,10 @@ const store = createStore({
       // 4. PHỤC HỒI LẠI DANH SÁCH TÀI KHOẢN OFFLINE
       if (offlineUsers && Object.keys(offlineUsers).length > 0) {
         await storageService.set('offline_users_dict', offlineUsers);
-        console.log('✅ Đã phục hồi danh sách tài khoản Offline an toàn.');
+        console.log('Đã phục hồi danh sách tài khoản Offline an toàn.');
       }
 
-      console.log('✅ Đã dọn dẹp xong RAM và SQLite.');
+      console.log('Đã dọn dẹp xong RAM và SQLite.');
     }
   }
 })

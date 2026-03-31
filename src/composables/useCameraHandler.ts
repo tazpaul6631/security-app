@@ -1,5 +1,6 @@
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 import { toastController } from '@ionic/vue';
+import { useI18n } from 'vue-i18n';
 
 // Interface trả về cho các file gọi Composable này sử dụng
 interface Photo {
@@ -9,6 +10,7 @@ interface Photo {
 }
 
 export function useCameraHandler() {
+    const { t } = useI18n();
 
     // Hàm tiện ích: Hiển thị thông báo (Giống hàm showToast ở file cha)
     const showToast = async (message: string, color: string = 'warning') => {
@@ -26,7 +28,7 @@ export function useCameraHandler() {
     // prefix: Tiền tố tên file (ví dụ 'ok_cam_' hoặc 'err_cam_')
     const takePhoto = async (currentCount: number, prefix: string = 'img_'): Promise<Photo | null> => {
         if (currentCount >= 10) {
-            await showToast('Chỉ được phép đính kèm tối đa 10 ảnh!');
+            await showToast(t('messages.use-camera.max-images'));
             return null; // Trả về null nếu vi phạm luật
         }
 
@@ -58,7 +60,7 @@ export function useCameraHandler() {
         const slotsLeft = 10 - currentCount;
 
         if (slotsLeft <= 0) {
-            await showToast('Đã đạt giới hạn 10 ảnh!');
+            await showToast(t('messages.use-camera.limit-reached'));
             return []; // Trả về mảng rỗng nếu vi phạm
         }
 
@@ -72,15 +74,23 @@ export function useCameraHandler() {
 
             // Cắt mảng dự phòng
             if (photosToAdd.length > slotsLeft) {
-                await showToast(`Chỉ lấy ${slotsLeft} ảnh đầu tiên để không vượt quá giới hạn 10 ảnh.`);
+                await showToast(t('messages.use-camera.taking-images', { count: slotsLeft }));
                 photosToAdd = photosToAdd.slice(0, slotsLeft);
             }
 
             // Convert kết quả của Capacitor thành Interface Photo của chúng ta
-            return photosToAdd.map(photo => ({
-                fileName: `${prefix}${Date.now()}_${Math.floor(Math.random() * 1000)}.jpg`, // Thêm random để tránh trùng tên nếu chọn nhanh
-                preview: photo.webPath
-            }));
+            return photosToAdd.map(photo => {
+                // photo.format thường trả về 'jpeg', 'png', 'webp', v.v.
+                // Fallback về 'jpg' nếu không lấy được format
+                let ext = photo.format ? `.${photo.format.toLowerCase()}` : '.jpg';
+                // Chuẩn hóa jpeg thành jpg để đồng nhất với mảng AllowImageExtetions của backend
+                if (ext === '.jpeg') ext = '.jpg';
+
+                return {
+                    fileName: `${prefix}${Date.now()}_${Math.floor(Math.random() * 1000)}${ext}`,
+                    preview: photo.webPath
+                };
+            });
 
         } catch (e) {
             console.log("Hủy chọn ảnh thư viện:", e);

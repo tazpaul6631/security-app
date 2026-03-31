@@ -5,7 +5,13 @@
         "password": "密碼",
         "btn_login": "登入",
         "lang_select": "選擇語言",
-        "cancel": "取消"
+        "cancel": "取消",
+        "message": {
+            "1": "登入資訊不正確",
+            "2": "此帳號從未在此裝置上登入過。首次登入需要網路連線！",
+            "3": "密碼不正確 (離線)！",
+            "4": "無法連線至伺服器或發生錯誤。請再試一次！"
+        }
     },
     "layout": {
         "warning": "警告",
@@ -52,7 +58,8 @@
         "go-home": "返回首頁",
         "warning-title": "警告！",
         "cancel-confirm-msg": "確定要取消嗎？所有已掃描的資料將會遺失。",
-        "confirm-cancel": "確認取消"
+        "confirm-cancel": "確認取消",
+        "verifying-checkpoint": "正在驗證檢查點..."
     },
     "areas": {
         "index": {
@@ -66,7 +73,14 @@
             "load-more": "正在載入更多...",
             "expat": "外派人員",
             "security": "保全",
-            "all": "全部"
+            "all": "全部",
+            "message": {
+                "1": "正在載入詳細資訊...",
+                "2": "無網路連線",
+                "3": "請檢查您的網路連線以查看詳細資訊。",
+                "4": "找不到詳細資料。",
+                "5": "通知"
+            }
         },
         "detail": {
             "emty-data": "暫無資料",
@@ -115,7 +129,67 @@
             "label_requirement": "要求：",
             "msg_capture_before_report": "報告前請先拍攝巡邏點照片。",
             "btn_take_checkin": "拍入點打卡照",
-            "status_photo_confirmed": "已拍攝確認照片"
+            "status_photo_confirmed": "已拍攝確認照片",
+            "message": {
+                "1": "錯誤：找不到檢查點資料",
+                "2": "正在儲存資料...",
+                "3": "錯誤：不支援的圖片格式 ${blob.type}！",
+                "4": "錯誤：圖片檔案過大 (${sizeInMB}MB)。最大限制為 10MB！",
+                "5": "成功完成路線！",
+                "6": "無法儲存報告",
+                "7": "警告",
+                "8": "您正在值班中，請完成剩餘的檢查點！",
+                "9": "知道了",
+                "10": "正在處理圖片..."
+            }
+        }
+    },
+    "role": {
+        "load-data": "正在載入資料...",
+        "role-menu": "角色選單：",
+        "created-date": "建立日期：",
+        "updated-date": "更新日期：",
+        "no-role-data": "沒有角色資料。",
+        "loading-more": "正在載入更多資料..."
+    },
+    "users": {
+        "loading": "正在載入資料...",
+        "no-data": "沒有使用者資料。",
+        "loading-more": "正在載入更多資料..."
+    },
+    "messages": {
+        "nav": {
+            "got": "知道了",
+            "warning": "警告",
+            "incomplete-route": "巡邏路線未完成。您目前無法返回首頁！",
+            "unable-to-logout": "無法登出",
+            "incomplete-patrol": "您目前正處於未完成的巡邏路線中。請在登出前結束路線！",
+            "data-loss": "資料遺失警告！",
+            "pending-reports": "您有 ${pendingItems.value.length} 份尚未同步的報告。請在登出前連線網路進行同步！"
+        },
+        "use-camera": {
+            "max-images": "最多只能附加 10 張圖片！",
+            "limit-reached": "已達 10 張圖片上限！",
+            "taking-images": "僅擷取前 ${slotsLeft} 張圖片，以免超過 10 張圖片的限制。"
+        },
+        "use-offline": {
+            "saved-to-queue": "已儲存至佇列。有網路連線時將自動傳送。",
+            "maintenance": "伺服器系統正在維護中。資料已安全儲存於本機，稍後將自動重新傳送。",
+            "syncing": "正在重新連線並同步...",
+            "cleaning": "正在清理舊資料...",
+            "uploading": "正在上傳報告 (${processedItems}/${totalItems})...",
+            "completed": "同步完成！"
+        },
+        "scanner": {
+            "notification": "通知",
+            "grant-camera-permission": "請授權使用相機以掃描條碼。",
+            "route-not-found": "找不到所選的路線資訊。",
+            "invalid-qr-code": "無效的 QR 碼",
+            "route-completed": "此路線的所有檢查點皆已完成。",
+            "wrong-patrol-order": "巡邏順序錯誤",
+            "next-checkpoint": "是下一個需要掃描的點。請遵循正確的路線。",
+            "checkpoint-not-found": "在系統資料中找不到此點的資訊。",
+            "unable-to-process": "系統無法處理掃描的條碼。"
         }
     }
 }

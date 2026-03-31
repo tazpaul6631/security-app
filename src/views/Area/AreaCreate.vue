@@ -253,6 +253,7 @@ watch(() => pendingItems.value, async (newPendingQueue) => {
     thumb: item.imageFiles?.[0] ? await ImageService.getDisplayUrl(item.imageFiles[0]) : null
   })));
 }, { deep: true });
+///////////////////////////////////////////////////////
 
 // --- Functions ---
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -306,7 +307,6 @@ const toggleIssue = (val: string) => {
   } else {
     selectedValues.value.push(val);
   }
-  console.log('Current selected:', selectedValues.value);
 };
 
 const confirmDetails = () => {
@@ -352,12 +352,12 @@ const handleSubmit = async (): Promise<void> => {
   const currentTimeString = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 19);
 
   if (!dataScanQr.value?.cpId) {
-    await showToast('Lỗi: Không tìm thấy dữ liệu Checkpoint', 'danger');
+    await showToast(t('areas.report.message.1'), 'danger');
     isSubmitting.value = false;
     return;
   }
 
-  const loading = await loadingController.create({ message: 'Đang lưu dữ liệu...' });
+  const loading = await loadingController.create({ message: t('areas.report.message.2') });
   await loading.present();
 
   try {
@@ -394,12 +394,35 @@ const handleSubmit = async (): Promise<void> => {
     // --- BƯỚC 2: XỬ LÝ ẢNH ---
     const finalNoteGroups: any[] = [];
 
+    // Định nghĩa các hằng số giống với Backend
+    const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
+    const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+
     for (const group of sourceData) {
       const mappedImages: any[] = [];
 
       for (const item of group.reportImages) {
         const response = await fetch(item.preview);
         const blob = await response.blob();
+
+        // 1. Kiểm tra định dạng (Mime Type)
+        if (!ALLOWED_MIMES.includes(blob.type)) {
+          await loading.dismiss();
+          await showToast(t('areas.report.message.3').replace('${blob.type}', blob.type), 'danger');
+          isSubmitting.value = false;
+          return; // Dừng submit ngay lập tức
+        }
+
+        // 2. Kiểm tra dung lượng ảnh (Size)
+        if (blob.size > MAX_IMAGE_SIZE) {
+          await loading.dismiss();
+          // Convert ra MB để hiển thị cho thân thiện
+          const sizeInMB = (blob.size / (1024 * 1024)).toFixed(2);
+          await showToast(t('areas.report.message.4').replace('${sizeInMB}', sizeInMB), 'danger');
+          isSubmitting.value = false;
+          return; // Dừng submit ngay lập tức
+        }
+
         const base64Full = await convertBlobToBase64(blob);
         const base64Data = base64Full.split(',')[1];
 
@@ -407,7 +430,7 @@ const handleSubmit = async (): Promise<void> => {
 
         mappedImages.push({
           priImage: "", // Để trống vì BE đọc từ IFormFile
-          priImageType: 'jpg'
+          priImageType: blob.type.split('/')[1] || 'jpg' // Tự động lấy đuôi mở rộng từ mime type thay vì hardcode 'jpg'
         });
       }
 
@@ -449,8 +472,6 @@ const handleSubmit = async (): Promise<void> => {
     const firstPreview = mandatoryPhoto.value?.preview ||
       (formData.prHasProblem ? groupedNotes.value[0]?.reportImages[0]?.preview : noProblemImages.value[0]?.preview);
 
-    console.log(firstPreview);
-
     // sendData sẽ nhận mảng allBase64ForStorage, lưu thành file và dùng buildFormData để gửi IFormFile
     await sendData(firstPreview || '', formSubmitData, allBase64ForStorage);
 
@@ -488,7 +509,7 @@ const handleSubmit = async (): Promise<void> => {
       store.commit('SET_DATASCANQR', null);
       await storageService.set('list_route', store.state.dataListRoute);
       await loading.dismiss();
-      await showToast('Hoàn thành lộ trình thành công!', 'success');
+      await showToast(t('areas.report.message.5'), 'success');
       router.replace('/home');
     } else {
       await storageService.set('list_route', updatedRoutes);
@@ -499,7 +520,7 @@ const handleSubmit = async (): Promise<void> => {
   } catch (error) {
     await loading.dismiss();
     console.error("Lỗi:", error);
-    await showToast('Không thể lưu báo cáo', 'danger');
+    await showToast(t('areas.report.message.6'), 'danger');
   } finally {
     isSubmitting.value = false;
   }
@@ -511,9 +532,9 @@ const handleGoBack = async () => {
   if (isFinished || details.length === 0) return router.replace('/route');
 
   const alert = await alertController.create({
-    header: 'Cảnh báo',
-    message: 'Bạn đang trong ca trực, hãy hoàn thành các điểm còn lại!',
-    buttons: ['Đã hiểu']
+    header: t('areas.report.message.7'),
+    message: t('areas.report.message.8'),
+    buttons: [t('areas.report.message.9')]
   });
   await alert.present();
 };
@@ -608,18 +629,15 @@ const removeNoProblemPhoto = (idx: number) => {
 const mandatoryPhoto = ref<Photo | null>(null);
 
 // Hàm vẽ Watermark (ngày giờ) lên ảnh (Sử dụng FileReader thuần)
-const addWatermarkToImage = async (imageSrc: string, text: string): Promise<string> => {
+const addWatermarkToImage = async (imageSrc: string, text: string, textColor: string = '#FFD700'): Promise<string> => {
   return new Promise(async (resolve) => {
     try {
       let base64Data = imageSrc;
 
-      // 1. Đảm bảo ảnh đã là Base64 thực sự (Data URL)
       if (!imageSrc.startsWith('data:image')) {
-        // Fetch ảnh từ Capacitor URL
         const response = await fetch(imageSrc);
         const blob = await response.blob();
 
-        // Đọc blob thành Data URL bằng FileReader (Cách này an toàn nhất trên Webview)
         base64Data = await new Promise((res, rej) => {
           const reader = new FileReader();
           reader.onloadend = () => res(reader.result as string);
@@ -628,7 +646,6 @@ const addWatermarkToImage = async (imageSrc: string, text: string): Promise<stri
         });
       }
 
-      // 2. Tạo Image object và nạp Base64 vào
       const img = new Image();
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -636,73 +653,79 @@ const addWatermarkToImage = async (imageSrc: string, text: string): Promise<stri
         canvas.height = img.height;
         const ctx = canvas.getContext('2d');
 
-        if (!ctx) {
-          return resolve(base64Data); // Fallback: Nếu không tạo được context, trả ảnh gốc
-        }
+        if (!ctx) return resolve(base64Data);
 
-        // Vẽ ảnh
         ctx.drawImage(img, 0, 0);
 
-        // Thiết lập font chữ
         const fontSize = Math.max(Math.floor(img.height * 0.05), 25);
         ctx.font = `bold ${fontSize}px sans-serif`;
-
-        // Căn lề TRÁI và TRÊN
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
 
         const padding = 30;
-        const x = padding; // Góc trái
-        const y = padding; // Góc trên
+        const x = padding;
+        const y = padding;
 
-        // Vẽ nền mờ bọc sát chữ
         const metrics = ctx.measureText(text);
         const textWidth = metrics.width;
         ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
         ctx.fillRect(x - 10, y - 10, textWidth + 20, fontSize + 20);
 
-        // Vẽ chữ
-        ctx.fillStyle = '#FFD700'; // Màu vàng
+        // Sử dụng biến textColor thay vì hardcode '#FFD700'
+        ctx.fillStyle = textColor;
         ctx.fillText(text, x, y);
 
-        // Trả về kết quả
         resolve(canvas.toDataURL('image/jpeg', 0.8));
       };
 
       img.onerror = (err) => {
         console.error("Image load error in canvas:", err);
-        resolve(base64Data); // Fallback về base64 nếu lỗi
+        resolve(base64Data);
       };
 
-      img.src = base64Data; // Nạp chuỗi Base64 dài ngoằng vào
+      img.src = base64Data;
     } catch (error) {
       console.error("Watermark generation error:", error);
-      resolve(imageSrc); // Fallback cuối cùng về src gốc
+      resolve(imageSrc);
     }
   });
 };
 
 // Hàm chụp ảnh bắt buộc
 const captureMandatoryPhoto = async () => {
-  // Dùng hàm takePhoto có sẵn của bạn
   const photo = await takePhoto(0, 'checkin_');
 
   if (photo) {
-    const loading = await loadingController.create({ message: 'Đang xử lý ảnh...' });
+    const loading = await loadingController.create({ message: t('areas.report.message.10') });
     await loading.present();
 
     try {
-      // Lấy ngày giờ hiện tại: Format DD/MM/YYYY HH:mm:ss
       const now = new Date();
       const timeString = now.toLocaleString('vi-VN', {
         hour12: false, year: 'numeric', month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit', second: '2-digit'
       });
 
-      // Đóng dấu thời gian
-      const watermarkedBase64 = await addWatermarkToImage(photo.preview, timeString);
+      // LOGIC KIỂM TRA LỐ CA (TRỄ GIỜ)
+      let isLate = false;
+      const activeRoute = currentActiveRoute.value;
 
-      // Lưu vào ref
+      if (activeRoute && activeRoute.psHourFrom !== undefined) {
+        const currentHour = now.getHours();
+
+        // Ca 1 tiếng (VD: Ca 8h là từ 08:00:00 -> 08:59:59)
+        // Chỉ cần giờ hiện tại KHÁC với giờ bắt đầu ca -> Lố ca hoặc Sai ca
+        if (currentHour !== activeRoute.psHourFrom) {
+          isLate = true;
+        }
+      }
+
+      // Nếu lố ca: Màu Đỏ (#FF0000). Nếu đúng ca: Màu Vàng (#FFD700)
+      const watermarkColor = isLate ? '#FF0000' : '#FFD700';
+
+      // Đóng dấu thời gian + truyền thêm màu sắc
+      const watermarkedBase64 = await addWatermarkToImage(photo.preview, timeString, watermarkColor);
+
       mandatoryPhoto.value = {
         fileName: photo.fileName,
         preview: watermarkedBase64
@@ -758,7 +781,7 @@ const loadDraft = async () => {
     groupedNotes.value = draft.groupedNotes || [];
     selectedValues.value = draft.selectedValues || [];
     noProblemImages.value = draft.noProblemImages || [];
-    console.log('✅ Đã khôi phục bản nháp đang nhập dở');
+    console.log('Đã khôi phục bản nháp đang nhập dở');
     return true;
   }
   return false;

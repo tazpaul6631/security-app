@@ -67,7 +67,6 @@ export function useRouteTimer() {
                     }
                 }, 1000);
             } else {
-                // SỬA Ở ĐÂY: Nếu quá giờ rồi thì KHÔNG GỌI clearTimer()
                 // Ghim id và ép giây về 0 để giữ hiển thị 00:00 chớp đỏ
                 currentTimerRouteId.value = routeId;
                 remainingSeconds.value = 0;
@@ -93,7 +92,7 @@ export function useRouteTimer() {
 
     // Format thời gian MM:SS
     const formattedTime = computed(() => {
-        // SỬA Ở ĐÂY: Chỉ ẩn đi khi thực sự không có RouteId nào được ghim
+        // Chỉ ẩn đi khi thực sự không có RouteId nào được ghim
         if (currentTimerRouteId.value === null) return '';
 
         // Đóng băng ở 00:00 nếu hết giờ
@@ -106,7 +105,7 @@ export function useRouteTimer() {
 
     // Màu sắc chung
     const timerColorClass = computed(() => {
-        // SỬA Ở ĐÂY: Thêm .value cho currentTimerRouteId
+        // Thêm .value cho currentTimerRouteId
         if (currentTimerRouteId.value === null) return '';
 
         // <= 600 bao gồm cả số 0, nên khi 00:00 nó sẽ ăn class 'text-danger' và chớp đỏ liên tục
