@@ -130,17 +130,19 @@
             "msg_capture_before_report": "Chụp điểm tuần tra trước khi báo cáo.",
             "btn_take_checkin": "Chụp ảnh Check-in",
             "status_photo_confirmed": "Đã chụp ảnh xác nhận",
+            "img-status": "Chưa có ảnh cho tình trạng",
             "message": {
                 "1": "Lỗi: Không tìm thấy dữ liệu Checkpoint",
                 "2": "Đang lưu dữ liệu...",
-                "3": "Lỗi: Định dạng ảnh ${blob.type} không được hỗ trợ!",
-                "4": "Lỗi: Dung lượng ảnh quá lớn (${sizeInMB}MB). Tối đa 10MB!",
+                "3": "Lỗi: Định dạng ảnh {blob.type} không được hỗ trợ!",
+                "4": "Lỗi: Dung lượng ảnh quá lớn ({sizeInMB}MB). Tối đa 10MB!",
                 "5": "Hoàn thành lộ trình thành công!",
                 "6": "Không thể lưu báo cáo",
                 "7": "Cảnh báo",
                 "8": "Bạn đang trong ca trực, hãy hoàn thành các điểm còn lại!",
                 "9": "Đã hiểu",
-                "10": "Đang xử lý ảnh..."
+                "10": "Đang xử lý ảnh...",
+                "11": "Bạn có chắc chắn muốn gửi báo cáo này không?"
             }
         }
     },
@@ -156,20 +158,66 @@
         "": "Cẩm nang Tuần tra",
         "": "1. Bắt đầu ca trực",
         "": "Bước 1: Đăng nhập",
-        "": "Nhập mã nhân viên và mật khẩu. Bấm",
+        "": "Đầu tiên nhấn nút",
+        "": "QUÉT",
+        "": "để quét mã vạch nhân viên sau đó sẽ nhập mật khẩu và bấm",
         "": "ĐĂNG NHẬP",
         "": "2. Quét điểm tuần tra",
         "": "Bước 1: Điểm tuần tra theo ca",
-        "": "Màn hình hiển thị danh sách các điểm cần tuần tra (Ví dụ: Kho thành phẩm, BU2 R&D...).",
-        "": "Bước 2: Bật máy quét",
+        "": "Màn hình hiển thị danh sách các điểm cần tuần tra (Ví dụ: Cửa sổ 2 kéo lụa, ServerRoom...). . Sau đó bấm",
+        "": "để bắt đầu quét điểm tuần tra.",
         "": "Tại màn hình Lộ trình, bấm nút",
         "": "SCAN",
-        "": "màu xanh ở góc dưới màn hình.",
         "": "Bước 3: Quét mã QR",
         "": "Nếu scan sai sẽ hiện thông báo có",
         "": "Vị trí tô đỏ",
-        "": "tìm đúng vị trí scan lại.",
-        "": "3. Ghi nhận & Báo cáo sự cố"
+        "": "và trở lại tìm đúng vị trí chính xác để scan lại.",
+        "": "3. Ghi nhận & Báo cáo sự cố",
+        "": "Bước 1: Trang báo cáo",
+        "": "Thẻ đầu tiên là thông tin khu vực: (thời gian tổng ca đếm ngược",
+        "": "màu xanh",
+        "": "và 15p cuối chuyển màu",
+        "": "màu đỏ",
+        "": "tên khu vực, ca + mã trực...). Phải nhấn nút",
+        "": "CHỤP",
+        "": "điểm tuần tra trước khi có thể báo cáo sự cố.",
+        "": "Bước 2: Nếu điểm tuần tra không vấn đề",
+        "": "Sau khi bấm",
+        "": "xong sẽ hiển thị ảnh đã chụp ở điểm tuần tra đó và có thêm thời gian màu vàng cụ thể trên hình đó nếu lố qua ca sau sẽ hiện thời gian đó nhưng là màu đỏ. Nếu không có vấn đề gì thì có thể ghi chú lại hoặc chụp một tấm hình nào đó và bấm",
+        "": "GỬI BÁO CÁO",
+        "": "để hoàn tất báo cáo.",
+        "": "Bước 3: Nếu chọn có vấn đề",
+        "": "Bấm vào nút",
+        "": "CHỌN TÌNH TRẠNG",
+        "": "vừa xuất hiện sẽ hiện nơi để chọn loại sự cố. Nếu đã chọn có vấn đề nhưng không chọn loại sự cố và không gửi ảnh của sự cố đó sẽ có",
+        "": "thông báo màu vàng",
+        "": "và không",
+        "": "Bước 4: Chọn nhóm sự cố",
+        "": "Chọn nhóm danh mục lỗi tương ứng (Ví dụ: Nhấn mũi tên xuống ở mục",
+        "": "Nước",
+        "": "Chọn",
+        "": "Van",
+        "": "Bước 5: Tích chọn lỗi thực tế",
+        "": "Đánh dấu vào tình trạng bạn đang thấy (VD:",
+        "": "Không khóa, rò rỉ...",
+        "": "hoặc nhập ghi chú thêm. Sau đó bấm",
+        "": "XÁC NHẬN",
+        "": "Bước 6: Chụp ảnh sự cố",
+        "": "App sẽ yêu cầu chụp hình. Hãy hướng camera chụp rõ khu vực xảy ra sự cố (ổ khóa, vũng nước...).",
+        "": "Cuối cùng bấm đóng ở phía trên bên phải và bấm",
+        "": "để hoàn tất.",
+        "": "4. Kết thúc & Đồng bộ dữ liệu",
+        "": "Hoàn thành ca tuần tra",
+        "": "Nếu offline thông tin sẽ được lưu lại hàng chờ sau khi bạn online lại sẽ tự động gửi dữ liệu đi.",
+        "": "Các dữ liệu chờ sẽ được hiển thị rỏ trên máy: các",
+        "": "CHẤM TRÒN",
+        "": "hoặc",
+        "": "CHỮ OFFLINE KẾ BÊN DỮ LIỆU ĐÓ",
+        "": "màu vàng.",
+        "": "LƯU Ý:",
+        "": "Chỉ khi nào online lại dữ liệu sẽ tự động được gửi đi hết mới có thể logout.",
+        "": "Sau khi hoàn thành ca hiện tại sẽ thấy ca đó đã hoàn thành, nếu làm ca hiện tại bị lố qua ca sau thì sẽ thấy ca tiếp sau khi hoàn thành.",
+        "": "Không được tắt app để tránh mất dữ liệu!"
     },
     "users": {
         "loading": "Đang tải dữ liệu...",
@@ -184,19 +232,19 @@
             "unable-to-logout": "Không thể đăng xuất",
             "incomplete-patrol": "Bạn đang trong vòng tuần tra chưa hoàn thành. Vui lòng kết thúc lộ trình trước khi đăng xuất!",
             "data-loss": "Cảnh báo mất dữ liệu!",
-            "pending-reports": "Bạn đang có ${pendingItems.value.length} báo cáo chưa được đồng bộ. Vui lòng kết nối mạng để đồng bộ trước khi đăng xuất!"
+            "pending-reports": "Bạn đang có {pendingItems.value.length} báo cáo chưa được đồng bộ. Vui lòng kết nối mạng để đồng bộ trước khi đăng xuất!"
         },
         "use-camera": {
             "max-images": "Chỉ được phép đính kèm tối đa 10 ảnh!",
             "limit-reached": "Đã đạt giới hạn 10 ảnh!",
-            "taking-images": "Chỉ lấy ${slotsLeft} ảnh đầu tiên để không vượt quá giới hạn 10 ảnh."
+            "taking-images": "Chỉ lấy {slotsLeft} ảnh đầu tiên để không vượt quá giới hạn 10 ảnh."
         },
         "use-offline": {
             "saved-to-queue": "Đã lưu vào hàng chờ. Sẽ tự động gửi khi có mạng.",
             "maintenance": "Hệ thống máy chủ đang bảo trì. Dữ liệu đã được lưu an toàn trên máy và sẽ tự động gửi lại sau.",
             "syncing": "Đang kết nối lại và đồng bộ...",
             "cleaning": "Đang dọn dẹp dữ liệu cũ...",
-            "uploading": "Đang tải lên báo cáo (${processedItems}/${totalItems})...",
+            "uploading": "Đang tải lên báo cáo ({processedItems}/{totalItems})...",
             "completed": "Đồng bộ hoàn tất!"
         },
         "scanner": {
@@ -209,6 +257,19 @@
             "next-checkpoint": "Là điểm tiếp theo cần quét. Vui lòng đi đúng lộ trình.",
             "checkpoint-not-found": "Không tìm thấy thông tin điểm này trong dữ liệu hệ thống.",
             "unable-to-process": "Hệ thống không thể xử lý mã quét."
+        },
+        "sync": {
+            "loading_shift_data": "Đang tải dữ liệu ca trực...",
+            "updating": "Đang cập nhật...",
+            "loading_step": "Đang tải {name}...",
+            "completed": "Hoàn tất!",
+            "steps": {
+                "checkpoints": "Điểm quét",
+                "area_bu": "Khu vực",
+                "list_route": "Lộ trình",
+                "report_note_category": "Danh mục lỗi",
+                "base_point_report": "Dữ liệu báo cáo"
+            }
         }
     }
 }

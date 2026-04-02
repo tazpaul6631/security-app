@@ -69,7 +69,7 @@
                                                         :color="item.pointProblem ? 'danger' : 'success'">
                                                     </ion-icon>
                                                     <ion-icon class="icon-2" :icon="timeOutline"
-                                                        :color="item.timeProblem ? 'danger' : 'success'">
+                                                        :color="item.timeFastProblem || item.timeSlowProblem ? 'danger' : 'success'">
                                                     </ion-icon>
                                                     <ion-icon class="icon-2" :icon="footstepsOutline"
                                                         :color="item.shiftProblem ? 'danger' : 'success'">
@@ -81,7 +81,7 @@
                                         <ion-col size="6" class="ion-text-end">
                                             <div class="note-container">
                                                 <ion-label class="labelItem" color="medium">{{ item.reportName
-                                                    }}</ion-label>
+                                                }}</ion-label>
                                                 <ion-badge
                                                     :color="item.realityPoint >= item.planPoint ? 'success' : 'medium'"
                                                     style="margin-top: 4px; color: white;">
@@ -155,26 +155,29 @@
                 <ion-list v-else>
                     <ion-item v-for="item in displayedItems" :key="item.prId" :button="true"
                         @click="handleSelectedRow(Number(item.prId), $event)"
-                        :class="item.prHasProblem ? 'custom-item-false' : 'custom-item-true'">
+                        :class="item.prHasProblem || item.shiftProblem || item.timeProblem ? 'custom-item-false' : 'custom-item-true'">
                         <ion-grid>
                             <ion-row class="ion-align-items-center">
-                                <ion-col size="auto">
-                                    <ion-icon :icon="newspaperOutline"
-                                        :color="item.prHasProblem ? 'danger' : 'success'"></ion-icon>
-                                </ion-col>
                                 <ion-col>
                                     <ion-label>
                                         <strong>{{ item.cpName }}</strong>
+                                        <div style="margin-top: 5px;">
+                                            <ion-icon :icon="newspaperOutline"
+                                                :color="item.prHasProblem ? 'danger' : 'success'"></ion-icon>
+                                            <ion-icon class="icon-2" :icon="timeOutline"
+                                                :color="item.shiftProblem || item.timeProblem ? 'danger' : 'success'">
+                                            </ion-icon>
+                                        </div>
                                         <ion-text color="warning" v-if="item.isOfflineMock"
                                             style="font-size: 0.8em; display: block;">
                                             <ion-text color="danger">* </ion-text> {{ $t('areas.index.await-sync') }}...
                                         </ion-text>
                                     </ion-label>
                                 </ion-col>
-                                <ion-col class="ion-text-end">
+                                <ion-col size="auto" class="ion-text-end">
                                     <ion-label class="labelItem">{{ item.reportName }}</ion-label>
                                     <ion-note class="labelItem">{{ item.reportAt?.replace('T', ' ').slice(0, 16)
-                                        }}</ion-note>
+                                    }}</ion-note>
                                 </ion-col>
                             </ion-row>
                         </ion-grid>
@@ -275,7 +278,9 @@ const dataPR = computed(() => {
             prHasProblem: item.prHasProblem,
             isOfflineMock: item.isOfflineMock || false,
             reportName: item.reportName,
-            reportAt: item.reportAt
+            reportAt: item.reportAt,
+            timeProblem: item.timeProblem,
+            shiftProblem: item.shiftProblem
         }))
     };
 });
@@ -283,6 +288,9 @@ const dataPR = computed(() => {
 
 // --- WATCHERS ---
 watch(() => dataPR.value.details, (newVal) => {
+    console.log(newVal);
+    console.log(displayedItems.value);
+
     if (currentPage.value === 1) {
         displayedItems.value = newVal.slice(0, itemsPerPage);
     } else {
@@ -448,28 +456,28 @@ const handleModalSelection = async (item: any) => {
                 }
             }
 
-            if (finalReports.length === 0) {
-                const baseReports = Array.isArray(store.state.dataBasePointReportView)
-                    ? store.state.dataBasePointReportView : (store.state.dataBasePointReportView?.data || []);
-                const recentReports = Array.isArray(store.state.dataCheckpointsId)
-                    ? store.state.dataCheckpointsId : (store.state.dataCheckpointsId?.data || []);
+            // if (finalReports.length === 0) {
+            //     const baseReports = Array.isArray(store.state.dataBasePointReportView)
+            //         ? store.state.dataBasePointReportView : (store.state.dataBasePointReportView?.data || []);
+            //     const recentReports = Array.isArray(store.state.dataCheckpointsId)
+            //         ? store.state.dataCheckpointsId : (store.state.dataCheckpointsId?.data || []);
 
-                const combined = [...recentReports, ...baseReports];
+            //     const combined = [...recentReports, ...baseReports];
 
-                finalReports = combined.filter((rep: any) => {
-                    const isRightShift = Number(rep.psId) === Number(item.psId);
-                    const isRightUser = isCurrentUserAdmin.value || Number(rep.reportBy) === currentUserId.value || Number(rep.userId) === currentUserId.value;
-                    return isRightShift && isRightUser;
-                });
+            //     finalReports = combined.filter((rep: any) => {
+            //         const isRightShift = Number(rep.psId) === Number(item.psId);
+            //         const isRightUser = isCurrentUserAdmin.value || Number(rep.reportBy) === currentUserId.value || Number(rep.userId) === currentUserId.value;
+            //         return isRightShift && isRightUser;
+            //     });
 
-                // Lọc trùng cpId
-                const uniqueMap = new Map();
-                finalReports.forEach(r => {
-                    if (uniqueMap.has(r.cpId) && !r.isOfflineMock) return;
-                    uniqueMap.set(r.cpId, r);
-                });
-                finalReports = Array.from(uniqueMap.values());
-            }
+            //     // Lọc trùng cpId
+            //     const uniqueMap = new Map();
+            //     finalReports.forEach(r => {
+            //         if (uniqueMap.has(r.cpId) && !r.isOfflineMock) return;
+            //         uniqueMap.set(r.cpId, r);
+            //     });
+            //     finalReports = Array.from(uniqueMap.values());
+            // }
 
             finalReports.sort((a: any, b: any) => new Date(b.reportAt).getTime() - new Date(a.reportAt).getTime());
             store.commit('SET_DATACP', [{ data: finalReports }]);
@@ -506,7 +514,7 @@ const handleSelectedRow = async (prId: number, event?: any) => {
 
         // 2. Lưu vào Store và chuyển trang
         store.commit('SET_CURRENT_CHECKPOINT', detailData);
-        router.push({ path: `/checkpoint/detail/${prId}` });
+        router.replace({ path: `/checkpoint/detail/${prId}` });
 
     } catch (error: any) {
         console.error(error);

@@ -11,11 +11,6 @@
       </div>
     </div>
 
-    <div v-if="!isAppReady" class="app-loading">
-      <ion-spinner name="crescent"></ion-spinner>
-      <p>Đang chuẩn bị dữ liệu an ninh...</p>
-    </div>
-
     <ion-router-outlet v-if="isAppReady" />
   </ion-app>
 </template>
@@ -65,7 +60,7 @@ const getGlobalApiList = (userData: any) => {
 
   return {
     checkpoints: () => CheckPointScanQr.postCheckPointView(checkpointPayload),
-    checkpoints_id: () => PointReport.postPointReportView(),
+    // checkpoints_id: () => PointReport.postPointReportView(),
     area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),
 
     list_route: () => {
@@ -77,9 +72,10 @@ const getGlobalApiList = (userData: any) => {
         ...userData,
         psDay: now.getDate(),
         psMonth: now.getMonth() + 1,
-        psYear: now.getFullYear(),
+        psYear: now.getFullYear()
       };
-      delete payload.psHour; // Chắc chắn xóa psHour để lấy trọn ngày
+
+      console.log(payload);
 
       if (lockedPsId) {
         return PatrolShiftView.postPatrolShiftView({ ...payload, psId: lockedPsId });
@@ -113,7 +109,7 @@ const safeSync = async (isInitApp = false) => {
   }
 
   isSafeSyncing = true;
-  console.log("🚀 Luồng đồng bộ an toàn đang chạy...");
+  console.log("Luồng đồng bộ an toàn đang chạy...");
 
   try {
     // Nếu là F5 hoặc Login -> Ép bật Overlay chặn màn hình
@@ -153,9 +149,8 @@ const safeSync = async (isInitApp = false) => {
             ...userData,
             psDay: now.getDate(),
             psMonth: now.getMonth() + 1,
-            psYear: now.getFullYear(),
+            psYear: now.getFullYear()
           };
-          delete payload.psHour; // Xóa psHour
 
           if (lockedPsId) {
             return PatrolShiftView.postPatrolShiftView({ ...payload, psId: lockedPsId });

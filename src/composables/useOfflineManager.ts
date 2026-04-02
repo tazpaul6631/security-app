@@ -286,8 +286,7 @@ export function useOfflineManager() {
             psDay: originalTime.getDate(),
             psMonth: originalTime.getMonth() + 1,
             psYear: originalTime.getFullYear(),
-            areaId: item.data.areaId || userData?.userAreaId,
-            isComplete: false
+            areaId: item.data.areaId || userData?.userAreaId
           };
 
           const res: any = await PatrolShiftView.postPatrolShiftView(checkInfo);

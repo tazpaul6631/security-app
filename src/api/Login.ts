@@ -5,7 +5,7 @@ export default {
     return request.post(`/User/getlist`, {});
   },
   postUserValidate(loginDetail: any) {
-    return request.post(`/User/validate/`, 
+    return request.post(`/User/validate/`,
       {
         userCode: loginDetail.userCode,
         userPassword: loginDetail.userPassword

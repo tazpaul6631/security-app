@@ -6,9 +6,8 @@ export default {
             psDay: data.psDay,
             psMonth: data.psMonth,
             psYear: data.psYear,
-            psHour: data.psHour,
             isComplete: data.isComplete,
-            areaId: data.areaId
+            areaId: data.userAreaId
         });
     },
 };

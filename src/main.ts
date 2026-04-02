@@ -2,10 +2,7 @@ import { createApp } from 'vue'
 import App from '@/App.vue'
 import router from '@/router';
 import store from '@/composables/useVuex'
-import { createI18n } from 'vue-i18n';
-import vi from './locales/vi.json';
-import en from './locales/en.json';
-import zh from './locales/zh.json';
+import i18n from '@/i18n';
 
 import { IonicVue } from '@ionic/vue';
 
@@ -38,18 +35,6 @@ import '@ionic/vue/css/display.css';
 
 /* Theme variables */
 import './theme/variables.css';
-
-const i18n = createI18n({
-  legacy: false,
-  locale: 'vi',
-  fallbackLocale: 'en',
-  globalInjection: true,
-  messages: {
-    vi: vi,
-    en: en,
-    zh: zh
-  } as any
-});
 
 const app = createApp(App)
   .use(IonicVue)

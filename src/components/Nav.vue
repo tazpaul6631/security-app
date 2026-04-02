@@ -5,9 +5,9 @@
         <ion-toolbar>
 
           <ion-buttons slot="start">
-            <ion-button fill="clear" @click="goBackAndClearHistory" color="medium">
+            <ion-button fill="clear" @click="goBackAndClearHistory">
               <img class="logo-company" src="/assets/icon.png" alt="logo-company"></img>
-              <strong>
+              <strong style="color: darkgray;">
                 Internal
                 <ion-text color="danger" style="margin-left: 1px;">Patrol</ion-text>
               </strong>
@@ -15,14 +15,6 @@
           </ion-buttons>
 
           <ion-buttons slot="end" style="display: flex; align-items: center;">
-
-            <div :style="{ visibility: isSyncing ? 'visible' : 'hidden' }" class="sync-container pulse-animation">
-              <ion-spinner name="crescent" color="primary" class="small-spinner"></ion-spinner>
-              <ion-text color="primary" class="sync-text">
-                ({{ pendingItems.length }})
-              </ion-text>
-            </div>
-
             <ion-badge :class="isOnline ? 'status-online' : 'status-offline'" class="ion-margin-horizontal">
               {{ isOnline ? $t('layout.online') : $t('layout.offline') }}
             </ion-badge>
@@ -81,7 +73,7 @@ const goBackAndClearHistory = async () => {
 //////////////////////////////
 
 //////////////////////////////////////////
-const { pendingItems, loadPendingItems, isSyncing, isOnline } = useOfflineManager();
+const { pendingItems, loadPendingItems, isOnline } = useOfflineManager();
 
 const handleLogout = async () => {
   console.log('Bắt đầu kiểm tra trước khi đăng xuất...');
@@ -154,32 +146,6 @@ div[slot='content'] {
   font-size: 25px;
 }
 
-.sync-container {
-  display: flex;
-  align-items: center;
-  margin-right: 12px;
-  padding: 4px 8px;
-  background: rgba(var(--ion-color-primary-rgb), 0.1);
-  border-radius: 16px;
-}
-
-.small-spinner {
-  width: 16px;
-  height: 16px;
-  margin-right: 6px;
-}
-
-.sync-text {
-  font-size: 11px;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-/* Hiệu ứng nhấp nháy nhẹ nhàng */
-.pulse-animation {
-  animation: pulse-red 2s infinite;
-}
-
 @keyframes pulse-red {
   0% {
     transform: scale(0.98);
@@ -195,25 +161,6 @@ div[slot='content'] {
     transform: scale(0.98);
     opacity: 0.8;
   }
-}
-
-.sync-container {
-  display: flex;
-  align-items: center;
-  margin-right: 8px;
-  padding: 4px 8px;
-  background: rgba(var(--ion-color-primary-rgb), 0.1);
-  border-radius: 16px;
-  /* Thêm dòng này */
-  will-change: transform, opacity;
-  min-width: 60px;
-  /* Đảm bảo chiều rộng không nhảy khi hiện/ẩn */
-  justify-content: center;
-}
-
-.pulse-animation {
-  /* Chỉnh lại scale nhỏ thôi để tránh cảm giác bị giật mắt */
-  animation: pulse-red 2s infinite ease-in-out;
 }
 
 @keyframes pulse-red {
@@ -269,15 +216,6 @@ div[slot='content'] {
 .nav-header ion-buttons[slot="end"] {
   flex-wrap: nowrap;
   /* Cấm bẻ dòng */
-}
-
-/* 3. NGĂN CÁC PHẦN TỬ BỊ BÓP MÉO KHI MÀN HÌNH NHỎ */
-.sync-container {
-  white-space: nowrap;
-  flex-shrink: 0;
-  /* Giữ nguyên kích thước, không bị ép nhỏ lại */
-  margin-right: 8px;
-  /* Chỉnh lại margin cho vừa vặn */
 }
 
 .status-online,

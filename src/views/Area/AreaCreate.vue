@@ -75,8 +75,7 @@
               </ion-row>
             </div>
 
-            <ion-button expand="block" color="success" class="ion-margin-top" @mousedown.prevent="handleSubmit"
-              @click="handleSubmit">
+            <ion-button class="btn-submit" expand="block" color="success" @click="confirmSubmit">
               <ion-icon slot="start" :icon="sendOutline"></ion-icon>
               {{ $t('areas.report.btn-submit') }}
             </ion-button>
@@ -88,7 +87,7 @@
             <div v-if="!mandatoryPhoto">
               <p><b class="require">{{ $t('areas.report.label_requirement') }}</b> {{
                 $t('areas.report.msg_capture_before_report') }}</p>
-              <ion-button expand="block" @click="captureMandatoryPhoto">
+              <ion-button expand="block" @click="captureMandatoryPhoto" class="btn-camera">
                 <ion-icon slot="start" :icon="camera"></ion-icon>
                 {{ $t('areas.report.btn_take_checkin') }}
               </ion-button>
@@ -165,10 +164,10 @@ const route = useRoute();
 const { t } = useI18n();
 
 // --- Interfaces ---
-interface RouteDetail { rdId: number | string; cpId: number | string; cpName: string; status: number; }
+interface RouteDetail { rdId: number | string; cpId: number | string; cpName: string; status: number; rdIsComplete: boolean; }
 interface Route {
   routeId: number; routeName: string; routeCode: string;
-  psHourFrom: number; psHourTo: number; planSecond?: number;
+  psHourFrom: number; psHourTo: number; planMaxSecond?: number; planMinSecond?: number;
   routeDetails: RouteDetail[]; psId: number;
 }
 interface Photo { fileName: string; preview: string; }
@@ -197,9 +196,9 @@ const currentActiveRoute = computed<Route | null>(() => {
 
 // Watch để khởi chạy Timer khi vào trang hoặc reload
 watch(() => currentActiveRoute.value, async (newRoute) => {
-  if (newRoute && newRoute.routeId && newRoute.planSecond) {
+  if (newRoute && newRoute.routeId && newRoute.planMaxSecond && newRoute.planMinSecond) {
     await storageService.set('unfinished_route_id', newRoute.routeId);
-    await startTimer(newRoute.routeId, newRoute.planSecond);
+    await startTimer(newRoute.routeId, newRoute.planMaxSecond, newRoute.planMinSecond);
   }
 }, { immediate: true });
 
@@ -342,6 +341,38 @@ const confirmDetails = () => {
 // --- THÊM MỚI: Xử lý ảnh cho trường hợp Không Lỗi ---
 const noProblemImages = ref<Photo[]>([]);
 
+const confirmSubmit = async () => {
+  if (formData.prHasProblem && groupedNotes.value.length === 0) {
+    return showToast(t('areas.report.select-status'), 'warning');
+  }
+
+  const isMissingImage = groupedNotes.value.some(group => group.reportImages.length === 0);
+
+  if (formData.prHasProblem && isMissingImage) {
+    return showToast(t('areas.report.img-status'), 'warning');
+  }
+
+  const alert = await alertController.create({
+    header: t('areas.report.message.7'),
+    message: t('areas.report.message.11'),
+    buttons: [
+      {
+        text: t('areas.report.close'),
+        role: 'cancel',
+        cssClass: 'secondary',
+      },
+      {
+        text: t('areas.report.btn-submit'),
+        handler: () => {
+          handleSubmit();
+        },
+      },
+    ],
+  });
+
+  await alert.present();
+};
+
 // --- Submit Logic (Quan trọng nhất) ---
 const isSubmitting = ref(false);
 const handleSubmit = async (): Promise<void> => {
@@ -402,36 +433,43 @@ const handleSubmit = async (): Promise<void> => {
       const mappedImages: any[] = [];
 
       for (const item of group.reportImages) {
-        const response = await fetch(item.preview);
-        const blob = await response.blob();
+        try {
+          const response = await fetch(item.preview);
+          const blob = await response.blob();
 
-        // 1. Kiểm tra định dạng (Mime Type)
-        if (!ALLOWED_MIMES.includes(blob.type)) {
-          await loading.dismiss();
-          await showToast(t('areas.report.message.3').replace('${blob.type}', blob.type), 'danger');
-          isSubmitting.value = false;
-          return; // Dừng submit ngay lập tức
+          // 1. Kiểm tra định dạng (Mime Type)
+          if (!ALLOWED_MIMES.includes(blob.type)) {
+            await loading.dismiss();
+            await showToast(t('areas.report.message.3').replace('${blob.type}', blob.type), 'danger');
+            isSubmitting.value = false;
+            return; // Dừng submit ngay lập tức
+          }
+
+          // 2. Kiểm tra dung lượng ảnh (Size)
+          if (blob.size > MAX_IMAGE_SIZE) {
+            await loading.dismiss();
+            // Convert ra MB để hiển thị cho thân thiện
+            const sizeInMB = (blob.size / (1024 * 1024)).toFixed(2);
+            await showToast(t('areas.report.message.4').replace('${sizeInMB}', sizeInMB), 'danger');
+            isSubmitting.value = false;
+            return; // Dừng submit ngay lập tức
+          }
+
+          const base64Full = await convertBlobToBase64(blob);
+          const base64Data = base64Full.split(',')[1];
+
+          allBase64ForStorage.push(base64Data);
+
+          const fileExt = (blob.type && blob.type.includes('/')) ? blob.type.split('/')[1] : 'jpg';
+          mappedImages.push({
+            priImage: "",
+            priImageType: fileExt
+          });
+        } catch (imgError) {
+          console.error("Lỗi xử lý ảnh:", imgError);
+          await showToast(t('areas.report.message.11'), 'danger');
+          continue; // Bỏ qua ảnh lỗi, vẫn tiếp tục xử lý các ảnh khác
         }
-
-        // 2. Kiểm tra dung lượng ảnh (Size)
-        if (blob.size > MAX_IMAGE_SIZE) {
-          await loading.dismiss();
-          // Convert ra MB để hiển thị cho thân thiện
-          const sizeInMB = (blob.size / (1024 * 1024)).toFixed(2);
-          await showToast(t('areas.report.message.4').replace('${sizeInMB}', sizeInMB), 'danger');
-          isSubmitting.value = false;
-          return; // Dừng submit ngay lập tức
-        }
-
-        const base64Full = await convertBlobToBase64(blob);
-        const base64Data = base64Full.split(',')[1];
-
-        allBase64ForStorage.push(base64Data);
-
-        mappedImages.push({
-          priImage: "", // Để trống vì BE đọc từ IFormFile
-          priImageType: blob.type.split('/')[1] || 'jpg' // Tự động lấy đuôi mở rộng từ mime type thay vì hardcode 'jpg'
-        });
       }
 
       finalNoteGroups.push({
@@ -442,7 +480,6 @@ const handleSubmit = async (): Promise<void> => {
     }
 
     console.log(finalNoteGroups);
-
 
     // --- BƯỚC 3: TẠO PAYLOAD JSON SẠCH ---
     const currentCpId = dataScanQr.value.cpId;
@@ -457,7 +494,7 @@ const handleSubmit = async (): Promise<void> => {
     const formSubmitData = {
       psId: finalPsId,
       routeId: routeId,
-      rdId: currentActiveRoute.value?.routeDetails.find(d => String(d.cpId) === String(currentCpId))?.rdId || '',
+      rdId: currentActiveRoute.value?.routeDetails.find(d => String(d.cpId) === String(currentCpId))?.rdId || 0,
       createdAt: currentTimeString,
       prHasProblem: formData.prHasProblem,
       prNote: formData.prNote,
@@ -479,7 +516,7 @@ const handleSubmit = async (): Promise<void> => {
     store.commit('UPDATE_POINT_STATUS', { routeId, cpId: currentCpId, status: 1 });
     const updatedRoutes = [...store.state.dataListRoute];
     const rIdx = updatedRoutes.findIndex((r: Route) => Number(r.routeId) === Number(routeId) && Number(r.psId) === Number(finalPsId));
-    const allDone = updatedRoutes[rIdx].routeDetails.every((p: any) => p.status === 1);
+    const allDone = updatedRoutes[rIdx].routeDetails.every((p: any) => p.rdIsComplete);
 
     isResetting.value = true;
     if (currentCpId) await storageService.remove(`draft_report_${currentCpId}`);
@@ -528,7 +565,7 @@ const handleSubmit = async (): Promise<void> => {
 
 const handleGoBack = async () => {
   const details = currentActiveRoute.value?.routeDetails || [];
-  const isFinished = details.every((p: RouteDetail) => p.status === 1);
+  const isFinished = details.every((p: RouteDetail) => p.rdIsComplete);
   if (isFinished || details.length === 0) return router.replace('/route');
 
   const alert = await alertController.create({
@@ -750,8 +787,7 @@ const draftKey = computed(() => {
 
 let draftTimeout: any = null;
 
-// THÊM MỚI: Bổ sung noProblemImages vào watcher lưu nháp
-watch([formData, groupedNotes, selectedValues, noProblemImages], async () => {
+watch([formData, groupedNotes, selectedValues, noProblemImages, mandatoryPhoto], async () => {
   if (isResetting.value) return;
 
   if (draftTimeout) clearTimeout(draftTimeout);
@@ -763,10 +799,11 @@ watch([formData, groupedNotes, selectedValues, noProblemImages], async () => {
         prNote: formData.prNote,
         groupedNotes: JSON.parse(JSON.stringify(groupedNotes.value)),
         selectedValues: JSON.parse(JSON.stringify(selectedValues.value)),
-        noProblemImages: JSON.parse(JSON.stringify(noProblemImages.value))
+        noProblemImages: JSON.parse(JSON.stringify(noProblemImages.value)),
+        mandatoryPhoto: JSON.parse(JSON.stringify(mandatoryPhoto.value))
       };
       await storageService.set(draftKey.value, draftData);
-      console.log('Đã lưu nháp ngầm!');
+      console.log('Đã lưu nháp bao gồm cả ảnh bắt buộc!');
     }
   }, 500);
 }, { deep: true });
@@ -781,7 +818,8 @@ const loadDraft = async () => {
     groupedNotes.value = draft.groupedNotes || [];
     selectedValues.value = draft.selectedValues || [];
     noProblemImages.value = draft.noProblemImages || [];
-    console.log('Đã khôi phục bản nháp đang nhập dở');
+    mandatoryPhoto.value = draft.mandatoryPhoto || null;
+    console.log('Đã khôi phục toàn bộ bản nháp!');
     return true;
   }
   return false;
@@ -801,7 +839,6 @@ onIonViewWillEnter(async () => {
   }, 100);
 });
 
-// HOOK NÀY MÌNH ĐÃ TRẢ LẠI 100% CHO BẠN
 onIonViewDidLeave(() => {
   isResetting.value = true;
   formData.prHasProblem = false;
@@ -868,6 +905,11 @@ onMounted(async () => {
   height: 25px;
 }
 
+.btn-submit {
+  margin-top: 25px;
+  --ion-color-contrast: white !important;
+}
+
 .accept-img {
   color: green;
   display: flex;
@@ -901,5 +943,9 @@ onMounted(async () => {
 
 .require {
   color: red;
+}
+
+.btn-camera {
+  margin-top: 20px;
 }
 </style>

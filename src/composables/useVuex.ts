@@ -1,9 +1,12 @@
 import { createStore } from 'vuex'
 import storageService from '@/services/storage.service'
 import { markRaw } from 'vue';
+import i18n from '@/i18n';
+const { t } = (i18n.global as any);
 
 // Tạo store mới
 const store = createStore({
+
   // 1. State: Chứa dữ liệu (giống data)
   state() {
     return {
@@ -52,9 +55,9 @@ const store = createStore({
     SET_DATACP(state, data) {
       state.dataListCP = markRaw(data)
     },
-    SET_DATA_CHECKPOINTS_ID(state, data) {
-      state.dataCheckpointsId = markRaw(data)
-    },
+    // SET_DATA_CHECKPOINTS_ID(state, data) {
+    //   state.dataCheckpointsId = markRaw(data)
+    // },
     SET_DATA_AREA_BU(state, data) {
       state.dataAreaBU = markRaw(data)
     },
@@ -62,12 +65,13 @@ const store = createStore({
       const apiData = Array.isArray(data) ? data : (data?.data || []);
       const localRoutes = state.dataListRoute || [];
 
-      // 1. Map trạng thái từ local sang dữ liệu API (Phải so khớp CẢ routeId VÀ psId)
+      // 1. Map trạng thái: ƯU TIÊN SỰ THẬT TỪ SERVER
       const mappedApiData = apiData.map((apiRoute: any) => {
         const localRoute = localRoutes.find((r: any) =>
           Number(r.routeId) === Number(apiRoute.routeId) &&
           Number(r.psId) === Number(apiRoute.psId)
         );
+
         return {
           ...apiRoute,
           areaId: Number(apiRoute.areaId),
@@ -76,9 +80,15 @@ const store = createStore({
           psHourTo: Number(apiRoute.psHourTo),
           routeDetails: apiRoute.routeDetails.map((apiPoint: any) => {
             const localPoint = localRoute?.routeDetails.find((p: any) => p.cpId === apiPoint.cpId);
+
+            // Chỉ cần Server báo XONG (1) hoặc Local báo XONG (1) thì chắc chắn là XONG. 
+            const isDone = apiPoint.rdIsComplete === true || apiPoint.status === 1 ||
+              localPoint?.rdIsComplete === true || localPoint?.status === 1;
+
             return {
               ...apiPoint,
-              status: (localPoint?.status === 1) ? 1 : apiPoint.status
+              rdIsComplete: isDone ? true : apiPoint.rdIsComplete,
+              status: isDone ? 1 : (apiPoint.status || 0)
             };
           })
         };
@@ -86,42 +96,64 @@ const store = createStore({
 
       let mergedList = [...mappedApiData];
 
-      // 2. GIỮ LẠI CA CŨ (Ca đang khóa dở dang hoặc các ca giờ trước đó)
+      // 2. GIỮ LẠI CA CŨ (Chỉ push xuống dưới, KHÔNG ép unshift lên đầu cản đường nữa)
       localRoutes.forEach((localR: any) => {
-        // So khớp cả routeId và psId xem ca này API có trả về không
         const isInApi = mergedList.some((apiR: any) =>
           Number(apiR.routeId) === Number(localR.routeId) &&
           Number(apiR.psId) === Number(localR.psId)
         );
 
+        // NẾU BACKEND KHÔNG TRẢ VỀ CA NÀY NỮA (Có thể do đã done nên backend ẩn đi)
         if (!isInApi) {
-          // Nếu là ca đang bị khóa (ví dụ: đang khóa psId 817), đẩy nó lên đầu mảng để ưu tiên hiển thị
-          if (state.unfinishedRouteId && Number(localR.routeId) === Number(state.unfinishedRouteId)) {
-            mergedList.unshift(localR);
-          } else {
-            mergedList.push(localR); // Các ca khác thì đẩy xuống cuối
-          }
+          // Bỏ hàm unshift() ép buộc cũ đi, chỉ push nối vào để không làm rối UI
+          mergedList.push(localR);
         }
       });
 
-      // 3. Gán đúng mảng mergedList vào state
       state.dataListRoute = mergedList;
 
-      // 4. QUAN TRỌNG: Chỉ thiết lập lại psId NẾU state.psId bị rỗng
+      // 3. CHIÊU CUỐI: TỰ ĐỘNG GỠ KHÓA NẾU SERVER XÁC NHẬN ĐÃ XONG HOẶC ĐÃ LỐ CA
       if (state.unfinishedRouteId) {
-        // Tìm đúng route dở dang đang được ưu tiên ở đầu mảng
+        // Kiểm tra xem Server có còn trả về cái ca đang bị khóa này không?
+        const isStillOnServer = apiData.some((r: any) => Number(r.routeId) === Number(state.unfinishedRouteId));
+
         const currentLocked = state.dataListRoute.find((r: any) => Number(r.routeId) === Number(state.unfinishedRouteId));
 
-        if (currentLocked && currentLocked.psId) {
-          // TUYỆT ĐỐI KHÔNG GHI ĐÈ nếu state.psId đã được khôi phục chuẩn xác từ lúc F5
-          if (!state.psId) {
-            state.psId = currentLocked.psId;
-            console.log("Store: Đã khôi phục psId từ khóa dở dang:", state.psId);
+        if (currentLocked) {
+          // Kiểm tra xem lộ trình đang khóa này đã quét full 100% chưa?
+          const isAllDone = currentLocked.routeDetails.every((p: any) => p.rdIsComplete);
+
+          // GỠ KHÓA NẾU: Đã đi xong HOẶC Server đã ẩn ca này đi (lố ca)
+          if (isAllDone || !isStillOnServer) {
+            console.log(isAllDone
+              ? "Server báo đã đi xong. Gỡ khóa!"
+              : "Đã lố ca, Server chuyển ca mới. Gỡ khóa ca cũ!");
+
+            // 3.1 Xóa khóa trong RAM
+            state.unfinishedRouteId = null;
+            state.routeId = null;
+            state.psId = null;
+
+            // 3.2 Xóa khóa trong Ổ cứng (SQLite)
+            storageService.remove('unfinished_route_id');
+            storageService.remove('current_route_id');
+            storageService.remove('current_ps_id');
+            storageService.remove('data_scanqr');
+
+            // 3.3 ĐẶC BIỆT: Nếu là do lố ca (!isStillOnServer), ta nên dọn luôn cái ca rác đó khỏi giao diện để nhường chỗ cho ca mới
+            if (!isStillOnServer) {
+              state.dataListRoute = state.dataListRoute.filter((r: any) => Number(r.routeId) !== Number(currentLocked.routeId));
+            }
+
+          } else {
+            // Nếu chưa xong và vẫn còn trong giờ (Server vẫn trả về), thì duy trì khóa
+            if (!state.psId && currentLocked.psId) {
+              state.psId = currentLocked.psId;
+            }
           }
         }
       }
     },
-
     SET_DATA_BASE_POINT_REPORT_VIEW(state: any, data) {
       const rawData = Array.isArray(data) ? data : (data?.data || []);
       state.dataBasePointReportView = markRaw(rawData.map((route: any) => ({ ...route })));
@@ -189,7 +221,7 @@ const store = createStore({
             if (found && found.psId) {
               state.psId = found.psId;
               storageService.set('current_ps_id', found.psId);
-              console.log("🎯 Đã tự động cập nhật & khóa cứng psId:", state.psId);
+              console.log("Đã tự động cập nhật & khóa cứng psId:", state.psId);
             }
           }
         } else {
@@ -214,7 +246,8 @@ const store = createStore({
           ...route,
           routeDetails: route.routeDetails.map((point: any) => ({
             ...point,
-            status: 0
+            status: 0,
+            rdIsComplete: false
           }))
         }));
       }
@@ -296,7 +329,8 @@ const store = createStore({
 
         const newDetails = route.routeDetails.map((detail: any) => {
           if (Number(detail.cpId) === Number(cpId)) {
-            return { ...detail, status: status };
+            // Cập nhật cả 2 biến để giao diện nhận diện được
+            return { ...detail, status: status, rdIsComplete: status === 1 };
           }
           return detail;
         });
@@ -315,7 +349,8 @@ const store = createStore({
           ...route,
           routeDetails: route.routeDetails.map((detail: any) => ({
             ...detail,
-            status: 0
+            status: 0,
+            rdIsComplete: false
           }))
         };
       });
@@ -358,7 +393,9 @@ const store = createStore({
       // 1. Khởi động trạng thái đồng bộ
       commit('SET_SYNC_STATUS', {
         progress: 0,
-        message: mode === 'overlay' ? 'Đang tải dữ liệu ca trực...' : 'Đang cập nhật...',
+        message: mode === 'overlay'
+          ? t('messages.sync.loading_shift_data')
+          : t('messages.sync.updating'),
         isSyncing: true,
         mode: mode
       });
@@ -366,19 +403,13 @@ const store = createStore({
       // Nhường luồng 100ms để trình duyệt kịp vẽ Overlay đen ra màn hình
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      const steps: {
-        name: string,
-        key: string,
-        mutation: string,
-        stateKey: keyof typeof state
-      }[] = [
-          { name: 'CheckPoints', key: 'checkpoints', mutation: 'SET_DATACP', stateKey: 'dataListCP' },
-          { name: 'CheckPointsId', key: 'checkpoints_id', mutation: 'SET_DATA_CHECKPOINTS_ID', stateKey: 'dataCheckpointsId' },
-          { name: 'AreaBU', key: 'area_bu', mutation: 'SET_DATA_AREA_BU', stateKey: 'dataAreaBU' },
-          { name: 'ListRoute', key: 'list_route', mutation: 'SET_DATA_LIST_ROUTE', stateKey: 'dataListRoute' },
-          { name: 'ReportNoteCategory', key: 'report_note_category', mutation: 'SET_DATA_REPORT_NOTE_CATEGORY', stateKey: 'dataReportNoteCategory' },
-          { name: 'BasePointReportView', key: 'base_point_report', mutation: 'SET_DATA_BASE_POINT_REPORT_VIEW', stateKey: 'dataBasePointReportView' },
-        ];
+      const steps: any[] = [
+        { name: t('messages.sync.steps.checkpoints'), key: 'checkpoints', mutation: 'SET_DATACP' },
+        { name: t('messages.sync.steps.area_bu'), key: 'area_bu', mutation: 'SET_DATA_AREA_BU' },
+        { name: t('messages.sync.steps.list_route'), key: 'list_route', mutation: 'SET_DATA_LIST_ROUTE' },
+        { name: t('messages.sync.steps.report_note_category'), key: 'report_note_category', mutation: 'SET_DATA_REPORT_NOTE_CATEGORY' },
+        { name: t('messages.sync.steps.base_point_report'), key: 'base_point_report', mutation: 'SET_DATA_BASE_POINT_REPORT_VIEW' }
+      ];
 
       for (let i = 0; i < steps.length; i++) {
         const step = steps[i];
@@ -388,7 +419,7 @@ const store = createStore({
         if (mode === 'overlay' || i === steps.length - 1) {
           commit('SET_SYNC_STATUS', {
             progress,
-            message: `Đang tải ${step.name}...`,
+            message: t('messages.sync.loading_step', { name: step.name }),
             isSyncing: true,
             mode: mode
           });
@@ -416,14 +447,12 @@ const store = createStore({
         } catch (error) {
           console.error(`Lỗi đồng bộ bước ${step.name}:`, error);
         }
-
-        // (Đã xóa khối if cập nhật status trùng lặp ở đây)
       }
 
       // 2. Hoàn tất đồng bộ
       commit('SET_SYNC_STATUS', {
         progress: 100,
-        message: 'Hoàn tất!',
+        message: t('messages.sync.completed'),
         isSyncing: true,
         mode: mode
       });
@@ -458,7 +487,7 @@ const store = createStore({
         const businessData = [
           'restoreMenu',
           'restoreCheckpoints',
-          'restoreCheckpointsId',
+          // 'restoreCheckpointsId',
           'restoreAreaBU',
           'restoreRouteId',
           'restoreUnfinishedRouteId',
@@ -518,25 +547,25 @@ const store = createStore({
       }
     },
 
-    async restoreCheckpointsId({ commit, state }) {
-      if (!state.dataCheckpointsId || state.dataCheckpointsId.length === 0) {
-        let response = await storageService.get('checkpoints_id');
+    // async restoreCheckpointsId({ commit, state }) {
+    //   if (!state.dataCheckpointsId || state.dataCheckpointsId.length === 0) {
+    //     let response = await storageService.get('checkpoints_id');
 
-        console.log(response);
+    //     console.log(response);
 
-        if (typeof response === 'string') {
-          try { response = JSON.parse(response); } catch (e) { }
-        }
+    //     if (typeof response === 'string') {
+    //       try { response = JSON.parse(response); } catch (e) { }
+    //     }
 
-        const actualData = response?.data ? response.data : response;
+    //     const actualData = response?.data ? response.data : response;
 
-        if (actualData) {
-          commit('SET_DATA_CHECKPOINTS_ID', actualData);
-          // THÊM DÒNG NÀY ĐỂ CHỨNG MINH DỮ LIỆU ĐÃ LÊN VUEX THÀNH CÔNG
-          console.log('ĐÃ BƠM CHECKPOINTS_ID VÀO VUEX:', actualData);
-        }
-      }
-    },
+    //     if (actualData) {
+    //       commit('SET_DATA_CHECKPOINTS_ID', actualData);
+    //       // THÊM DÒNG NÀY ĐỂ CHỨNG MINH DỮ LIỆU ĐÃ LÊN VUEX THÀNH CÔNG
+    //       console.log('ĐÃ BƠM CHECKPOINTS_ID VÀO VUEX:', actualData);
+    //     }
+    //   }
+    // },
 
     async restoreAreaBU({ commit, state }) {
       if (!state.dataAreaBU || state.dataAreaBU.length === 0) {

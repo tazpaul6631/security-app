@@ -101,7 +101,6 @@ import { useRouteTimer } from '@/composables/useRouteTimer';
 import PatrolShift from '@/api/PatrolShift';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 import { useI18n } from 'vue-i18n';
-import presentAlert from '@/mixins/presentAlert';
 
 // Lấy biến và hàm từ Global Timer ra sử dụng
 const { formattedTime, timerColorClass, clearTimer, restoreTimer, stopTimer, remainingSeconds, currentTimerRouteId } = useRouteTimer();
@@ -111,6 +110,7 @@ interface RouteDetail {
     rdId: number;
     cpId: number;
     cpName: string;
+    rdIsComplete: boolean;
     status: number;
 }
 
@@ -120,7 +120,6 @@ interface Route {
     routeCode: string;
     psHourFrom: number;
     psHourTo: number;
-    planSecond?: number;
     routeDetails: RouteDetail[];
     areaId: number;
     roleId: number;
@@ -176,7 +175,7 @@ const currentActiveRoute = computed(() => {
         }
 
         if (lockedRoute) {
-            const isFinished = lockedRoute.routeDetails.every((p: any) => p.status === 1);
+            const isFinished = lockedRoute.routeDetails.every((p: any) => p.rdIsComplete);
             if (!isFinished) return { ...lockedRoute };
         }
     }
@@ -197,7 +196,7 @@ const currentActiveRoute = computed(() => {
             isMatchHour = hNow >= f || hNow <= t;
         }
 
-        const isFinished = r.routeDetails.every((p: any) => p.status === 1);
+        const isFinished = r.routeDetails.every((p: any) => p.rdIsComplete);
         return isMatchHour && !isFinished && !r.isComplete;
     });
 
@@ -214,8 +213,10 @@ watch(() => currentActiveRoute.value, async (newRoute) => {
     }
 
     if (newRoute) {
+        console.log(newRoute);
+
         // 1. Kiểm tra xem ca này đã có điểm nào quét chưa (status = 1)
-        const hasStarted = newRoute.routeDetails.some((p: any) => p.status === 1);
+        const hasStarted = newRoute.routeDetails.some((p: any) => p.rdIsComplete);
 
         // 2. Hoặc kiểm tra xem nó có đang bị khóa dở dang không
         const isUnfinished = Number(newRoute.routeId) === Number(lockedRouteId.value);
@@ -287,14 +288,6 @@ const handleContinueScanning = async (routeId: number) => {
         if (errStr.includes('canceled') || errStr.includes('user canceled')) {
             return;
         }
-
-        // TẠM THỜI HIỂN THỊ NGUYÊN VĂN LỖI ĐỂ BẮT BỆNH
-        const realError = error?.message || String(error);
-        await presentAlert.presentAlert(
-            'Lỗi từ hệ thống (Debug)',
-            '',
-            `Chi tiết: ${realError}`
-        );
     } finally {
         isScanning.value = false;
     }
@@ -317,7 +310,7 @@ const hasDataButFinished = computed(() => {
     });
 
     if (routeInHour) {
-        return routeInHour.routeDetails.every(p => p.status === 1);
+        return routeInHour.routeDetails.every(p => p.rdIsComplete);
     }
     return false;
 });
@@ -356,14 +349,32 @@ const loadRouteData = async () => {
                 psDay: now.getDate(),
                 psMonth: now.getMonth() + 1,
                 psYear: now.getFullYear(),
-                isComplete: false,
-                areaId: areaId
+                userAreaId: areaId
             };
 
             const response: any = await PatrolShiftView.postPatrolShiftView(dateInfo);
             const apiDataRaw = response?.data?.data || response?.data || [];
 
-            store.commit('SET_DATA_LIST_ROUTE', apiDataRaw);
+            // KIỂM TRA GIẢI CỨU MÁY BỊ KẸT
+            if (store.state.unfinishedRouteId) {
+                // Tìm xem ca đang khóa ở local có nằm trong danh sách API trả về không
+                const lockedShiftOnServer = apiDataRaw.find((r: any) =>
+                    Number(r.psId) === Number(store.state.psId)
+                );
+
+                // Nếu server báo ca này isComplete = true -> Giải phóng Máy 1 ngay lập tức!
+                if (lockedShiftOnServer && lockedShiftOnServer.isComplete === true) {
+                    console.log("Phát hiện ca trực đã được hoàn thành trên thiết bị khác! Tiến hành mở khóa...");
+                    await store.dispatch('resetCurrentRoute'); // Reset sạch sẽ mọi khóa
+                    // Đợi 1 chút rồi load lại danh sách mới
+                    shiftDataList.value = store.state.dataListRoute;
+                    isLoading.value = false;
+                    return;
+                }
+            }
+
+            const incompleteShifts = apiDataRaw.filter((r: any) => !r.isComplete);
+            store.commit('SET_DATA_LIST_ROUTE', incompleteShifts);
             shiftDataList.value = store.state.dataListRoute;
             await storageService.set('list_route', store.state.dataListRoute);
         } catch (error) {
@@ -554,7 +565,6 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
 
 /* No Route State */
 .no-route-container {
-    height: 60vh;
     display: flex;
     align-items: center;
     justify-content: center;

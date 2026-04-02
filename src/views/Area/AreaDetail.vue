@@ -3,7 +3,7 @@
     <ion-header>
       <ion-toolbar class="none-padding">
         <ion-buttons slot="start">
-          <ion-back-button default-href="/checkpoint"></ion-back-button>
+          <ion-back-button default-href="/area"></ion-back-button>
         </ion-buttons>
         <ion-title>{{ $t('page.areas.detail') }}</ion-title>
       </ion-toolbar>
@@ -164,6 +164,8 @@ const getPrIdData = computed(() => {
       return null;
     }
   }
+  console.log(actualData);
+
   return actualData;
 });
 
@@ -257,7 +259,7 @@ const goHome = () => {
   if (document.activeElement instanceof HTMLElement) {
     document.activeElement.blur();
   }
-  router.replace('/home');
+  router.push('/home');
 };
 
 const listProblems = ref([

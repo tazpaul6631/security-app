@@ -22,13 +22,14 @@
                     </ion-item>
                     <div class="ion-padding accordion-content-bg" slot="content">
                         <ion-card class="step-card">
-                            <img src="/src/assets/images/tutorial/0.png" alt="login" />
                             <ion-card-header>
                                 <ion-card-title class="step-title">Bước 1: Đăng nhập</ion-card-title>
                             </ion-card-header>
                             <ion-card-content>
-                                Nhập mã nhân viên và mật khẩu. Bấm <strong>ĐĂNG NHẬP</strong>.
+                                Đầu tiên nhấn nút <strong class="text-success">QUÉT</strong> để quét mã vạch nhân viên
+                                sau đó sẽ nhập mật khẩu và bấm <strong>ĐĂNG NHẬP</strong>.
                             </ion-card-content>
+                            <img src="/src/assets/images/tutorial/0.png" alt="login" />
                         </ion-card>
                     </div>
                 </ion-accordion>
@@ -40,34 +41,26 @@
                     <div class="ion-padding accordion-content-bg" slot="content">
 
                         <ion-card class="step-card">
-                            <img src="/src/assets/images/tutorial/11.png" alt="Lộ trình" />
                             <ion-card-header>
                                 <ion-card-title class="step-title">Bước 1: Điểm tuần tra theo ca</ion-card-title>
                             </ion-card-header>
                             <ion-card-content>
-                                Màn hình hiển thị danh sách các điểm cần tuần tra (Ví dụ: Kho thành phẩm, BU2 R&D...).
+                                Màn hình hiển thị danh sách các điểm cần tuần tra (Ví dụ: Cửa sổ 2 kéo lụa, Server
+                                Room...). Sau đó bấm <strong class="text-success">QUÉT</strong> để bắt đầu quét điểm
+                                tuần tra.
                             </ion-card-content>
+                            <img src="/src/assets/images/tutorial/11.png" alt="Lộ trình" />
                         </ion-card>
 
                         <ion-card class="step-card">
-                            <img src="/src/assets/images/tutorial/12.png" alt="Quét mã" />
                             <ion-card-header>
-                                <ion-card-title class="step-title">Bước 2: Bật máy quét</ion-card-title>
-                            </ion-card-header>
-                            <ion-card-content>
-                                Tại màn hình Lộ trình, bấm nút <strong>SCAN</strong> màu xanh ở góc dưới màn hình.
-                            </ion-card-content>
-                        </ion-card>
-
-                        <ion-card class="step-card">
-                            <img src="/src/assets/images/tutorial/13.png" alt="Lưu ý phím cứng" />
-                            <ion-card-header>
-                                <ion-card-title class="step-title">Bước 3: Quét mã QR</ion-card-title>
+                                <ion-card-title class="step-title">Bước 2: Quét mã QR</ion-card-title>
                             </ion-card-header>
                             <ion-card-content>
                                 Nếu scan sai sẽ hiện thông báo có <strong class="text-danger"> Vị trí tô đỏ </strong>
-                                tìm đúng vị trí scan lại.
+                                và trở lại tìm đúng vị trí chính xác để scan lại.
                             </ion-card-content>
+                            <img src="/src/assets/images/tutorial/13.png" alt="Lưu ý phím cứng" />
                         </ion-card>
 
                     </div>
@@ -81,52 +74,57 @@
                     <div class="ion-padding accordion-content-bg" slot="content">
 
                         <ion-card class="step-card">
-                            <img src="/src/assets/images/tutorial/14.png" alt="Phát hiện lỗi có/không" />
                             <ion-card-header>
-                                <ion-card-title class="step-title">Bước 1: Nơi report area</ion-card-title>
+                                <ion-card-title class="step-title">Bước 1: Trang báo cáo</ion-card-title>
                             </ion-card-header>
                             <ion-card-content>
                                 Thẻ đầu tiên là thông tin khu vực: (thời gian tổng ca đếm ngược <strong
-                                    class="text-success">màu xanh</strong> và 10p cuối
-                                chuyển màu
-                                <strong class="text-danger">màu đỏ</strong>, tên khu vực, ca + mã trực...). Hãy
-                                <strong>đánh dấu (✓)</strong> vào ô vuông hoàn thành các vấn đề xong thì gửi báo cáo.
+                                    class="text-success">màu xanh</strong> và 15p cuối chuyển màu
+                                <strong class="text-danger">màu đỏ</strong>, tên khu vực, ca + mã trực...). Phải nhấn
+                                nút <strong>CHỤP</strong> điểm tuần tra trước khi có thể báo cáo sự cố.
                             </ion-card-content>
+                            <img src="/src/assets/images/tutorial/14.png" alt="Phát hiện lỗi có/không" />
                         </ion-card>
 
                         <ion-card class="step-card">
+                            <ion-card-header>
+                                <ion-card-title class="step-title">Bước 2: Nếu điểm tuần tra không vấn
+                                    đề</ion-card-title>
+                            </ion-card-header>
+                            <ion-card-content>
+                                Sau khi bấm <strong>CHỤP</strong> xong sẽ hiển thị ảnh đã chụp ở điểm tuần tra đó và có
+                                thêm thời gian màu vàng cụ thể trên hình đó nếu lố qua ca sau sẽ hiện thời gian đó nhưng
+                                là màu đỏ. Nếu không có vấn đề gì thì có thể ghi chú lại hoặc chụp một tấm hình nào đó
+                                và bấm <strong class="text-success">GỬI BÁO CÁO</strong> để hoàn tất báo cáo.
+                            </ion-card-content>
                             <img src="/src/assets/images/tutorial/15.png" alt="Chọn tình trạng" />
-                            <ion-card-header>
-                                <ion-card-title class="step-title">Bước 2: Nếu chọn không lỗi</ion-card-title>
-                            </ion-card-header>
-                            <ion-card-content>
-                                Sẽ có nút chụp hình, thêm nhiều hình và thêm ghi chú nếu có thêm sẽ hiện như hình
-                            </ion-card-content>
                         </ion-card>
 
                         <ion-card class="step-card">
+                            <ion-card-header>
+                                <ion-card-title class="step-title">Bước 3: Nếu chọn có vấn đề</ion-card-title>
+                            </ion-card-header>
+                            <ion-card-content>
+                                Bấm vào nút <strong>CHỌN TÌNH TRẠNG</strong> vừa xuất hiện sẽ hiện nơi để chọn loại sự
+                                cố. Nếu đã chọn có vấn đề nhưng không chọn loại sự cố và không gửi ảnh của sự cố đó sẽ
+                                có <strong class="text-warning">thông báo màu vàng</strong> và không <strong
+                                    class="text-success">GỬI BÁO CÁO</strong>
+                            </ion-card-content>
                             <img src="/src/assets/images/tutorial/16.png" alt="Chọn tình trạng" />
-                            <ion-card-header>
-                                <ion-card-title class="step-title">Bước 3: Nếu chọn có lỗi</ion-card-title>
-                            </ion-card-header>
-                            <ion-card-content>
-                                Bấm vào nút <strong>CHỌN TÌNH TRẠNG</strong> vừa xuất hiện sẽ hiện nơi chọn loại sự cố.
-                            </ion-card-content>
                         </ion-card>
 
                         <ion-card class="step-card">
-                            <img src="/src/assets/images/tutorial/18.png" alt="Phân loại" />
                             <ion-card-header>
                                 <ion-card-title class="step-title">Bước 4: Chọn nhóm sự cố</ion-card-title>
                             </ion-card-header>
                             <ion-card-content>
                                 Chọn nhóm danh mục lỗi tương ứng (Ví dụ: Nhấn mũi tên xuống ở mục <strong>Nước</strong>
-                                ➔ Chọn <strong>Van</strong>).
+                                > Chọn <strong>Van</strong>).
                             </ion-card-content>
+                            <img src="/src/assets/images/tutorial/18.png" alt="Phân loại" />
                         </ion-card>
 
                         <ion-card class="step-card">
-                            <img src="/src/assets/images/tutorial/19.png" alt="Chi tiết lỗi" />
                             <ion-card-header>
                                 <ion-card-title class="step-title">Bước 5: Tích chọn lỗi thực tế</ion-card-title>
                             </ion-card-header>
@@ -134,18 +132,20 @@
                                 Đánh dấu vào tình trạng bạn đang thấy (VD: <em>Không khóa, rò rỉ...</em>) hoặc nhập ghi
                                 chú thêm. Sau đó bấm <strong>XÁC NHẬN</strong>.
                             </ion-card-content>
+                            <img src="/src/assets/images/tutorial/19.png" alt="Chi tiết lỗi" />
                         </ion-card>
 
                         <ion-card class="step-card">
-                            <img src="/src/assets/images/tutorial/10.png" alt="Chụp ảnh hiện trường" />
                             <ion-card-header>
-                                <ion-card-title class="step-title">Bước 6: Chụp ảnh bằng chứng</ion-card-title>
+                                <ion-card-title class="step-title">Bước 6: Chụp ảnh sự cố</ion-card-title>
                             </ion-card-header>
                             <ion-card-content>
                                 App sẽ yêu cầu chụp hình. Hãy hướng camera chụp rõ khu vực xảy ra sự cố (ổ khóa, vũng
                                 nước...).<br />
-                                Cuối cùng bấm <strong>GỬI BÁO CÁO</strong> để hoàn tất.
+                                Cuối cùng bấm đóng ở phía trên bên phải và bấm <strong class="text-success">GỬI BÁO
+                                    CÁO</strong> để hoàn tất.
                             </ion-card-content>
+                            <img src="/src/assets/images/tutorial/10.png" alt="Chụp ảnh hiện trường" />
                         </ion-card>
 
                     </div>
@@ -157,23 +157,28 @@
                     </ion-item>
                     <div class="ion-padding accordion-content-bg" slot="content">
                         <ion-card class="step-card">
-                            <img src="/src/assets/images/tutorial/44.png" alt="Hoàn thành" />
                             <ion-card-header>
                                 <ion-card-title class="step-title">Hoàn thành ca tuần tra</ion-card-title>
                             </ion-card-header>
                             <ion-card-content>
-                                Nếu offline thông tin sẽ được lưu lại chờ bạn online lại sẽ tự động gửi dữ liệu đi.
-                                <strong class="text-warning">Lưu ý:</strong>
+                                Nếu offline thông tin sẽ được lưu lại hàng chờ sau khi bạn online lại sẽ tự động gửi dữ
+                                liệu đi.
+                                <br>
+                                Các dữ liệu chờ sẽ được hiển thị rỏ trên máy: các <strong class="text-warning">CHẤM
+                                    TRÒN</strong> hoặc <strong class="text-warning">CHỮ OFFLINE KẾ BÊN DỮ LIỆU
+                                    ĐÓ</strong> màu vàng.
+                                <br>
+                                <strong class="text-warning">LƯU Ý:</strong>
                                 <br>
                                 <strong class="note-danger">*</strong> Chỉ khi nào online lại dữ liệu sẽ tự động được
                                 gửi đi hết mới có thể logout.
                                 <br>
                                 <strong class="note-danger">*</strong> Sau khi hoàn thành ca hiện tại sẽ thấy ca đó đã
-                                hoàn thành, nếu làm ca hiện tại bị lố
-                                qua ca sau thì sẽ thấy ca tiếp sau khi hoàn thành.
+                                hoàn thành, nếu làm ca hiện tại bị lố qua ca sau thì sẽ thấy ca tiếp sau khi hoàn thành.
                                 <br>
                                 <strong class="note-danger">*</strong> Không được tắt app để tránh mất dữ liệu!
                             </ion-card-content>
+                            <img src="/src/assets/images/tutorial/44.png" alt="Hoàn thành" />
                         </ion-card>
                     </div>
                 </ion-accordion>
