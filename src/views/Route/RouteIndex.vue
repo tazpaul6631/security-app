@@ -95,6 +95,7 @@ import CardRoutePoints from '@/components/CardRoutePoints.vue';
 import { scannerService } from '@/services/scanner.service';
 import storageService from '@/services/storage.service';
 import PatrolShiftView from '@/api/PatrolShiftView';
+import { ImageService } from '@/services/image.service';
 
 // IMPORT GLOBAL TIMER
 import { useRouteTimer } from '@/composables/useRouteTimer';
@@ -112,6 +113,7 @@ interface RouteDetail {
     cpName: string;
     rdIsComplete: boolean;
     status: number;
+    cpPriority: number;
 }
 
 interface Route {
@@ -148,7 +150,7 @@ const currentActiveRoute = computed(() => {
     const routes = shiftDataList.value;
     const userData = store.state.dataUser;
 
-    // THÊM DÒNG NÀY: Lấy thêm psId đang bị khóa từ Store
+    // Lấy thêm psId đang bị khóa từ Store
     const lockedPsId = store.state.psId;
 
     if (!userData || !Array.isArray(routes)) return null;
@@ -160,7 +162,7 @@ const currentActiveRoute = computed(() => {
     // ƯU TIÊN 1: Lộ trình đang làm dở (Locked) - Dù quá giờ vẫn phải hiện ca này
     if (lockedRouteId.value !== null) {
 
-        // SỬA Ở ĐÂY: Tìm CHÍNH XÁC cả 2 điều kiện
+        // Tìm CHÍNH XÁC cả 2 điều kiện
         let lockedRoute;
         if (lockedPsId) {
             lockedRoute = routes.find((r: any) =>
@@ -188,7 +190,7 @@ const currentActiveRoute = computed(() => {
         const t = Number(r.psHourTo);
         let isMatchHour = false;
 
-        // SỬA Ở ĐÂY: Xử lý ca trong ngày và ca qua đêm
+        // Xử lý ca trong ngày và ca qua đêm
         if (f <= t) {
             isMatchHour = hNow >= f && hNow <= t;
         } else {
@@ -204,7 +206,7 @@ const currentActiveRoute = computed(() => {
 });
 
 // ==========================================
-// 2. KHÔI PHỤC TIMER KHI RELOAD
+// 2. KHÔI PHỤC TIMER KHI RELOAD & CHUYỂN CA
 // ==========================================
 watch(() => currentActiveRoute.value, async (newRoute) => {
     if (newRoute && newRoute.psId) {
@@ -213,8 +215,6 @@ watch(() => currentActiveRoute.value, async (newRoute) => {
     }
 
     if (newRoute) {
-        console.log(newRoute);
-
         // 1. Kiểm tra xem ca này đã có điểm nào quét chưa (status = 1)
         const hasStarted = newRoute.routeDetails.some((p: any) => p.rdIsComplete);
 
@@ -225,16 +225,21 @@ watch(() => currentActiveRoute.value, async (newRoute) => {
         if (hasStarted || isUnfinished) {
             await restoreTimer(newRoute.routeId);
         } else {
-            // NẾU CA MỚI TINH (Chưa làm gì): Đảm bảo timer phải dừng và sạch sẽ
-            if (remainingSeconds.value > 0 || currentTimerRouteId !== null) {
-                await clearTimer(newRoute.routeId);
+            // --- VÁ LỖI: CA MỚI TINH (Chưa làm gì) ---
+            // Nếu có ca cũ đang chạy ngầm trong RAM, ta phải xóa data của CA CŨ, không phải ca mới!
+            if (currentTimerRouteId.value !== null && currentTimerRouteId.value !== newRoute.routeId) {
+                await clearTimer(currentTimerRouteId.value);
             }
         }
     } else {
-        // Nếu không có lộ trình nào hoạt động, cũng dọn dẹp luôn
-        stopTimer();
-        remainingSeconds.value = 0;
-        currentTimerRouteId.value = null;
+        // NẾU KHÔNG CÓ LỘ TRÌNH NÀO HOẠT ĐỘNG (Rảnh rỗi, lố ca, chờ ca mới...)
+        // Dọn dẹp sạch sẽ toàn bộ đồng hồ đếm ngược của ca cũ đi
+        if (currentTimerRouteId.value !== null) {
+            await clearTimer(currentTimerRouteId.value);
+        } else {
+            stopTimer();
+            remainingSeconds.value = 0;
+        }
     }
 }, { immediate: true });
 
@@ -297,11 +302,9 @@ const hasDataButFinished = computed(() => {
     const routes = shiftDataList.value;
     if (!Array.isArray(routes)) return false;
 
-    // Tìm xem có ca trực nào khớp với giờ hiện tại không
     const routeInHour = routes.find(r => {
         const f = Number(r.psHourFrom);
         const t = Number(r.psHourTo);
-        // SỬA Ở ĐÂY TƯƠNG TỰ
         if (f <= t) {
             return currentHour.value >= f && currentHour.value <= t;
         } else {
@@ -310,7 +313,7 @@ const hasDataButFinished = computed(() => {
     });
 
     if (routeInHour) {
-        return routeInHour.routeDetails.every(p => p.rdIsComplete);
+        return routeInHour.isComplete || routeInHour.routeDetails.every(p => p.rdIsComplete);
     }
     return false;
 });
@@ -355,28 +358,13 @@ const loadRouteData = async () => {
             const response: any = await PatrolShiftView.postPatrolShiftView(dateInfo);
             const apiDataRaw = response?.data?.data || response?.data || [];
 
-            // KIỂM TRA GIẢI CỨU MÁY BỊ KẸT
-            if (store.state.unfinishedRouteId) {
-                // Tìm xem ca đang khóa ở local có nằm trong danh sách API trả về không
-                const lockedShiftOnServer = apiDataRaw.find((r: any) =>
-                    Number(r.psId) === Number(store.state.psId)
-                );
+            // CHỈ CẦN ĐẨY THẲNG VÀO VUEX, KHÔNG CẦN TỰ VIẾT CODE GIẢI CỨU Ở ĐÂY NỮA
+            // Chiêu cuối của Vuex sẽ kiểm tra xem ca bị khóa đã isComplete chưa, nếu có nó sẽ TỰ MỞ KHÓA
+            store.commit('SET_DATA_LIST_ROUTE', apiDataRaw);
 
-                // Nếu server báo ca này isComplete = true -> Giải phóng Máy 1 ngay lập tức!
-                if (lockedShiftOnServer && lockedShiftOnServer.isComplete === true) {
-                    console.log("Phát hiện ca trực đã được hoàn thành trên thiết bị khác! Tiến hành mở khóa...");
-                    await store.dispatch('resetCurrentRoute'); // Reset sạch sẽ mọi khóa
-                    // Đợi 1 chút rồi load lại danh sách mới
-                    shiftDataList.value = store.state.dataListRoute;
-                    isLoading.value = false;
-                    return;
-                }
-            }
-
-            const incompleteShifts = apiDataRaw.filter((r: any) => !r.isComplete);
-            store.commit('SET_DATA_LIST_ROUTE', incompleteShifts);
             shiftDataList.value = store.state.dataListRoute;
             await storageService.set('list_route', store.state.dataListRoute);
+
         } catch (error) {
             shiftDataList.value = store.state.dataListRoute || [];
         }
@@ -399,7 +387,6 @@ onIonViewWillEnter(async () => {
     // Gọi hàm kéo dữ liệu lộ trình (code cũ của bạn)
     await loadRouteData();
 
-    // THÊM ĐOẠN NÀY VÀO CUỐI:
     // Bắt thẻ con quét lại SQLite để đếm số ảnh offline mới nhất
     if (cardRoutePointsRef.value) {
         cardRoutePointsRef.value.loadOfflineQueue();
@@ -450,13 +437,22 @@ const cancelButtons = [
                 };
 
                 await clearTimer(currentRoute.routeId);
-
                 await loadPendingItems();
 
                 const itemsToDelete = pendingItems.value.filter(
                     (item: any) => item.data.psId === currentRoute.psId
                 );
+
                 for (const item of itemsToDelete) {
+                    // --- VÁ LỖI: XÓA ẢNH VẬT LÝ TRƯỚC ---
+                    if (item.imageFiles && item.imageFiles.length > 0) {
+                        for (const fileName of item.imageFiles) {
+                            // Thêm .catch() để lỡ file ảo không tồn tại thì app vẫn không bị crash
+                            await ImageService.deleteImage(fileName).catch(() => { });
+                        }
+                    }
+                    // ------------------------------------
+
                     // Xóa Mock trong Vuex
                     store.commit('REMOVE_OFFLINE_REPORT', item.id);
                     // Xóa trong SQLite
@@ -466,11 +462,10 @@ const cancelButtons = [
                 try {
                     await PatrolShift.postRemovePatrolShift(removeData);
                 } catch (error) {
-                    // NẾU OFFLINE: Kiểm tra xem đã có psId này trong hàng chờ chưa trước khi push
+                    // NẾU OFFLINE: Lưu lệnh xóa vào hàng chờ
                     try {
                         let deleteQueue = await storageService.get('offline_delete_queue');
 
-                        // Đảm bảo deleteQueue luôn là mảng, kể cả khi parse lỗi
                         if (!Array.isArray(deleteQueue)) {
                             deleteQueue = [];
                         }
@@ -484,16 +479,16 @@ const cancelButtons = [
                         }
                     } catch (storageErr) {
                         console.error("Lỗi parse dữ liệu từ Storage:", storageErr);
-                        // Nếu storage hỏng, reset lại nó luôn
                         await storageService.set('offline_delete_queue', [removeData]);
                     }
                 }
 
+                // Reset và về Home
                 await store.dispatch('resetCurrentRoute');
                 shiftDataList.value = store.state.dataListRoute;
                 router.replace('/home');
             } finally {
-                isCancelling.value = false; // Mở khóa khi xong
+                isCancelling.value = false;
             }
         }
     }

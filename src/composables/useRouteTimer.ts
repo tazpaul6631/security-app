@@ -76,13 +76,18 @@ export function useRouteTimer() {
         }
     };
 
-    const clearTimer = async (routeId: string | number) => {
+    const clearTimer = async (routeId?: string | number | null) => {
+        const targetId = routeId || currentTimerRouteId.value;
+
         stopTimer();
         remainingSeconds.value = 0;
         minThreshold.value = 0;
         currentTimerRouteId.value = null;
-        await storageService.remove(`timer_end_${routeId}`);
-        await storageService.remove(`timer_min_${routeId}`);
+
+        if (targetId) {
+            await storageService.remove(`timer_end_${targetId}`);
+            await storageService.remove(`timer_min_${targetId}`);
+        }
     };
 
     const stopTimer = () => {

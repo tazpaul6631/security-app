@@ -42,7 +42,7 @@ export function useOfflineManager() {
     if (item.data.noteGroups && Array.isArray(item.data.noteGroups)) {
       let globalImageIndex = 0;
 
-      // SỬA: Dùng vòng lặp for...of để await có tác dụng
+      // Dùng vòng lặp for...of để await có tác dụng
       for (let i = 0; i < item.data.noteGroups.length; i++) {
         const group = item.data.noteGroups[i];
 
@@ -52,7 +52,7 @@ export function useOfflineManager() {
 
         // 3. Xử lý ảnh lồng trong từng Group
         if (group.reportImages && group.reportImages.length > 0) {
-          // SỬA: Tiếp tục dùng vòng lặp for để đợi đọc ảnh
+          // Tiếp tục dùng vòng lặp for để đợi đọc ảnh
           for (let j = 0; j < group.reportImages.length; j++) {
             const fileName = item.imageFiles[globalImageIndex];
 
@@ -115,7 +115,7 @@ export function useOfflineManager() {
     // 1. CLONE (Tạo bản sao) để không làm ảnh hưởng data gốc đang gửi trực tiếp
     const itemToSave = JSON.parse(JSON.stringify(item));
 
-    // 2. RÚT RUỘT BASE64: Xóa trắng chuỗi Base64 nặng nề trước khi lưu vào SQLite
+    // 2. Xóa trắng chuỗi Base64 nặng nề trước khi lưu vào SQLite
     if (itemToSave.data?.noteGroups) {
       for (const group of itemToSave.data.noteGroups) {
         if (group.reportImages) {
@@ -135,7 +135,7 @@ export function useOfflineManager() {
     const actualUser: any = storeInstance.state.dataUser;
     const userData = actualUser?.data ? actualUser.data : actualUser;
 
-    // Tạo báo cáo ảo để hiển thị ngay trên UI (Giữ nguyên của bạn)
+    // Tạo báo cáo ảo để hiển thị ngay trên UI
     const mockReport = {
       psId: item.data.psId,
       prId: item.id,
@@ -207,6 +207,28 @@ export function useOfflineManager() {
       isSyncing: true,
       mode: 'overlay'
     });
+
+    const watchdogTimer = setTimeout(() => {
+      if (isProcessing) {
+        console.warn("Hết thời gian chờ đồng bộ (Timeout). Buộc tắt Overlay!");
+
+        // Ép reset các cờ trạng thái
+        isProcessing = false;
+        storeInstance.commit('SET_SYNC_OFFLINE_STATUS', false);
+        isSyncing.value = false;
+
+        // Tắt màn hình Overlay
+        storeInstance.commit('SET_SYNC_STATUS', {
+          progress: 0,
+          message: 'Đồng bộ gián đoạn do kết nối yếu', // Hoặc dùng biến ngôn ngữ: t('messages.use-offline.timeout')
+          isSyncing: false,
+          mode: 'silent'
+        });
+
+        // Báo lỗi cho user biết
+        presentToast('Kết nối mạng không ổn định, vui lòng thử lại sau.', 'danger');
+      }
+    }, 30000);
 
     console.log("--- [START] BẮT ĐẦU ĐỒNG BỘ ---");
 
@@ -280,7 +302,7 @@ export function useOfflineManager() {
 
         // Kiểm tra xem dữ liệu đã tồn tại trên Server chưa (Tránh gửi trùng khi mạng chập chờn)
         try {
-          // SỬA CHÍNH XÁC Ở ĐÂY: Thay psHour bằng psId để check đích danh ca trực
+          // Thay psHour bằng psId để check đích danh ca trực
           const checkInfo = {
             psId: item.data.psId,
             psDay: originalTime.getDate(),
@@ -350,21 +372,26 @@ export function useOfflineManager() {
     } catch (e) {
       console.error("Lỗi tổng quát Sync:", e);
     } finally {
-      await loadPendingItems();
-      // Delay nhỏ để UI mượt mà hơn trước khi tắt trạng thái Syncing
-      setTimeout(() => {
-        isProcessing = false;
-        storeInstance.commit('SET_SYNC_OFFLINE_STATUS', false);
-        isSyncing.value = false;
+      clearTimeout(watchdogTimer);
 
-        storeInstance.commit('SET_SYNC_STATUS', {
-          progress: 100,
-          message: t('messages.use-offline.completed'),
-          isSyncing: false,
-          mode: 'silent'
-        });
-        console.log("--- [END] KẾT THÚC ĐỒNG BỘ ---");
-      }, 800);
+      await loadPendingItems();
+
+      // Delay nhỏ để UI mượt mà hơn trước khi tắt trạng thái Syncing
+      if (isProcessing) {
+        setTimeout(() => {
+          isProcessing = false;
+          storeInstance.commit('SET_SYNC_OFFLINE_STATUS', false);
+          isSyncing.value = false;
+
+          storeInstance.commit('SET_SYNC_STATUS', {
+            progress: 100,
+            message: t('messages.use-offline.completed'),
+            isSyncing: false,
+            mode: 'silent'
+          });
+          console.log("--- [END] KẾT THÚC ĐỒNG BỘ ---");
+        }, 800);
+      }
     }
   };
 

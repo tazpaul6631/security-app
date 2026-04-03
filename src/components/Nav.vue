@@ -46,6 +46,7 @@ import { exitOutline } from 'ionicons/icons';
 import router from '@/router';
 import { useStore } from 'vuex';
 import { useOfflineManager } from '@/composables/useOfflineManager';
+import storageService from '@/services/storage.service';
 
 const store = useStore();
 const { t } = useI18n();
@@ -76,38 +77,54 @@ const goBackAndClearHistory = async () => {
 const { pendingItems, loadPendingItems, isOnline } = useOfflineManager();
 
 const handleLogout = async () => {
-  console.log('Bắt đầu kiểm tra trước khi đăng xuất...');
+  try {
+    console.log('Bắt đầu kiểm tra trước khi đăng xuất...');
 
-  // 1. Chặn nếu chưa hoàn thành lộ trình
-  if (isRouteUnfinished.value) {
+    // 1. Chặn nếu chưa hoàn thành lộ trình
+    if (isRouteUnfinished.value) {
+      const alert = await alertController.create({
+        header: t('messages.nav.unable-to-logout'),
+        message: t('messages.nav.incomplete-patrol'),
+        buttons: [t('messages.nav.got')]
+      });
+      await alert.present();
+      return;
+    }
+
+    // 2. GOM TOÀN BỘ 3 HÀNG CHỜ ĐỂ KIỂM TRA
+    await loadPendingItems();
+    const deleteQueue = (await storageService.get('offline_delete_queue')) || [];
+    const wrongScanQueue = (await storageService.get('offline_wrong_scan_queue')) || [];
+
+    const totalUnsynced = pendingItems.value.length + deleteQueue.length + wrongScanQueue.length;
+
+    // Nếu có bất kỳ data nào kẹt lại -> Hiện cảnh báo và CHẶN đăng xuất
+    if (totalUnsynced > 0) {
+      const alert = await alertController.create({
+        header: t('messages.nav.data-loss'),
+        message: `Hệ thống đang có ${totalUnsynced} tiến trình chờ đồng bộ do mạng yếu. Đăng xuất lúc này sẽ gây mất dữ liệu. Vui lòng chờ mạng ổn định!`,
+        buttons: [{ text: t('messages.nav.got'), role: 'cancel' }]
+      });
+      await alert.present();
+      return;
+    }
+
+    // --- BẮT ĐẦU QUY TRÌNH DỌN DẸP TRIỆT ĐỂ ---
+    console.log('Tiến hành dọn dẹp và đăng xuất...');
+    await store.dispatch('logout');
+    router.replace('/login');
+
+  } catch (error) {
+    console.error("Lỗi câm (Silent Error) khi đăng xuất:", error);
+
+    // 3. CHỐT CHẶN CUỐI CÙNG: Nếu SQLite bị khóa hoặc code gãy, VẪN HIỆN ALERT
     const alert = await alertController.create({
-      header: t('messages.nav.unable-to-logout'),
-      message: t('messages.nav.incomplete-patrol'),
-      buttons: [t('messages.nav.got')]
+      header: 'Lỗi hệ thống',
+      message: 'Đang xử lý đồng bộ ngầm, hệ thống tạm thời bận. Vui lòng đợi vài giây và thử lại!',
+      buttons: ['OK']
     });
     await alert.present();
-    return;
   }
-
-  // 2. Chặn nếu còn báo cáo chưa đồng bộ (Tránh mất dữ liệu)
-  await loadPendingItems();
-  if (pendingItems.value.length > 0) {
-    const alert = await alertController.create({
-      header: t('messages.nav.data-loss'),
-      message: t('messages.nav.pending-reports', { count: pendingItems.value.length }),
-      buttons: [{ text: t('messages.nav.got'), role: 'cancel' }]
-    });
-    await alert.present();
-    return;
-  }
-
-  // --- BẮT ĐẦU QUY TRÌNH DỌN DẸP TRIỆT ĐỂ ---
-  console.log('Tiến hành dọn dẹp và đăng xuất...');
-
-  await store.dispatch('logout');
-
-  // 5. Chuyển hướng
-  router.replace('/login');
 };
 ////////////////////////////////////////////
 </script>

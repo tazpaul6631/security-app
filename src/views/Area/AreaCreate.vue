@@ -24,16 +24,16 @@
 
             <div v-if="!formData.prHasProblem">
               <ion-row>
-                <ion-col size="6">
+                <ion-col>
                   <ion-button expand="block" size="small" @click="addNoProblemPhoto">
                     <ion-icon slot="start" :icon="camera"></ion-icon> {{ $t('areas.report.camera') }}
                   </ion-button>
                 </ion-col>
-                <ion-col size="6">
+                <!-- <ion-col size="6">
                   <ion-button expand="block" size="small" @click="pickNoProblemImages">
                     <ion-icon slot="start" :icon="images"></ion-icon> {{ $t('areas.report.gallery') }}
                   </ion-button>
-                </ion-col>
+                </ion-col> -->
               </ion-row>
 
               <ion-grid v-if="noProblemImages.length > 0">
@@ -75,7 +75,8 @@
               </ion-row>
             </div>
 
-            <ion-button class="btn-submit" expand="block" color="success" @click="confirmSubmit">
+            <ion-button class="btn-submit" expand="block" color="success" :disabled="isSubmitting"
+              @click="confirmSubmit">
               <ion-icon slot="start" :icon="sendOutline"></ion-icon>
               {{ $t('areas.report.btn-submit') }}
             </ion-button>
@@ -141,6 +142,7 @@ import { ImageService } from '@/services/image.service';
 import router from '@/router';
 import storageService from '@/services/storage.service';
 import { App } from '@capacitor/app';
+import { PluginListenerHandle } from '@capacitor/core';
 import { useRouteTimer } from '@/composables/useRouteTimer';
 import { useRoute } from 'vue-router';
 
@@ -151,6 +153,8 @@ import IssueDetailModal from '@/components/modals/IssueDetailModal.vue';
 import CategoryModal from '@/components/modals/CategoryModal.vue';
 import { useCameraHandler } from '@/composables/useCameraHandler';
 import { useI18n } from 'vue-i18n';
+
+let backButtonListener: PluginListenerHandle | null = null;
 
 // Lấy 3 hàm xịn xò ra xài
 const { takePhoto, pickImagesFromGallery, convertBlobToBase64, showToast } = useCameraHandler();
@@ -424,8 +428,6 @@ const handleSubmit = async (): Promise<void> => {
 
     // --- BƯỚC 2: XỬ LÝ ẢNH ---
     const finalNoteGroups: any[] = [];
-
-    // Định nghĩa các hằng số giống với Backend
     const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
     const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
@@ -708,7 +710,6 @@ const addWatermarkToImage = async (imageSrc: string, text: string, textColor: st
         ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
         ctx.fillRect(x - 10, y - 10, textWidth + 20, fontSize + 20);
 
-        // Sử dụng biến textColor thay vì hardcode '#FFD700'
         ctx.fillStyle = textColor;
         ctx.fillText(text, x, y);
 
@@ -839,7 +840,14 @@ onIonViewWillEnter(async () => {
   }, 100);
 });
 
-onIonViewDidLeave(() => {
+onIonViewDidLeave(async () => {
+  backButtonListener = await App.addListener('backButton', handleGoBack);
+
+  if (backButtonListener) {
+    backButtonListener.remove();
+    backButtonListener = null;
+  }
+
   isResetting.value = true;
   formData.prHasProblem = false;
   formData.prNote = '';
@@ -874,7 +882,6 @@ onMounted(async () => {
   }
 
   isReady.value = true;
-  App.addListener('backButton', handleGoBack);
 });
 </script>
 

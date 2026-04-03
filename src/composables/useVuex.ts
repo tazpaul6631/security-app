@@ -4,10 +4,9 @@ import { markRaw } from 'vue';
 import i18n from '@/i18n';
 const { t } = (i18n.global as any);
 
-// Tạo store mới
 const store = createStore({
 
-  // 1. State: Chứa dữ liệu (giống data)
+  // 1. State: Chứa dữ liệu
   state() {
     return {
       dataMenu: [],
@@ -65,12 +64,15 @@ const store = createStore({
       const apiData = Array.isArray(data) ? data : (data?.data || []);
       const localRoutes = state.dataListRoute || [];
 
-      // 1. Map trạng thái: ƯU TIÊN SỰ THẬT TỪ SERVER
+      // 1. MAP VÀ GỘP DỮ LIỆU
       const mappedApiData = apiData.map((apiRoute: any) => {
         const localRoute = localRoutes.find((r: any) =>
           Number(r.routeId) === Number(apiRoute.routeId) &&
           Number(r.psId) === Number(apiRoute.psId)
         );
+
+        // NẾU SERVER BÁO CA NÀY ĐÃ XONG (Từ máy 2), ÉP CHÍN TOÀN BỘ ĐIỂM BÊN TRONG THÀNH TRUE
+        const isShiftDoneOnServer = apiRoute.isComplete === true;
 
         return {
           ...apiRoute,
@@ -82,7 +84,7 @@ const store = createStore({
             const localPoint = localRoute?.routeDetails.find((p: any) => p.cpId === apiPoint.cpId);
 
             // Chỉ cần Server báo XONG (1) hoặc Local báo XONG (1) thì chắc chắn là XONG. 
-            const isDone = apiPoint.rdIsComplete === true || apiPoint.status === 1 ||
+            const isDone = isShiftDoneOnServer || apiPoint.rdIsComplete === true || apiPoint.status === 1 ||
               localPoint?.rdIsComplete === true || localPoint?.status === 1;
 
             return {
@@ -96,60 +98,83 @@ const store = createStore({
 
       let mergedList = [...mappedApiData];
 
-      // 2. GIỮ LẠI CA CŨ (Chỉ push xuống dưới, KHÔNG ép unshift lên đầu cản đường nữa)
+      // 2. GIỮ LẠI CA CŨ LOCAL NẾU SERVER KHÔNG CÒN TRẢ VỀ
       localRoutes.forEach((localR: any) => {
         const isInApi = mergedList.some((apiR: any) =>
           Number(apiR.routeId) === Number(localR.routeId) &&
           Number(apiR.psId) === Number(localR.psId)
         );
-
-        // NẾU BACKEND KHÔNG TRẢ VỀ CA NÀY NỮA (Có thể do đã done nên backend ẩn đi)
         if (!isInApi) {
-          // Bỏ hàm unshift() ép buộc cũ đi, chỉ push nối vào để không làm rối UI
           mergedList.push(localR);
         }
       });
 
       state.dataListRoute = mergedList;
 
-      // 3. CHIÊU CUỐI: TỰ ĐỘNG GỠ KHÓA NẾU SERVER XÁC NHẬN ĐÃ XONG HOẶC ĐÃ LỐ CA
+      // 3. TỰ ĐỘNG GỠ KHÓA VÀ DỌN RÁC DỰA VÀO PSID (ĐÍCH DANH CA TRỰC)
       if (state.unfinishedRouteId) {
-        // Kiểm tra xem Server có còn trả về cái ca đang bị khóa này không?
-        const isStillOnServer = apiData.some((r: any) => Number(r.routeId) === Number(state.unfinishedRouteId));
+        const lockedId = Number(state.unfinishedRouteId);
+        const lockedPsId = state.psId ? Number(state.psId) : null;
 
-        const currentLocked = state.dataListRoute.find((r: any) => Number(r.routeId) === Number(state.unfinishedRouteId));
+        let exactServerRoute;
+        if (lockedPsId) {
+          // Phải tìm đích danh theo psId để không nhầm qua ca khác trong ngày
+          exactServerRoute = mappedApiData.find((r: any) => Number(r.psId) === lockedPsId);
+        } else {
+          // Fallback (Trường hợp rất hiếm): Nếu chưa có psId thì tìm theo lộ trình
+          exactServerRoute = mappedApiData.find((r: any) => Number(r.routeId) === lockedId);
+        }
 
-        if (currentLocked) {
-          // Kiểm tra xem lộ trình đang khóa này đã quét full 100% chưa?
-          const isAllDone = currentLocked.routeDetails.every((p: any) => p.rdIsComplete);
+        const isStillOnServer = !!exactServerRoute;
 
-          // GỠ KHÓA NẾU: Đã đi xong HOẶC Server đã ẩn ca này đi (lố ca)
-          if (isAllDone || !isStillOnServer) {
-            console.log(isAllDone
-              ? "Server báo đã đi xong. Gỡ khóa!"
-              : "Đã lố ca, Server chuyển ca mới. Gỡ khóa ca cũ!");
+        let isDoneOnServer = false;
+        if (exactServerRoute) {
+          isDoneOnServer = exactServerRoute.isComplete === true ||
+            (exactServerRoute.routeDetails.length > 0 && exactServerRoute.routeDetails.every((p: any) => p.rdIsComplete));
+        }
 
-            // 3.1 Xóa khóa trong RAM
-            state.unfinishedRouteId = null;
-            state.routeId = null;
-            state.psId = null;
+        // Tìm ca này ở Local xem đã đi full chưa
+        const exactLocalRoute = state.dataListRoute.find((r: any) =>
+          Number(r.routeId) === lockedId && (lockedPsId ? Number(r.psId) === lockedPsId : true)
+        );
+        const isAllDoneLocal = exactLocalRoute ? exactLocalRoute.routeDetails.every((p: any) => p.rdIsComplete) : false;
 
-            // 3.2 Xóa khóa trong Ổ cứng (SQLite)
-            storageService.remove('unfinished_route_id');
-            storageService.remove('current_route_id');
-            storageService.remove('current_ps_id');
-            storageService.remove('data_scanqr');
+        // TIẾN HÀNH GỠ KHÓA VÀ XÓA BÓNG MA
+        if (isAllDoneLocal || isDoneOnServer || !isStillOnServer) {
+          console.log(
+            isDoneOnServer ? "Máy khác đã hoàn thành ca này trên Server. Gỡ khóa!" :
+              isAllDoneLocal ? "Local báo đã đi xong. Gỡ khóa!" :
+                "Đã lố ca, Server chuyển ca mới. Gỡ khóa ca cũ!"
+          );
 
-            // 3.3 ĐẶC BIỆT: Nếu là do lố ca (!isStillOnServer), ta nên dọn luôn cái ca rác đó khỏi giao diện để nhường chỗ cho ca mới
-            if (!isStillOnServer) {
-              state.dataListRoute = state.dataListRoute.filter((r: any) => Number(r.routeId) !== Number(currentLocked.routeId));
-            }
+          // 3.1 Xóa khóa trong RAM
+          state.unfinishedRouteId = null;
+          state.routeId = null;
+          state.psId = null;
+          state.dataScanQr = null;
 
+          // 3.2 Xóa khóa trong Ổ cứng
+          storageService.remove('unfinished_route_id');
+          storageService.remove('current_route_id');
+          storageService.remove('current_ps_id');
+          storageService.remove('data_scanqr');
+
+          // 3.3 QUAN TRỌNG: TIÊU DIỆT BÓNG MA Ở MÁY 1 (Cái bản 3/19 hư hỏng)
+          if (lockedPsId) {
+            state.dataListRoute = state.dataListRoute.filter((r: any) => Number(r.psId) !== lockedPsId);
           } else {
-            // Nếu chưa xong và vẫn còn trong giờ (Server vẫn trả về), thì duy trì khóa
-            if (!state.psId && currentLocked.psId) {
-              state.psId = currentLocked.psId;
-            }
+            state.dataListRoute = state.dataListRoute.filter((r: any) => Number(r.routeId) !== lockedId);
+          }
+
+          // 3.4 BƠM LẠI SỰ THẬT TỪ SERVER: Nếu Server báo đã xong, lấy bản hoàn hảo (19/19) nhét lại vào Local
+          if (isDoneOnServer && exactServerRoute) {
+            state.dataListRoute.push(exactServerRoute);
+          }
+
+        } else {
+          // Nếu chưa xong và vẫn còn giờ, duy trì khóa psId
+          if (!state.psId && exactLocalRoute && exactLocalRoute.psId) {
+            state.psId = exactLocalRoute.psId;
           }
         }
       }
@@ -386,7 +411,6 @@ const store = createStore({
 
   // 4. Actions: Xử lý bất đồng bộ (API call) rồi gọi mutation
   actions: {
-    // Trong store/index.ts -> actions:
     async syncAllData({ commit, state }, { apiList, mode = 'silent' }) {
       if (!apiList) return;
 
@@ -435,10 +459,10 @@ const store = createStore({
             const data = response?.data;
 
             if (data) {
-              // SỬA LỖI 1: Chỉ lưu SQLite 1 lần và BẮT BUỘC CÓ AWAIT để máy ghi xong mới đi tiếp
+              // Chỉ lưu SQLite 1 lần và BẮT BUỘC CÓ AWAIT để máy ghi xong mới đi tiếp
               await storageService.set(step.key, data);
 
-              // SỬA LỖI 2: Xóa bỏ các khối if (data) lồng nhau lặp code
+              // Xóa bỏ các khối if (data) lồng nhau lặp code
               requestAnimationFrame(() => {
                 commit(step.mutation, data);
               });
@@ -541,7 +565,6 @@ const store = createStore({
 
         if (actualData) {
           commit('SET_DATACP', actualData);
-          // THÊM DÒNG NÀY ĐỂ CHỨNG MINH DỮ LIỆU ĐÃ LÊN VUEX THÀNH CÔNG
           console.log('ĐÃ BƠM DATACP VÀO VUEX:', actualData);
         }
       }
@@ -561,7 +584,6 @@ const store = createStore({
 
     //     if (actualData) {
     //       commit('SET_DATA_CHECKPOINTS_ID', actualData);
-    //       // THÊM DÒNG NÀY ĐỂ CHỨNG MINH DỮ LIỆU ĐÃ LÊN VUEX THÀNH CÔNG
     //       console.log('ĐÃ BƠM CHECKPOINTS_ID VÀO VUEX:', actualData);
     //     }
     //   }
@@ -580,7 +602,6 @@ const store = createStore({
 
         if (actualData) {
           commit('SET_DATA_AREA_BU', actualData);
-          // THÊM DÒNG NÀY ĐỂ CHỨNG MINH DỮ LIỆU ĐÃ LÊN VUEX THÀNH CÔNG
           console.log('ĐÃ BƠM AREA_BU VÀO VUEX:', actualData);
         }
       }
@@ -599,7 +620,6 @@ const store = createStore({
 
         if (actualData) {
           commit('SET_DATA_REPORT_NOTE_CATEGORY', actualData);
-          // THÊM DÒNG NÀY ĐỂ CHỨNG MINH DỮ LIỆU ĐÃ LÊN VUEX THÀNH CÔNG
           console.log('ĐÃ BƠM REPORT_NOTE_CATEGORY VÀO VUEX:', actualData);
         }
       }
@@ -622,8 +642,6 @@ const store = createStore({
           if (Array.isArray(actualData)) {
             commit('SET_DATA_LIST_ROUTE', actualData);
             console.log('Restore List Route thành công:', actualData);
-          } else {
-            console.warn('Dữ liệu List Route không phải là mảng:', actualData);
           }
         }
       } catch (error) {

@@ -1,7 +1,6 @@
 <template>
     <div class="points-grid">
         <div v-for="(point, idx) in details" :key="point.rdId" class="grid-item-wrapper">
-
             <div class="point-node" :class="{
                 'done': point.status === 1,
                 'next-step': isCurrentStep(idx)
@@ -19,7 +18,7 @@
                 </div>
                 <span class="point-number" :class="{
                     'done': point.status === 1
-                }">{{ idx + 1 }}</span>
+                }">{{ point.cpPriority }}</span>
             </div>
 
             <div v-if="(idx + 1) % 4 !== 0 && idx !== details.length - 1" class="h-line"
@@ -46,6 +45,7 @@ interface RouteDetail {
     cpId: number | string;
     cpName: string;
     status: number;
+    cpPriority: number;
 }
 
 const props = defineProps<{
@@ -65,7 +65,7 @@ const loadOfflineQueue = async () => {
         const currentPsId = store.state.psId;
 
         queue.forEach((item: any) => {
-            // ĐIỀU KIỆN MỚI: Chỉ cộng dồn nếu cpId tồn tại VÀ psId phải khớp với ca hiện tại
+            // Chỉ cộng dồn nếu cpId tồn tại VÀ psId phải khớp với ca hiện tại
             if (item.data && item.data.cpId && Number(item.data.psId) === Number(currentPsId)) {
                 const cpId = String(item.data.cpId);
                 counts[cpId] = (counts[cpId] || 0) + (item.data.reports?.length || 1);
