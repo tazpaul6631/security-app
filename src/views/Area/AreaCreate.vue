@@ -22,41 +22,38 @@
               {{ $t('areas.report.no-issue') }}
             </ion-item>
 
-            <div v-if="!formData.prHasProblem">
-              <ion-row>
-                <ion-col>
-                  <ion-button expand="block" size="small" @click="addNoProblemPhoto">
-                    <ion-icon slot="start" :icon="camera"></ion-icon> {{ $t('areas.report.camera') }}
-                  </ion-button>
-                </ion-col>
-                <!-- <ion-col size="6">
-                  <ion-button expand="block" size="small" @click="pickNoProblemImages">
-                    <ion-icon slot="start" :icon="images"></ion-icon> {{ $t('areas.report.gallery') }}
-                  </ion-button>
-                </ion-col> -->
-              </ion-row>
-
-              <ion-grid v-if="noProblemImages.length > 0">
+            <transition name="smooth-collapse">
+              <div v-if="!formData.prHasProblem">
                 <ion-row>
-                  <ion-col size="4" v-for="(photo, pIdx) in noProblemImages" :key="pIdx">
-                    <div class="image-container">
-                      <ion-img :src="photo.preview" class="thumb-img" />
-                      <div class="delete-btn" @click="removeNoProblemPhoto(pIdx)">
-                        <ion-icon :icon="trash"></ion-icon>
-                      </div>
-                    </div>
+                  <ion-col>
+                    <ion-button class="btn-camera" expand="block" size="small" @click="addNoProblemPhoto">
+                      <ion-icon slot="start" :icon="camera"></ion-icon> {{ $t('areas.report.camera') }}
+                    </ion-button>
                   </ion-col>
                 </ion-row>
-              </ion-grid>
 
-              <ion-row>
-                <ion-col>
-                  <ion-textarea :label="$t('areas.report.content')" label-placement="floating" fill="outline"
-                    v-model="formData.prNote" :rows="4" :placeholder="$t('areas.report.placeholder-input')">
-                  </ion-textarea>
-                </ion-col>
-              </ion-row>
-            </div>
+                <ion-grid v-if="noProblemImages.length > 0">
+                  <ion-row>
+                    <ion-col size="4" v-for="(photo, pIdx) in noProblemImages" :key="pIdx">
+                      <div class="image-container">
+                        <ion-img :src="photo.preview" class="thumb-img" />
+                        <div class="delete-btn" @click="removeNoProblemPhoto(pIdx)">
+                          <ion-icon :icon="trash"></ion-icon>
+                        </div>
+                      </div>
+                    </ion-col>
+                  </ion-row>
+                </ion-grid>
+
+                <ion-row>
+                  <ion-col>
+                    <ion-textarea :label="$t('areas.report.content')" label-placement="floating" fill="outline"
+                      v-model="formData.prNote" :rows="4" :placeholder="$t('areas.report.placeholder-input')">
+                    </ion-textarea>
+                  </ion-col>
+                </ion-row>
+              </div>
+            </transition>
 
             <ion-item lines="none">
               <ion-checkbox v-model="formData.prHasProblem" @ionChange="handleCheckedHasProblem">
@@ -64,17 +61,23 @@
               </ion-checkbox>
             </ion-item>
 
-            <div v-if="formData.prHasProblem">
-              <ion-row>
-                <ion-col>
-                  <ion-button expand="block" fill="outline" @click="openCategoryModal = true">
-                    <ion-icon slot="start" :icon="images"></ion-icon>
-                    {{ $t('areas.report.select-status') }} ({{ groupedNotes.length }})
-                  </ion-button>
-                </ion-col>
-              </ion-row>
-            </div>
+            <transition name="smooth-collapse">
+              <div v-if="formData.prHasProblem">
+                <ion-row>
+                  <ion-col>
+                    <ion-button class="btn-status" expand="block" fill="outline" @click="openCategoryModal = true">
+                      <ion-icon slot="start" :icon="images"></ion-icon>
+                      {{ $t('areas.report.select-status') }} ({{ groupedNotes.length }})
+                    </ion-button>
+                  </ion-col>
+                </ion-row>
+              </div>
+            </transition>
+          </ion-card-content>
+        </ion-card>
 
+        <ion-card v-if="mandatoryPhoto">
+          <ion-card-content>
             <ion-button class="btn-submit" expand="block" color="success" :disabled="isSubmitting"
               @click="confirmSubmit">
               <ion-icon slot="start" :icon="sendOutline"></ion-icon>
@@ -913,8 +916,15 @@ onMounted(async () => {
 }
 
 .btn-submit {
-  margin-top: 25px;
   --ion-color-contrast: white !important;
+}
+
+.btn-status,
+.btn-submit,
+.btn-camera {
+  height: 40px;
+  font-size: 16px;
+  font-weight: bold;
 }
 
 .accept-img {
@@ -952,7 +962,22 @@ onMounted(async () => {
   color: red;
 }
 
-.btn-camera {
-  margin-top: 20px;
+/* --- Smooth Collapse Animation --- */
+.smooth-collapse-enter-active,
+.smooth-collapse-leave-active {
+  /* Kết hợp chạy mượt cả 3 thuộc tính: chiều cao, độ mờ và vị trí */
+  transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.35s ease-in-out,
+    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  max-height: 800px;
+  /* Con số này chỉ cần lớn hơn chiều cao thực tế của khối nội dung là được */
+}
+
+.smooth-collapse-enter-from,
+.smooth-collapse-leave-to {
+  max-height: 0;
+  opacity: 0;
+  transform: translateY(-15px);
 }
 </style>

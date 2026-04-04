@@ -4,3 +4,7 @@ declare module '*.vue' {
   const component: DefineComponent<{}, {}, any>
   export default component
 }
+
+declare module 'swiper/css';
+declare module 'swiper/css/*';
+declare module '@ionic/vue/css/ionic-swiper.css';

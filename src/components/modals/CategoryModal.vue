@@ -4,7 +4,7 @@
             <ion-toolbar color="primary" class="text-padding">
                 <ion-title>{{ $t('areas.report.issue-type') }}</ion-title>
                 <ion-buttons slot="end">
-                    <ion-button @click="$emit('close')">{{ $t('areas.report.close') }}</ion-button>
+                    <ion-button class="btn-close" @click="$emit('close')">{{ $t('areas.report.close') }}</ion-button>
                 </ion-buttons>
             </ion-toolbar>
         </ion-header>
@@ -41,7 +41,7 @@
                     <ion-card-content>
                         <ion-row>
                             <ion-col>
-                                <ion-button expand="block" size="small" @click="$emit('addPhoto', index)">
+                                <ion-button class="btn-camera" expand="block" @click="$emit('addPhoto', index)">
                                     <ion-icon slot="start" :icon="camera"></ion-icon> {{ $t('areas.report.camera') }}
                                 </ion-button>
                             </ion-col>
@@ -149,5 +149,16 @@ defineEmits([
     background-color: #f0f0f0;
     border: 1px dashed #ccc;
     border-radius: 4px;
+}
+
+.btn-camera {
+    height: 40px;
+    font-size: 17px;
+    font-weight: bold;
+}
+
+.btn-close {
+    font-size: 17px;
+    font-weight: bold;
 }
 </style>

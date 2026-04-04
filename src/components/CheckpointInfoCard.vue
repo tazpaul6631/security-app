@@ -69,7 +69,7 @@ defineProps<{
 }
 
 .icon-clock {
-    margin-right: 5px;
+    margin-right: 1px;
     font-size: 1.1rem;
 }
 

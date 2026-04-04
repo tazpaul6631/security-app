@@ -105,12 +105,11 @@ defineExpose({ loadOfflineQueue });
 </script>
 
 <style scoped>
-/* Giữ nguyên các class cũ của bạn */
 .points-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 20px 5px;
-    padding: 15px 0;
+    padding: 0 0 15px 0;
 }
 
 .grid-item-wrapper {
@@ -121,8 +120,8 @@ defineExpose({ loadOfflineQueue });
 }
 
 .point-node {
-    width: 45px;
-    height: 45px;
+    width: 50px;
+    height: 50px;
     position: relative;
     border-radius: 12px;
     padding: 2px;
@@ -149,14 +148,14 @@ defineExpose({ loadOfflineQueue });
 
 .point-number {
     position: absolute;
-    bottom: -6px;
-    right: -6px;
+    bottom: -9px;
+    right: -13px;
     background: #999;
     color: white;
-    font-size: 9px;
+    font-size: 13px;
     padding-top: 1px;
-    width: 20px;
-    border-radius: 10px;
+    width: 23px;
+    border-radius: 12px;
     border: 1.5px solid white;
     font-weight: bold;
     display: flex;
@@ -175,7 +174,7 @@ defineExpose({ loadOfflineQueue });
 }
 
 .points-icon {
-    font-size: 24px;
+    font-size: 35px;
     color: #ccc;
 }
 
@@ -186,33 +185,30 @@ defineExpose({ loadOfflineQueue });
 /* --- CẬP NHẬT Ở ĐÂY --- */
 .check-icon {
     position: absolute;
-    top: -5px;
-    right: -5px;
-    /* Dời từ trái (left) sang phải (right) */
+    top: -10px;
+    right: -10px;
     background: var(--ion-color-success);
     border-radius: 50%;
     color: white;
     display: flex;
     padding: 2px;
-    font-size: 10px;
-    border: 1px solid white;
+    font-size: 12px;
+    border: 1.5px solid white;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-/* THÊM MỚI: Badge cảnh báo Offline */
+/* Badge cảnh báo Offline */
 .offline-badge {
     position: absolute;
-    bottom: -5px;
-    left: -5px;
-    /* Chấm vàng nằm bên trái */
+    bottom: -8px;
+    left: -11px;
     background: var(--ion-color-warning);
-    /* Màu vàng */
     color: white;
-    font-size: 9px;
+    font-size: 12px;
     font-weight: bold;
     padding: 3px;
     border-radius: 10px;
-    border: 1px solid white;
+    border: 1.5px solid white;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -222,14 +218,14 @@ defineExpose({ loadOfflineQueue });
 
 .point-label {
     margin-top: 8px;
-    font-size: 0.6rem;
+    font-size: 0.7rem;
     color: #444;
     text-align: center;
-    display: -webkit-box;
+    /* display: -webkit-box;
     -webkit-line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
-    line-height: 1.2;
+    line-height: 1.2; */
     max-width: 65px;
     height: 1.5rem;
 }
@@ -237,7 +233,7 @@ defineExpose({ loadOfflineQueue });
 .h-line {
     background: #eee;
     position: absolute;
-    top: 22px;
+    top: 25px;
     right: -28%;
     width: 50%;
     height: 2px;

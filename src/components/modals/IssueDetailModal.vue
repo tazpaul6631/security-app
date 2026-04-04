@@ -21,7 +21,7 @@
                 </ion-item>
             </ion-list>
 
-            <ion-button expand="block" class="ion-margin-top" @click="$emit('confirm')">{{
+            <ion-button expand="block" class="ion-margin-top btn-confirm" @click="$emit('confirm')">{{
                 $t('areas.report.btn-confirm') }}</ion-button>
         </ion-content>
     </ion-modal>
@@ -64,5 +64,11 @@ ion-item {
 
 ion-label {
     user-select: none;
+}
+
+.btn-confirm {
+    height: 45px;
+    font-size: 16px;
+    font-weight: bold;
 }
 </style>

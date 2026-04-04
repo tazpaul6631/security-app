@@ -3,7 +3,7 @@
     "target": "ESNext",
     "useDefineForClassFields": true,
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
     "strict": true,
     "jsx": "preserve",
     "resolveJsonModule": true,
@@ -18,8 +18,11 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "vuex": [
+        "./node_modules/vuex/types/index.d.ts"
       ]
-    }
+    },
   },
   "include": [
     "src/**/*.ts",

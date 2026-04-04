@@ -25,7 +25,7 @@
                                     currentActiveRoute.psHourFrom }}h
                                 <br />
                                 <span class="timer-display" :class="timerColorClass" v-if="formattedTime">
-                                    <ion-icon :icon="timeOutline"></ion-icon>
+                                    <ion-icon :icon="timeOutline" class="icon-clock"></ion-icon>
                                     {{ $t('routes.countdown') }} {{ formattedTime }}
                                 </span>
                             </ion-card-subtitle>
@@ -225,20 +225,21 @@ watch(() => currentActiveRoute.value, async (newRoute) => {
         if (hasStarted || isUnfinished) {
             await restoreTimer(newRoute.routeId);
         } else {
-            // --- VÁ LỖI: CA MỚI TINH (Chưa làm gì) ---
-            // Nếu có ca cũ đang chạy ngầm trong RAM, ta phải xóa data của CA CŨ, không phải ca mới!
+            // CA MỚI TINH (Chưa làm gì) ---
             if (currentTimerRouteId.value !== null && currentTimerRouteId.value !== newRoute.routeId) {
                 await clearTimer(currentTimerRouteId.value);
             }
         }
     } else {
-        // NẾU KHÔNG CÓ LỘ TRÌNH NÀO HOẠT ĐỘNG (Rảnh rỗi, lố ca, chờ ca mới...)
-        // Dọn dẹp sạch sẽ toàn bộ đồng hồ đếm ngược của ca cũ đi
-        if (currentTimerRouteId.value !== null) {
-            await clearTimer(currentTimerRouteId.value);
-        } else {
-            stopTimer();
-            remainingSeconds.value = 0;
+        // NẾU KHÔNG CÓ LỘ TRÌNH NÀO HOẠT ĐỘNG
+        // Tránh tình trạng clear nhầm Storage lúc API đang load làm currentActiveRoute bị null tạm thời
+        if (!lockedRouteId.value && !isLoading.value) {
+            if (currentTimerRouteId.value !== null) {
+                await clearTimer(currentTimerRouteId.value);
+            } else {
+                stopTimer();
+                remainingSeconds.value = 0;
+            }
         }
     }
 }, { immediate: true });
@@ -319,7 +320,7 @@ const hasDataButFinished = computed(() => {
 });
 
 // ==========================================
-// 4. LIFECYCLE VÀ API (onMounted để bên dưới các hàm trên)
+// 4. LIFECYCLE VÀ API
 // ==========================================
 const updateSystemTime = async () => {
     const now = new Date();
@@ -358,8 +359,8 @@ const loadRouteData = async () => {
             const response: any = await PatrolShiftView.postPatrolShiftView(dateInfo);
             const apiDataRaw = response?.data?.data || response?.data || [];
 
-            // CHỈ CẦN ĐẨY THẲNG VÀO VUEX, KHÔNG CẦN TỰ VIẾT CODE GIẢI CỨU Ở ĐÂY NỮA
-            // Chiêu cuối của Vuex sẽ kiểm tra xem ca bị khóa đã isComplete chưa, nếu có nó sẽ TỰ MỞ KHÓA
+
+            // Vuex sẽ kiểm tra xem ca bị khóa đã isComplete chưa, nếu có nó sẽ TỰ MỞ KHÓA
             store.commit('SET_DATA_LIST_ROUTE', apiDataRaw);
 
             shiftDataList.value = store.state.dataListRoute;
@@ -384,7 +385,7 @@ onIonViewWillEnter(async () => {
     currentHour.value = now.getHours();
     userRoleIsAdmin.value = store.state.dataUser?.userRoleIsAdmin;
 
-    // Gọi hàm kéo dữ liệu lộ trình (code cũ của bạn)
+    // Gọi hàm kéo dữ liệu lộ trình
     await loadRouteData();
 
     // Bắt thẻ con quét lại SQLite để đếm số ảnh offline mới nhất
@@ -444,10 +445,9 @@ const cancelButtons = [
                 );
 
                 for (const item of itemsToDelete) {
-                    // --- VÁ LỖI: XÓA ẢNH VẬT LÝ TRƯỚC ---
+                    // XÓA ẢNH VẬT LÝ TRƯỚC ---
                     if (item.imageFiles && item.imageFiles.length > 0) {
                         for (const fileName of item.imageFiles) {
-                            // Thêm .catch() để lỡ file ảo không tồn tại thì app vẫn không bị crash
                             await ImageService.deleteImage(fileName).catch(() => { });
                         }
                     }
@@ -509,6 +509,13 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
     font-size: 0.9rem;
     color: #666;
     transition: color 0.3s ease;
+    display: flex;
+    align-items: center;
+}
+
+.icon-clock {
+    margin-right: 1px;
+    font-size: 1.1rem;
 }
 
 .text-success {
@@ -556,6 +563,7 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
     height: 50px;
     font-weight: bold;
     flex: 1;
+    font-size: 17px;
 }
 
 /* No Route State */
