@@ -129,7 +129,7 @@ import {
   IonHeader, IonToolbar, IonTitle, IonCard, IonCardHeader, IonCardTitle,
   IonCardSubtitle, IonCardContent, IonCol, IonGrid, IonRow, IonPage,
   IonContent, IonLabel, IonImg, IonModal, IonButtons, IonBackButton,
-  IonList, IonItem, IonIcon, IonButton
+  IonList, IonItem, IonIcon, IonButton, useBackButton
 } from '@ionic/vue'
 import { calendarOutline, documentTextOutline } from 'ionicons/icons';
 import { ref, computed, watch } from 'vue';
@@ -145,12 +145,9 @@ const store = useStore();
 const isModalOpen = ref(false);
 const currentSlideIndex = ref(0);
 
-// Chuyển listGroups thành ref để xử lý logic async (đọc file từ máy)
+// Chuyển listGroups thành ref để xử lý logic async
 const listGroups = ref<any[]>([]);
 
-/**
- * Lấy data từ Store dựa trên ID từ URL
- */
 const getPrIdData = computed(() => {
   const dataStoreRP = store.state.currentCheckpoint;
   if (!dataStoreRP) return null;
@@ -170,7 +167,7 @@ const getPrIdData = computed(() => {
 });
 
 /**
- * LOGIC MỚI: Xử lý danh sách ảnh (Hỗ trợ Offline File, Online URL và Online Base64)
+ * Xử lý danh sách ảnh (Hỗ trợ Offline File, Online URL và Online Base64)
  * Watch này sẽ chạy mỗi khi getPrIdData thay đổi
  */
 watch(() => getPrIdData.value, async (data) => {
@@ -248,17 +245,10 @@ const openModal = (img: { url: string; note?: string }) => {
 };
 
 const closeModal = () => {
-  if (document.activeElement instanceof HTMLElement) {
-    document.activeElement.blur();
-  }
   isModalOpen.value = false;
 };
 
 const goHome = () => {
-  // Bỏ focus của nút "Quay lại" trước khi đổi route
-  if (document.activeElement instanceof HTMLElement) {
-    document.activeElement.blur();
-  }
   router.push('/home');
 };
 
@@ -271,6 +261,10 @@ const getProblemData = (text: string) => {
   const problem = listProblems.value.find(r => r.problem === text);
   return problem ? problem : { name: '' };
 };
+
+useBackButton(10, () => {
+  router.replace('/area');
+});
 </script>
 
 <style scoped>

@@ -88,7 +88,7 @@ import {
     IonPage, IonHeader, IonToolbar, IonTitle, IonIcon, IonButtons, IonBackButton,
     IonCardContent, IonContent, IonAlert, IonButton, IonCard, IonCardHeader,
     IonCardSubtitle, IonCardTitle, IonSpinner, IonFooter, onIonViewWillEnter,
-    loadingController
+    loadingController, useBackButton
 } from '@ionic/vue';
 import { qrCodeOutline, calendarOutline, trashOutline, timeOutline } from 'ionicons/icons';
 import CardRoutePoints from '@/components/CardRoutePoints.vue';
@@ -275,9 +275,6 @@ const processScannedData = async (qrCodeString: string, routeId: number) => {
 
 // Nút bấm cho Điện thoại thường (Mở Camera)
 const handleContinueScanning = async (routeId: number) => {
-    if (document.activeElement instanceof HTMLElement) {
-        document.activeElement.blur();
-    }
     if (isScanning.value) return;
 
     isScanning.value = true;
@@ -494,6 +491,10 @@ const cancelButtons = [
     }
 ];
 
+useBackButton(10, () => {
+    router.replace('/home');
+});
+
 watch(() => store.state.isSyncing, (isSyncingNow) => {
     // Khi isSyncing chuyển từ true -> false (nghĩa là vừa đồng bộ xong)
     if (!isSyncingNow && cardRoutePointsRef.value) {
@@ -563,7 +564,7 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
     height: 50px;
     font-weight: bold;
     flex: 1;
-    font-size: 17px;
+    font-size: 20px;
 }
 
 /* No Route State */

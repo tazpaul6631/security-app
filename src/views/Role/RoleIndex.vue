@@ -66,9 +66,10 @@
 import { ref, onMounted, computed } from 'vue';
 import {
     IonPage, IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle,
-    IonContent, IonCard, IonCardHeader, IonCardTitle, IonIcon, IonLabel,
+    IonContent, IonCard, IonCardHeader, IonCardTitle, IonIcon, IonLabel, useBackButton,
     IonCardContent, IonBadge, IonSpinner, IonInfiniteScroll, IonInfiniteScrollContent
 } from '@ionic/vue';
+import router from '@/router';
 
 // Import file api của bạn (điều chỉnh đường dẫn cho đúng với project)
 import Role from '@/api/Role';
@@ -89,7 +90,6 @@ const isAllLoaded = computed(() => {
 });
 
 // --- METHODS ---
-
 // Format ngày tháng hiển thị đẹp hơn
 const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -143,11 +143,14 @@ const loadMoreRoles = (event: any) => {
     }, 500);
 };
 
+useBackButton(10, () => {
+    router.replace('/home');
+});
+
 // --- LIFECYCLE ---
 onMounted(() => {
     fetchRoles(); // Tự động gọi API khi vào page
 });
-
 </script>
 
 <style scoped>

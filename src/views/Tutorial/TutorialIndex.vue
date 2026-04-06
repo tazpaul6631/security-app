@@ -189,11 +189,16 @@
 </template>
 
 <script setup lang="ts">
+import router from '@/router';
 import {
     IonPage, IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle,
-    IonContent, IonAccordion, IonAccordionGroup, IonItem, IonLabel,
+    IonContent, IonAccordion, IonAccordionGroup, IonItem, IonLabel, useBackButton,
     IonCard, IonCardHeader, IonCardTitle, IonCardContent
 } from '@ionic/vue';
+
+useBackButton(10, () => {
+    router.replace('/home');
+});
 </script>
 
 <style scoped>

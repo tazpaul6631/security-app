@@ -68,7 +68,7 @@
 import {
     IonCardHeader, IonCardTitle, IonButton, IonCard, IonInput, IonInputPasswordToggle,
     IonCardContent, IonPage, IonSpinner, IonContent, IonFab, actionSheetController,
-    IonIcon, IonLabel, IonText, IonGrid, IonRow, IonCol
+    IonIcon, IonLabel, IonText, IonGrid, IonRow, IonCol, useBackButton
 } from '@ionic/vue';
 import { languageOutline, qrCodeOutline } from 'ionicons/icons';
 import { useRouter } from 'vue-router';
@@ -77,6 +77,7 @@ import { useStore } from 'vuex';
 import CryptoJS from 'crypto-js';
 import { useI18n } from 'vue-i18n';
 import { BarcodeScanner } from '@capacitor-mlkit/barcode-scanning';
+import { App } from '@capacitor/app';
 
 // Các API và Service
 import Login from '@/api/Login';
@@ -261,6 +262,10 @@ const changeLanguage = async (lang: string) => {
     await storageService.set('app_language', lang);
 };
 
+useBackButton(10, () => {
+    App.exitApp();
+});
+
 onMounted(async () => {
     const savedLang = await storageService.get('app_language');
     if (savedLang) {
@@ -272,7 +277,6 @@ onMounted(async () => {
 <style scoped>
 /* Màu nền tổng thể kết hợp Hình ảnh + Lớp phủ đen mờ */
 .login-content {
-    /* Lớp linear-gradient sẽ phủ một lớp đen mờ (độ đục từ 40% đến 60%) lên bức ảnh để form nổi bật hơn */
     --background: linear-gradient(rgba(0, 0, 0, 0), rgba(0, 0, 0, 0)), url('/assets/cty.jpg') no-repeat 50% / cover;
 }
 
@@ -288,7 +292,6 @@ onMounted(async () => {
     display: inline-block;
     text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
     color: darkgray;
-    /* Đổ bóng chữ để dễ đọc hơn */
 }
 
 /* Card Đăng nhập - Hiệu ứng Kính Mờ (Glassmorphism) */
@@ -296,16 +299,12 @@ onMounted(async () => {
     width: 100%;
     max-width: 400px;
     background: rgba(255, 255, 255, 0.85);
-    /* Trắng đục 85% để hơi lộ nền mờ mờ phía sau */
     backdrop-filter: blur(12px);
-    /* Hiệu ứng làm nhòe nền đằng sau Form */
     -webkit-backdrop-filter: blur(12px);
-    /* Dành cho iOS/Safari */
     border-radius: 16px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
     margin: 0;
     border: 1px solid rgba(255, 255, 255, 0.3);
-    /* Viền sáng nhẹ tạo cảm giác khối 3D */
 }
 
 /* Nút chọn ngôn ngữ */

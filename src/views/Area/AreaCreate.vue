@@ -134,7 +134,7 @@ import {
   IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonItem, IonTextarea,
   IonCheckbox, IonButton, IonIcon, IonCard, IonCardContent, IonGrid, IonRow,
   IonCol, IonImg, loadingController, onIonViewWillEnter,
-  IonButtons, onIonViewDidLeave, alertController
+  IonButtons, onIonViewDidLeave, alertController, useBackButton
 } from '@ionic/vue';
 import {
   sendOutline, camera, images, trash, arrowBackOutline, checkmarkCircleOutline
@@ -144,8 +144,6 @@ import { useOfflineManager } from '@/composables/useOfflineManager';
 import { ImageService } from '@/services/image.service';
 import router from '@/router';
 import storageService from '@/services/storage.service';
-import { App } from '@capacitor/app';
-import { PluginListenerHandle } from '@capacitor/core';
 import { useRouteTimer } from '@/composables/useRouteTimer';
 import { useRoute } from 'vue-router';
 
@@ -156,8 +154,6 @@ import IssueDetailModal from '@/components/modals/IssueDetailModal.vue';
 import CategoryModal from '@/components/modals/CategoryModal.vue';
 import { useCameraHandler } from '@/composables/useCameraHandler';
 import { useI18n } from 'vue-i18n';
-
-let backButtonListener: PluginListenerHandle | null = null;
 
 // Lấy 3 hàm xịn xò ra xài
 const { takePhoto, pickImagesFromGallery, convertBlobToBase64, showToast } = useCameraHandler();
@@ -266,11 +262,9 @@ const generateId = () => Math.random().toString(36).substr(2, 9);
 
 const handleCheckedHasProblem = () => {
   if (formData.prHasProblem) {
-    // KHI TICK VÀO "Có lỗi": Xóa sạch dữ liệu của bên "Không lỗi" (nếu có)
     noProblemImages.value = [];
     formData.prNote = '';
   } else {
-    // KHI BỎ TICK "Có lỗi": Xóa sạch danh sách sự cố đã chọn
     groupedNotes.value = [];
     selectedValues.value = [];
     formData.prNote = '';
@@ -345,18 +339,12 @@ const confirmDetails = () => {
   }
 };
 
-// --- THÊM MỚI: Xử lý ảnh cho trường hợp Không Lỗi ---
+// Xử lý ảnh cho trường hợp Không Lỗi ---
 const noProblemImages = ref<Photo[]>([]);
 
 const confirmSubmit = async () => {
   if (formData.prHasProblem && groupedNotes.value.length === 0) {
     return showToast(t('areas.report.select-status'), 'warning');
-  }
-
-  const isMissingImage = groupedNotes.value.some(group => group.reportImages.length === 0);
-
-  if (formData.prHasProblem && isMissingImage) {
-    return showToast(t('areas.report.img-status'), 'warning');
   }
 
   const alert = await alertController.create({
@@ -380,7 +368,7 @@ const confirmSubmit = async () => {
   await alert.present();
 };
 
-// --- Submit Logic (Quan trọng nhất) ---
+// --- Submit Logic ---
 const isSubmitting = ref(false);
 const handleSubmit = async (): Promise<void> => {
   if (isSubmitting.value) return;
@@ -402,7 +390,7 @@ const handleSubmit = async (): Promise<void> => {
     const sourceData: any[] = [];
     const allBase64ForStorage: string[] = []; // Đây là nơi chứa data ảnh thực tế
 
-    // --- BƯỚC 1: GOM NHÓM DỮ LIỆU ---
+    // --- GOM NHÓM DỮ LIỆU ---
     if (mandatoryPhoto.value) {
       sourceData.push({
         prGroup: 1,
@@ -429,7 +417,7 @@ const handleSubmit = async (): Promise<void> => {
       });
     }
 
-    // --- BƯỚC 2: XỬ LÝ ẢNH ---
+    // --- XỬ LÝ ẢNH ---
     const finalNoteGroups: any[] = [];
     const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
     const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
@@ -486,7 +474,7 @@ const handleSubmit = async (): Promise<void> => {
 
     console.log(finalNoteGroups);
 
-    // --- BƯỚC 3: TẠO PAYLOAD JSON SẠCH ---
+    // --- TẠO PAYLOAD JSON SẠCH ---
     const currentCpId = dataScanQr.value.cpId;
     const routeId = store.state.routeId;
     const userId = store.state.dataUser?.userId || store.state.dataUser?.data?.userId;
@@ -509,7 +497,7 @@ const handleSubmit = async (): Promise<void> => {
       noteGroups: finalNoteGroups, // metadata
     };
 
-    // --- BƯỚC 4: GỬI QUA OFFLINE MANAGER ---
+    // --- GỬI QUA OFFLINE MANAGER ---
     // firstPreview dùng để làm ảnh đại diện thumbnail trong danh sách chờ
     const firstPreview = mandatoryPhoto.value?.preview ||
       (formData.prHasProblem ? groupedNotes.value[0]?.reportImages[0]?.preview : noProblemImages.value[0]?.preview);
@@ -517,7 +505,7 @@ const handleSubmit = async (): Promise<void> => {
     // sendData sẽ nhận mảng allBase64ForStorage, lưu thành file và dùng buildFormData để gửi IFormFile
     await sendData(firstPreview || '', formSubmitData, allBase64ForStorage);
 
-    // --- BƯỚC 5: RESET VÀ CHUYỂN TRANG ---
+    // --- RESET VÀ CHUYỂN TRANG ---
     store.commit('UPDATE_POINT_STATUS', { routeId, cpId: currentCpId, status: 1 });
     const updatedRoutes = [...store.state.dataListRoute];
     const rIdx = updatedRoutes.findIndex((r: Route) => Number(r.routeId) === Number(routeId) && Number(r.psId) === Number(finalPsId));
@@ -652,15 +640,6 @@ const addNoProblemPhoto = async () => {
   }
 };
 
-const pickNoProblemImages = async () => {
-  const currentCount = noProblemImages.value.length;
-  const photos = await pickImagesFromGallery(currentCount, 'ok_lib_');
-
-  if (photos.length > 0) {
-    noProblemImages.value.push(...photos);
-  }
-};
-
 const removeNoProblemPhoto = (idx: number) => {
   noProblemImages.value.splice(idx, 1);
 };
@@ -754,17 +733,13 @@ const captureMandatoryPhoto = async () => {
       if (activeRoute && activeRoute.psHourFrom !== undefined) {
         const currentHour = now.getHours();
 
-        // Ca 1 tiếng (VD: Ca 8h là từ 08:00:00 -> 08:59:59)
-        // Chỉ cần giờ hiện tại KHÁC với giờ bắt đầu ca -> Lố ca hoặc Sai ca
         if (currentHour !== activeRoute.psHourFrom) {
           isLate = true;
         }
       }
 
-      // Nếu lố ca: Màu Đỏ (#FF0000). Nếu đúng ca: Màu Vàng (#FFD700)
       const watermarkColor = isLate ? '#FF0000' : '#FFD700';
 
-      // Đóng dấu thời gian + truyền thêm màu sắc
       const watermarkedBase64 = await addWatermarkToImage(photo.preview, timeString, watermarkColor);
 
       mandatoryPhoto.value = {
@@ -844,13 +819,6 @@ onIonViewWillEnter(async () => {
 });
 
 onIonViewDidLeave(async () => {
-  backButtonListener = await App.addListener('backButton', handleGoBack);
-
-  if (backButtonListener) {
-    backButtonListener.remove();
-    backButtonListener = null;
-  }
-
   isResetting.value = true;
   formData.prHasProblem = false;
   formData.prNote = '';
@@ -885,6 +853,10 @@ onMounted(async () => {
   }
 
   isReady.value = true;
+});
+
+useBackButton(10, () => {
+  handleGoBack();
 });
 </script>
 
@@ -941,7 +913,6 @@ onMounted(async () => {
 .mandatory-img-container {
   width: 100%;
   height: 40vh;
-  /* Hình cực kỳ gọn gàng, chiếm 40% màn hình */
   background-color: #1a1a1a;
   border-radius: 8px;
   overflow: hidden;
@@ -955,7 +926,6 @@ onMounted(async () => {
   width: 100%;
   height: 100%;
   object-fit: contain;
-  /* Ép hình thu nhỏ vừa vặn 100% vào trong khung 40vh */
 }
 
 .require {
@@ -965,13 +935,11 @@ onMounted(async () => {
 /* --- Smooth Collapse Animation --- */
 .smooth-collapse-enter-active,
 .smooth-collapse-leave-active {
-  /* Kết hợp chạy mượt cả 3 thuộc tính: chiều cao, độ mờ và vị trí */
   transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
     opacity 0.35s ease-in-out,
     transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
   max-height: 800px;
-  /* Con số này chỉ cần lớn hơn chiều cao thực tế của khối nội dung là được */
 }
 
 .smooth-collapse-enter-from,

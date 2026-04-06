@@ -17,7 +17,7 @@ export function useCameraHandler() {
         const toast = await toastController.create({
             message,
             color,
-            duration: 3000,
+            duration: 1000,
             position: 'top'
         });
         await toast.present();

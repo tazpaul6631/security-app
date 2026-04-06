@@ -36,7 +36,7 @@
                                 </p> - {{ user.userRoleCode }}
                             </ion-card-subtitle>
                             <ion-card-subtitle class="padding-text">{{ user.userAreaName }} - {{ user.userAreaCode
-                            }}</ion-card-subtitle>
+                                }}</ion-card-subtitle>
                         </div>
                     </div>
                 </ion-card-header>
@@ -55,11 +55,13 @@
 </template>
 
 <script setup lang="ts">
+import router from '@/router';
 import { ref, onMounted, computed } from 'vue';
 import {
     IonPage, IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle,
     IonContent, IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle,
-    IonIcon, IonSpinner, IonInfiniteScroll, IonInfiniteScrollContent
+    IonIcon, IonSpinner, IonInfiniteScroll, IonInfiniteScrollContent,
+    useBackButton
 } from '@ionic/vue';
 import UserView from '@/api/UserView';
 import { person } from 'ionicons/icons';
@@ -109,7 +111,6 @@ const isAllLoaded = computed(() => {
 });
 
 // --- METHODS ---
-// Gọi API lấy dữ liệu
 const fetchUsers = async () => {
     try {
         isLoading.value = true;
@@ -151,11 +152,14 @@ const loadMoreRoles = (event: any) => {
     }, 500);
 };
 
+useBackButton(10, () => {
+    router.replace('/home');
+});
+
 // --- LIFECYCLE ---
 onMounted(() => {
     fetchUsers(); // Tự động gọi API khi vào page
 });
-
 </script>
 
 <style scoped>

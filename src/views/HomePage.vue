@@ -64,7 +64,6 @@ import { useStore } from 'vuex';
 
 const isOnline = computed(() => store.state.isOnline);
 const store = useStore();
-// Lấy dataUser từ Vuex, nếu không có sẽ hiển thị giá trị mặc định trong template
 const dataUser = computed(() => store.state.dataUser);
 const allowViews = computed(() => dataUser.value?.allowViews || []);
 
@@ -96,11 +95,8 @@ const getRoleData = (userRoleId: number) => {
 
 const handleClickIcon = (id: number) => {
   const role = getAreaData(id);
-  // Chỉ chuyển trang nếu tìm thấy router hợp lệ
   if (role && role.router) {
     router.replace({ path: role.router });
-  } else {
-    console.warn("Không tìm thấy đường dẫn cho mcId:", id);
   }
 };
 </script>

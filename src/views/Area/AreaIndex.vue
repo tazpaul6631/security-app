@@ -81,7 +81,7 @@
                                         <ion-col size="6" class="ion-text-end">
                                             <div class="note-container">
                                                 <ion-label class="labelItem" color="medium">{{ item.reportName
-                                                }}</ion-label>
+                                                    }}</ion-label>
                                                 <ion-badge
                                                     :color="item.realityPoint >= item.planPoint ? 'success' : 'medium'"
                                                     style="margin-top: 4px; color: white;">
@@ -177,7 +177,7 @@
                                 <ion-col size="auto" class="ion-text-end">
                                     <ion-label class="labelItem">{{ item.reportName }}</ion-label>
                                     <ion-note class="labelItem">{{ item.reportAt?.replace('T', ' ').slice(0, 16)
-                                    }}</ion-note>
+                                        }}</ion-note>
                                 </ion-col>
                             </ion-row>
                         </ion-grid>
@@ -202,7 +202,8 @@ import {
     IonSegment, IonSegmentButton, IonContent, IonIcon, IonGrid, IonRow, IonCol,
     IonText, IonNote, loadingController, IonItem, IonList,
     onIonViewWillEnter, IonProgressBar, IonSkeletonText, IonInfiniteScroll,
-    IonInfiniteScrollContent, IonButton, IonModal, IonBadge, IonSelect, IonSelectOption
+    IonInfiniteScrollContent, IonButton, IonModal, IonBadge, IonSelect, IonSelectOption,
+    useBackButton
 } from '@ionic/vue';
 import { calendarOutline, footstepsOutline, newspaperOutline, timeOutline, funnelOutline } from "ionicons/icons";
 import { computed, ref, watch } from 'vue';
@@ -340,7 +341,6 @@ const fetchAreasData = async (areaId: number) => {
         if (isOnline.value) {
             const payload: any = { areaId };
 
-            // Xử lý Payload gọi API
             if (isCurrentUserAdmin.value && filterStatus.value !== 'all' && filterStatus.value !== 'admin') {
                 payload.roleId = Number(filterStatus.value);
             } else if (!isCurrentUserAdmin.value) {
@@ -437,7 +437,6 @@ const handleFilterChange = async () => {
 };
 
 const handleModalSelection = async (item: any) => {
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
     isModalOpen.value = false;
     currentPage.value = 1;
 
@@ -490,9 +489,6 @@ const handleModalSelection = async (item: any) => {
 };
 
 const handleSelectedRow = async (prId: number, event?: any) => {
-    if (event?.currentTarget) event.currentTarget.blur();
-    if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
-
     const loading = await loadingController.create({ message: t('areas.index.message.1'), spinner: 'crescent' });
     await loading.present();
 
@@ -555,6 +551,10 @@ const loadMoreModalData = (event: any) => {
     }, 500);
 };
 ///////////////////////////////////////////////
+
+useBackButton(10, () => {
+    router.replace('/home');
+});
 </script>
 
 <style scoped>

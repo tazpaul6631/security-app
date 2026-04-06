@@ -12,10 +12,14 @@
 </template>
 
 <script setup lang="ts">
+import router from '@/router';
 import {
-    IonPage, IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle
+    IonPage, IonHeader, IonToolbar, IonButtons, IonBackButton, IonTitle, useBackButton
 } from '@ionic/vue';
 
+useBackButton(10, () => {
+    router.replace('/home');
+});
 </script>
 
 <style scoped></style>

@@ -1,10 +1,10 @@
 <template>
-    <ion-modal :is-open="isOpen" @didDismiss="$emit('close')">
+    <ion-modal :is-open="isOpen" :can-dismiss="checkCanDismiss" @didDismiss="$emit('close')">
         <ion-header>
             <ion-toolbar color="primary" class="text-padding">
                 <ion-title>{{ $t('areas.report.issue-type') }}</ion-title>
                 <ion-buttons slot="end">
-                    <ion-button class="btn-close" @click="$emit('close')">{{ $t('areas.report.close') }}</ion-button>
+                    <ion-button class="btn-close" @click="handleClose">{{ $t('areas.report.close') }}</ion-button>
                 </ion-buttons>
             </ion-toolbar>
         </ion-header>
@@ -85,17 +85,41 @@ import {
     IonGrid, IonImg, IonSpinner
 } from '@ionic/vue';
 import { trash, camera, images } from 'ionicons/icons';
+import { useI18n } from 'vue-i18n';
+import { useCameraHandler } from '@/composables/useCameraHandler';
 
-defineProps<{
+const { showToast } = useCameraHandler();
+const { t } = useI18n();
+
+const props = defineProps<{
     isOpen: boolean;
     apiCategories: any[];
     groupedNotes: any[];
 }>();
 
-defineEmits([
+const emit = defineEmits([
     'close', 'selectCategory', 'removeGroup',
     'addPhoto', 'pickPhotos', 'removePhoto'
 ]);
+
+const checkCanDismiss = async () => {
+    const isMissingImage = props.groupedNotes.some((group: any) => group.reportImages.length === 0);
+
+    if (isMissingImage) {
+        await showToast(t('areas.report.img-status'), 'warning');
+        return false;
+    }
+
+    return true;
+};
+
+const handleClose = async () => {
+    const canClose = await checkCanDismiss();
+
+    if (canClose) {
+        emit('close');
+    }
+};
 </script>
 
 <style scoped>
