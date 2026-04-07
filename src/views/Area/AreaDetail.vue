@@ -161,7 +161,6 @@ const getPrIdData = computed(() => {
       return null;
     }
   }
-  console.log(actualData);
 
   return actualData;
 });

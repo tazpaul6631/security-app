@@ -24,7 +24,7 @@
                                 {{ $t('routes.code') }} {{ currentActiveRoute.routeCode }} | {{ $t('routes.shift') }} {{
                                     currentActiveRoute.psHourFrom }}h
                                 <br />
-                                <span class="timer-display" :class="timerColorClass" v-if="formattedTime">
+                                <span class="timer-display" :class="timerColorClass" v-show="formattedTime">
                                     <ion-icon :icon="timeOutline" class="icon-clock"></ion-icon>
                                     {{ $t('routes.countdown') }} {{ formattedTime }}
                                 </span>
@@ -346,16 +346,21 @@ const loadRouteData = async () => {
             const areaId = userData.userAreaId;
 
             const now = new Date();
+            const currentHour = now.getHours();
+            const hoursArray = [];
+            for (let i = currentHour; i <= 23; i++) {
+                hoursArray.push(i);
+            }
             const dateInfo = {
                 psDay: now.getDate(),
                 psMonth: now.getMonth() + 1,
                 psYear: now.getFullYear(),
-                userAreaId: areaId
+                userAreaId: areaId,
+                psHours: hoursArray
             };
 
             const response: any = await PatrolShiftView.postPatrolShiftView(dateInfo);
             const apiDataRaw = response?.data?.data || response?.data || [];
-
 
             // Vuex sẽ kiểm tra xem ca bị khóa đã isComplete chưa, nếu có nó sẽ TỰ MỞ KHÓA
             store.commit('SET_DATA_LIST_ROUTE', apiDataRaw);

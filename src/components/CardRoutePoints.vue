@@ -221,13 +221,6 @@ defineExpose({ loadOfflineQueue });
     font-size: 0.7rem;
     color: #444;
     text-align: center;
-    /* display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    line-height: 1.2; */
-    max-width: 65px;
-    height: 1.5rem;
 }
 
 .h-line {

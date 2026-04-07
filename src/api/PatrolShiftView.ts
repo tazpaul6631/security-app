@@ -7,7 +7,10 @@ export default {
             psMonth: data.psMonth,
             psYear: data.psYear,
             isComplete: data.isComplete,
-            areaId: data.userAreaId
+            areaId: data.userAreaId,
+            psHours: data.psHours,
+            psId: data.psId,
+            routeId: data.routeId
         });
     },
 };

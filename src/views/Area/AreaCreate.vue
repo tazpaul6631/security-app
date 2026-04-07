@@ -472,8 +472,6 @@ const handleSubmit = async (): Promise<void> => {
       });
     }
 
-    console.log(finalNoteGroups);
-
     // --- TẠO PAYLOAD JSON SẠCH ---
     const currentCpId = dataScanQr.value.cpId;
     const routeId = store.state.routeId;
@@ -580,7 +578,6 @@ const loadPendingItemsWithImages = async () => {
   displayItems.value = await Promise.all(pendingItems.value.map(async (item: QueueItem) => ({
     ...item, thumb: item.imageFiles?.[0] ? await ImageService.getDisplayUrl(item.imageFiles[0]) : null
   })));
-  console.log(displayItems.value);
 };
 
 const deleteItem = async (id: any) => {

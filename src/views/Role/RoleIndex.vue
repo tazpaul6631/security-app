@@ -111,8 +111,6 @@ const fetchRoles = async () => {
         // Lấy data thực sự từ response của Axios
         const result = response.data;
 
-        console.log(result);
-
         // Kiểm tra trên object result thay vì response
         if (result && result.success) {
             allRoles.value = result.data; // Gán toàn bộ data

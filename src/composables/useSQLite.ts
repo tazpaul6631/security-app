@@ -126,7 +126,7 @@ export function useSQLite() {
       // 3. Xóa cả hàng chờ đồng bộ (sync_queue) để tránh gửi nhầm dữ liệu của người cũ
       await dbInstance.value.execute(`DELETE FROM sync_queue;`);
 
-      console.log('✅ SQLite: Đã dọn dẹp sạch sẽ toàn bộ dữ liệu local.');
+      console.log('SQLite: Đã dọn dẹp sạch sẽ toàn bộ dữ liệu local.');
     } catch (err) {
       console.error('Lỗi logout SQLite:', err);
     }

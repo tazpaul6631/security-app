@@ -65,13 +65,14 @@
                                                 </div>
 
                                                 <div style="margin-top: 5px;">
-                                                    <ion-icon class="icon-1" :icon="newspaperOutline"
+                                                    <ion-icon class="icon-1" :icon="idCardOutline"
                                                         :color="item.pointProblem ? 'danger' : 'success'">
                                                     </ion-icon>
-                                                    <ion-icon class="icon-2" :icon="timeOutline"
+                                                    <ion-icon class="icon-2"
+                                                        :icon="item.timeFastProblem || item.timeSlowProblem ? rocketOutline : timeOutline"
                                                         :color="item.timeFastProblem || item.timeSlowProblem ? 'danger' : 'success'">
                                                     </ion-icon>
-                                                    <ion-icon class="icon-2" :icon="footstepsOutline"
+                                                    <ion-icon class="icon-2" :icon="walkOutline"
                                                         :color="item.shiftProblem ? 'danger' : 'success'">
                                                     </ion-icon>
                                                 </div>
@@ -89,8 +90,7 @@
                                                         $t('areas.index.points') }}
                                                 </ion-badge>
 
-                                                <p v-if="item.realityHours || item.realityMinutes"
-                                                    style="font-size: 0.75em; margin: 4px 0 0 0;">
+                                                <p v-if="item.realityHours || item.realityMinutes" class="timer-total">
                                                     <ion-icon :icon="timeOutline" style="font-size: 10px;"></ion-icon>
                                                     {{ item.realityHours ? `${item.realityHours}h` : '' }}
                                                     {{ item.realityMinutes ? `${item.realityMinutes}m` : '' }}
@@ -205,7 +205,7 @@ import {
     IonInfiniteScrollContent, IonButton, IonModal, IonBadge, IonSelect, IonSelectOption,
     useBackButton
 } from '@ionic/vue';
-import { calendarOutline, footstepsOutline, newspaperOutline, timeOutline, funnelOutline } from "ionicons/icons";
+import { calendarOutline, footstepsOutline, newspaperOutline, timeOutline, funnelOutline, rocketOutline, walkOutline, idCardOutline } from "ionicons/icons";
 import { computed, ref, watch } from 'vue';
 import { useStore } from 'vuex';
 import presentAlert from '@/mixins/presentAlert';
@@ -289,9 +289,6 @@ const dataPR = computed(() => {
 
 // --- WATCHERS ---
 watch(() => dataPR.value.details, (newVal) => {
-    console.log(newVal);
-    console.log(displayedItems.value);
-
     if (currentPage.value === 1) {
         displayedItems.value = newVal.slice(0, itemsPerPage);
     } else {
@@ -558,7 +555,6 @@ useBackButton(10, () => {
 </script>
 
 <style scoped>
-/* Giữ nguyên toàn bộ CSS của bạn */
 .pointProblem-danger,
 .timeProblem-danger {
     color: #eb445a;
@@ -571,6 +567,13 @@ useBackButton(10, () => {
 
 .pad-0 {
     padding: 0;
+}
+
+.timer-total {
+    font-size: 0.75em;
+    margin: 4px 0 0 0;
+    display: flex;
+    align-items: center;
 }
 
 .labelItem-time {
@@ -645,7 +648,6 @@ ion-modal.fixed-bottom-modal {
     /* Căn chỉnh Modal nằm sát dưới đáy */
 }
 
-/* Đảm bảo phần nền mờ (backdrop) hiển thị đầy đủ */
 ion-modal.fixed-bottom-modal::part(backdrop) {
     opacity: 0.3;
     /* Độ mờ tùy chỉnh */

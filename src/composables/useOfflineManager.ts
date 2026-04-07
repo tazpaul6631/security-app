@@ -302,13 +302,13 @@ export function useOfflineManager() {
 
         // Kiểm tra xem dữ liệu đã tồn tại trên Server chưa (Tránh gửi trùng khi mạng chập chờn)
         try {
-          // Thay psHour bằng psId để check đích danh ca trực
           const checkInfo = {
             psId: item.data.psId,
             psDay: originalTime.getDate(),
             psMonth: originalTime.getMonth() + 1,
             psYear: originalTime.getFullYear(),
-            areaId: item.data.areaId || userData?.userAreaId
+            userAreaId: item.data.areaId || userData?.userAreaId,
+            psHours: Array.from({ length: 24 }, (_, i) => i)
           };
 
           const res: any = await PatrolShiftView.postPatrolShiftView(checkInfo);

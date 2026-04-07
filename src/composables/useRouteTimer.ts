@@ -20,11 +20,14 @@ export function useRouteTimer() {
         const savedEndTime = await storageService.get(`timer_end_${routeId}`);
         const now = Math.floor(Date.now() / 1000);
 
+        let endTime = 0;
+
         if (savedEndTime) {
             remainingSeconds.value = Math.max(0, savedEndTime - now);
+            endTime = savedEndTime;
         } else {
             remainingSeconds.value = planMaxSecond;
-            const endTime = now + planMaxSecond;
+            endTime = now + planMaxSecond;
             await storageService.set(`timer_end_${routeId}`, endTime);
         }
 
@@ -36,9 +39,13 @@ export function useRouteTimer() {
 
         if (remainingSeconds.value > 0) {
             intervalId = setInterval(() => {
-                if (remainingSeconds.value > 0) {
-                    remainingSeconds.value--;
+                const currentNow = Math.floor(Date.now() / 1000);
+                const diff = endTime - currentNow;
+
+                if (diff > 0) {
+                    remainingSeconds.value = diff;
                 } else {
+                    remainingSeconds.value = 0;
                     stopTimer();
                 }
             }, 1000);
@@ -63,9 +70,13 @@ export function useRouteTimer() {
                 isTimerRunning.value = true;
                 if (intervalId) clearInterval(intervalId);
                 intervalId = setInterval(() => {
-                    if (remainingSeconds.value > 0) {
-                        remainingSeconds.value--;
+                    const currentNow = Math.floor(Date.now() / 1000);
+                    const diff = savedEndTime - currentNow;
+
+                    if (diff > 0) {
+                        remainingSeconds.value = diff;
                     } else {
+                        remainingSeconds.value = 0;
                         stopTimer();
                     }
                 }, 1000);

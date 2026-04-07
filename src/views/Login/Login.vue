@@ -128,10 +128,16 @@ const handleLogin = async () => {
     try {
         const isOnline = store.state.isOnline;
         const now = new Date();
+        const currentHour = now.getHours();
+        const hoursArray = [];
+        for (let i = currentHour; i <= 23; i++) {
+            hoursArray.push(i);
+        }
         const dateInfo = {
             psDay: now.getDate(),
             psMonth: now.getMonth() + 1,
-            psYear: now.getFullYear()
+            psYear: now.getFullYear(),
+            psHours: hoursArray
         };
 
         if (isOnline) {

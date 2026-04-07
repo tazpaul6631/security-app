@@ -66,16 +66,19 @@ const getGlobalApiList = (userData: any) => {
     list_route: () => {
       const lockedPsId = store.state.psId;
       const now = new Date();
-
+      const currentHour = now.getHours();
+      const hoursArray = [];
+      for (let i = currentHour; i <= 23; i++) {
+        hoursArray.push(i);
+      }
       // Tự động build lại ngày tháng hiện tại, ghi đè lên userData cũ
       const payload = {
         ...userData,
         psDay: now.getDate(),
         psMonth: now.getMonth() + 1,
-        psYear: now.getFullYear()
+        psYear: now.getFullYear(),
+        psHours: hoursArray
       };
-
-      console.log(payload);
 
       if (lockedPsId) {
         return PatrolShiftView.postPatrolShiftView({ ...payload, psId: lockedPsId });
@@ -144,12 +147,18 @@ const safeSync = async (isInitApp = false) => {
         list_route: () => {
           const lockedPsId = store.state.psId;
           const now = new Date();
+          const currentHour = now.getHours();
+          const hoursArray = [];
+          for (let i = currentHour; i <= 23; i++) {
+            hoursArray.push(i);
+          }
 
           const payload = {
             ...userData,
             psDay: now.getDate(),
             psMonth: now.getMonth() + 1,
-            psYear: now.getFullYear()
+            psYear: now.getFullYear(),
+            psHours: hoursArray
           };
 
           if (lockedPsId) {

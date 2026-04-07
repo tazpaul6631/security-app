@@ -71,8 +71,26 @@ const store = createStore({
           Number(r.psId) === Number(apiRoute.psId)
         );
 
-        // NẾU SERVER BÁO CA NÀY ĐÃ XONG (Từ máy 2), ÉP CHÍN TOÀN BỘ ĐIỂM BÊN TRONG THÀNH TRUE
         const isShiftDoneOnServer = apiRoute.isComplete === true;
+
+        // Đánh giá từng điểm quét
+        const mergedDetails = apiRoute.routeDetails.map((apiPoint: any) => {
+          const localPoint = localRoute?.routeDetails.find((p: any) => p.cpId === apiPoint.cpId);
+
+          // Nếu Server HOẶC Local báo điểm này đã quét (1), thì điểm này CHẮC CHẮN ĐÃ QUÉT
+          const isDone = isShiftDoneOnServer ||
+            apiPoint.status === 1 || apiPoint.rdIsComplete === true ||
+            localPoint?.status === 1 || localPoint?.rdIsComplete === true;
+
+          return {
+            ...apiPoint,
+            rdIsComplete: isDone,
+            status: isDone ? 1 : (apiPoint.status || 0)
+          };
+        });
+
+        // Tự động kiểm tra: Nếu tất cả các điểm đã xanh, ép ca này thành isComplete = true ngay lập tức
+        const isAllPointsDone = mergedDetails.length > 0 && mergedDetails.every((p: any) => p.rdIsComplete);
 
         return {
           ...apiRoute,
@@ -80,25 +98,13 @@ const store = createStore({
           roleId: Number(apiRoute.roleId),
           psHourFrom: Number(apiRoute.psHourFrom),
           psHourTo: Number(apiRoute.psHourTo),
-          routeDetails: apiRoute.routeDetails.map((apiPoint: any) => {
-            const localPoint = localRoute?.routeDetails.find((p: any) => p.cpId === apiPoint.cpId);
-
-            // Chỉ cần Server báo XONG (1) hoặc Local báo XONG (1) thì chắc chắn là XONG. 
-            const isDone = isShiftDoneOnServer || apiPoint.rdIsComplete === true || apiPoint.status === 1 ||
-              localPoint?.rdIsComplete === true || localPoint?.status === 1;
-
-            return {
-              ...apiPoint,
-              rdIsComplete: isDone ? true : apiPoint.rdIsComplete,
-              status: isDone ? 1 : (apiPoint.status || 0)
-            };
-          })
+          isComplete: isShiftDoneOnServer || isAllPointsDone, // Cập nhật trạng thái hoàn thành thực tế
+          routeDetails: mergedDetails
         };
       });
 
-      let mergedList = [...mappedApiData];
-
       // 2. GIỮ LẠI CA CŨ LOCAL NẾU SERVER KHÔNG CÒN TRẢ VỀ
+      let mergedList = [...mappedApiData];
       localRoutes.forEach((localR: any) => {
         const isInApi = mergedList.some((apiR: any) =>
           Number(apiR.routeId) === Number(localR.routeId) &&
@@ -111,71 +117,30 @@ const store = createStore({
 
       state.dataListRoute = mergedList;
 
-      // 3. TỰ ĐỘNG GỠ KHÓA VÀ DỌN RÁC DỰA VÀO PSID (ĐÍCH DANH CA TRỰC)
+      // 3. XỬ LÝ GỠ KHÓA (KHÔNG XÓA DỮ LIỆU)
       if (state.unfinishedRouteId) {
         const lockedId = Number(state.unfinishedRouteId);
         const lockedPsId = state.psId ? Number(state.psId) : null;
 
-        let exactServerRoute;
-        if (lockedPsId) {
-          // Phải tìm đích danh theo psId để không nhầm qua ca khác trong ngày
-          exactServerRoute = mappedApiData.find((r: any) => Number(r.psId) === lockedPsId);
-        } else {
-          // Fallback (Trường hợp rất hiếm): Nếu chưa có psId thì tìm theo lộ trình
-          exactServerRoute = mappedApiData.find((r: any) => Number(r.routeId) === lockedId);
-        }
-
-        const isStillOnServer = !!exactServerRoute;
-
-        let isDoneOnServer = false;
-        if (exactServerRoute) {
-          isDoneOnServer = exactServerRoute.isComplete === true ||
-            (exactServerRoute.routeDetails.length > 0 && exactServerRoute.routeDetails.every((p: any) => p.rdIsComplete));
-        }
-
-        // Tìm ca này ở Local xem đã đi full chưa
-        const exactLocalRoute = state.dataListRoute.find((r: any) =>
+        // Tìm chính xác ca đang bị khóa trong mảng vừa gộp
+        const lockedRouteInList = state.dataListRoute.find((r: any) =>
           Number(r.routeId) === lockedId && (lockedPsId ? Number(r.psId) === lockedPsId : true)
         );
-        const isAllDoneLocal = exactLocalRoute ? exactLocalRoute.routeDetails.every((p: any) => p.rdIsComplete) : false;
 
-        // TIẾN HÀNH GỠ KHÓA VÀ XÓA BÓNG MA
-        if (isAllDoneLocal || isDoneOnServer || !isStillOnServer) {
-          console.log(
-            isDoneOnServer ? "Máy khác đã hoàn thành ca này trên Server. Gỡ khóa!" :
-              isAllDoneLocal ? "Local báo đã đi xong. Gỡ khóa!" :
-                "Đã lố ca, Server chuyển ca mới. Gỡ khóa ca cũ!"
-          );
+        // NẾU: Ca đó đã được đánh dấu xong (isComplete = true) HOẶC không tìm thấy -> GỠ KHÓA AN TOÀN
+        if (!lockedRouteInList || lockedRouteInList.isComplete) {
+          console.log("Ca trực đã hoàn thành (hoặc hết hạn). Tiến hành gỡ khóa!");
 
-          // 3.1 Xóa khóa trong RAM
+          // Chỉ xóa khóa, KHÔNG xóa dữ liệu khỏi mảng dataListRoute
           state.unfinishedRouteId = null;
           state.routeId = null;
           state.psId = null;
           state.dataScanQr = null;
 
-          // 3.2 Xóa khóa trong Ổ cứng
           storageService.remove('unfinished_route_id');
           storageService.remove('current_route_id');
           storageService.remove('current_ps_id');
           storageService.remove('data_scanqr');
-
-          // 3.3 QUAN TRỌNG: TIÊU DIỆT BÓNG MA Ở MÁY 1 (Cái bản 3/19 hư hỏng)
-          if (lockedPsId) {
-            state.dataListRoute = state.dataListRoute.filter((r: any) => Number(r.psId) !== lockedPsId);
-          } else {
-            state.dataListRoute = state.dataListRoute.filter((r: any) => Number(r.routeId) !== lockedId);
-          }
-
-          // 3.4 BƠM LẠI SỰ THẬT TỪ SERVER: Nếu Server báo đã xong, lấy bản hoàn hảo (19/19) nhét lại vào Local
-          if (isDoneOnServer && exactServerRoute) {
-            state.dataListRoute.push(exactServerRoute);
-          }
-
-        } else {
-          // Nếu chưa xong và vẫn còn giờ, duy trì khóa psId
-          if (!state.psId && exactLocalRoute && exactLocalRoute.psId) {
-            state.psId = exactLocalRoute.psId;
-          }
         }
       }
     },
@@ -246,7 +211,6 @@ const store = createStore({
             if (found && found.psId) {
               state.psId = found.psId;
               storageService.set('current_ps_id', found.psId);
-              console.log("Đã tự động cập nhật & khóa cứng psId:", state.psId);
             }
           }
         } else {
@@ -492,7 +456,6 @@ const store = createStore({
       const id = await storageService.get('unfinished_route_id');
       if (id) {
         commit('SET_UNFINISHED_ROUTE_ID', Number(id));
-        console.log('Đã khôi phục khóa lộ trình dở dang:', id);
       } else {
         // CHỐT CHẶN AN TOÀN TỐI ĐA: 
         // Nếu bộ nhớ máy (SQLite) không có khóa, ép Vuex phải rỗng để chắc chắn không bị khóa oan
@@ -546,7 +509,6 @@ const store = createStore({
 
         if (actualData) {
           commit('SET_DATA_BASE_POINT_REPORT_VIEW', actualData);
-          console.log('ĐÃ BƠM BASE_POINT_REPORT_VIEW VÀO VUEX:', actualData);
         }
       }
     },
@@ -565,7 +527,6 @@ const store = createStore({
 
         if (actualData) {
           commit('SET_DATACP', actualData);
-          console.log('ĐÃ BƠM DATACP VÀO VUEX:', actualData);
         }
       }
     },
@@ -602,7 +563,6 @@ const store = createStore({
 
         if (actualData) {
           commit('SET_DATA_AREA_BU', actualData);
-          console.log('ĐÃ BƠM AREA_BU VÀO VUEX:', actualData);
         }
       }
     },
@@ -620,7 +580,6 @@ const store = createStore({
 
         if (actualData) {
           commit('SET_DATA_REPORT_NOTE_CATEGORY', actualData);
-          console.log('ĐÃ BƠM REPORT_NOTE_CATEGORY VÀO VUEX:', actualData);
         }
       }
     },
@@ -641,7 +600,6 @@ const store = createStore({
 
           if (Array.isArray(actualData)) {
             commit('SET_DATA_LIST_ROUTE', actualData);
-            console.log('Restore List Route thành công:', actualData);
           }
         }
       } catch (error) {

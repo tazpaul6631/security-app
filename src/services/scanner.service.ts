@@ -128,11 +128,9 @@ export const scannerService = {
 
             const saveWrongScanOffline = async (payload: any) => {
                 let wrongQueue = await storageService.get('offline_wrong_scan_queue');
-                console.log(wrongQueue);
 
                 if (!Array.isArray(wrongQueue)) wrongQueue = [];
                 wrongQueue.push(payload);
-                console.log(wrongQueue);
                 await storageService.set('offline_wrong_scan_queue', wrongQueue);
             };
 
