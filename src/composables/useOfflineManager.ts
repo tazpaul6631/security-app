@@ -38,6 +38,13 @@ export function useOfflineManager() {
     fb.append('createdBy', item.data.createdBy);
     fb.append('scanAt', item.data.scanAt || item.data.createdAt);
 
+    if (item.data.rpLat !== null && item.data.rpLat !== undefined) {
+      fb.append('rpLat', item.data.rpLat.toString());
+    }
+    if (item.data.rpLng !== null && item.data.rpLng !== undefined) {
+      fb.append('rpLng', item.data.rpLng.toString());
+    }
+
     // 2. Xử lý noteGroups theo chuẩn Index lồng nhau
     if (item.data.noteGroups && Array.isArray(item.data.noteGroups)) {
       let globalImageIndex = 0;

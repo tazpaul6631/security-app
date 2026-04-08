@@ -142,7 +142,11 @@
                 "8": "You are on shift, please complete the remaining checkpoints!",
                 "9": "Got it",
                 "10": "Processing image...",
-                "11": "Are you sure you want to submit this report?"
+                "11": "Are you sure you want to submit this report?",
+                "location_permission": "Please grant location access to take a photo!",
+                "fetching_gps": "Fetching GPS location...",
+                "gps_not_available": "Unable to get location. Please move to a more open area or restart location services.",
+                "gps_error": "Enable GPS (location) before taking patrol photos."
             }
         }
     },

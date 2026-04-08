@@ -142,7 +142,11 @@
                 "8": "Bạn đang trong ca trực, hãy hoàn thành các điểm còn lại!",
                 "9": "Đã hiểu",
                 "10": "Đang xử lý ảnh...",
-                "11": "Bạn có chắc chắn muốn gửi báo cáo này không?"
+                "11": "Bạn có chắc chắn muốn gửi báo cáo này không?",
+                "location_permission": "Vui lòng cấp quyền truy cập vị trí để chụp ảnh!",
+                "fetching_gps": "Đang lấy vị trí GPS...",
+                "gps_not_available": "Không thể lấy vị trí. Vui lòng di chuyển ra khu vực thoáng hơn hoặc bật lại định vị.",
+                "gps_error": "Bật GPS( định vị ) trước khi chụp ảnh tuần tra."
             }
         }
     },

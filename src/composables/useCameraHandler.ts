@@ -9,18 +9,28 @@ interface Photo {
     rawBase64?: string; // Giữ lại dự phòng nếu sau này cần
 }
 
+let currentToast: HTMLIonToastElement | null = null;
+
 export function useCameraHandler() {
     const { t } = useI18n();
 
     // Hàm tiện ích: Hiển thị thông báo (Giống hàm showToast ở file cha)
     const showToast = async (message: string, color: string = 'warning') => {
-        const toast = await toastController.create({
+        if (currentToast) {
+            await currentToast.dismiss().catch(() => { });
+        }
+
+        currentToast = await toastController.create({
             message,
             color,
             duration: 1000,
             position: 'top'
         });
-        await toast.present();
+        await currentToast.present();
+
+        currentToast.onDidDismiss().then(() => {
+            currentToast = null;
+        });
     };
 
     // 1. HÀM CHỤP ẢNH TỪ CAMERA

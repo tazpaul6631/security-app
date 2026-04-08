@@ -146,7 +146,7 @@ import router from '@/router';
 import storageService from '@/services/storage.service';
 import { useRouteTimer } from '@/composables/useRouteTimer';
 import { useRoute } from 'vue-router';
-
+import { Geolocation } from '@capacitor/geolocation';
 import CheckpointInfoCard from '@/components/CheckpointInfoCard.vue';
 import OfflineSyncList from '@/components/OfflineSyncList.vue';
 import NoteInputModal from '@/components/modals/NoteInputModal.vue';
@@ -213,7 +213,7 @@ const dataScanQr = computed(() => {
 });
 
 // --- Form State ---
-const formData = reactive({ prHasProblem: false, prNote: '', cpId: '' });
+const formData = reactive({ prHasProblem: false, prNote: '', cpId: '', rpLat: null as number | null, rpLng: null as number | null });
 const groupedNotes = ref<GroupedNote[]>([]);
 const apiCategories = ref<ReportNode[]>([]);
 const selectedSubCategory = ref<ReportNode | null>(null);
@@ -492,7 +492,9 @@ const handleSubmit = async (): Promise<void> => {
       cpId: currentCpId,
       createdBy: userId,
       scanAt: scanAt || currentTimeString,
-      noteGroups: finalNoteGroups, // metadata
+      rpLat: formData.rpLat,
+      rpLng: formData.rpLng,
+      noteGroups: finalNoteGroups,
     };
 
     // --- GỬI QUA OFFLINE MANAGER ---
@@ -710,6 +712,55 @@ const addWatermarkToImage = async (imageSrc: string, text: string, textColor: st
 
 // Hàm chụp ảnh bắt buộc
 const captureMandatoryPhoto = async () => {
+  // --- KIỂM TRA VÀ LẤY GPS TRƯỚC ---
+  try {
+    const permission = await Geolocation.checkPermissions();
+    if (permission.location !== 'granted') {
+      const request = await Geolocation.requestPermissions();
+      if (request.location !== 'granted') {
+        await showToast(t('areas.report.message.location_permission'), 'warning');
+        return;
+      }
+    }
+
+    const loadingGps = await loadingController.create({
+      message: t('areas.report.message.fetching_gps')
+    });
+    await loadingGps.present();
+
+    try {
+      const coordinates = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: 6000,
+        maximumAge: 0
+      });
+      formData.rpLat = coordinates.coords.latitude;
+      formData.rpLng = coordinates.coords.longitude;
+    } catch (highAccuracyError) {
+      try {
+        // NẾU THẤT BẠI DO Ở TRONG XƯỞNG TÔN HOẶC TIMEOUT, DÙNG VỊ TRÍ MẠNG
+        const fallbackCoords = await Geolocation.getCurrentPosition({
+          enableHighAccuracy: false,
+          timeout: 4000, // Đợi tối đa 4 giây
+          maximumAge: 60000 // Chấp nhận xài lại vị trí đã cache trong vòng 1 phút trước đó
+        });
+
+        formData.rpLat = fallbackCoords.coords.latitude;
+        formData.rpLng = fallbackCoords.coords.longitude;
+
+      } catch (fallbackError) {
+        await loadingGps.dismiss();
+        await showToast(t('areas.report.message.gps_not_available'), 'danger');
+        return; // Dừng, không mở camera
+      }
+    }
+    await loadingGps.dismiss();
+  } catch (err) {
+    console.error("Lỗi cấp quyền GPS:", err);
+    await showToast(t('areas.report.message.gps_error'), 'warning');
+    return;
+  }
+
   const photo = await takePhoto(0, 'checkin_');
 
   if (photo) {
@@ -773,6 +824,8 @@ watch([formData, groupedNotes, selectedValues, noProblemImages, mandatoryPhoto],
       const draftData = {
         prHasProblem: formData.prHasProblem,
         prNote: formData.prNote,
+        rpLat: formData.rpLat,
+        rpLng: formData.rpLng,
         groupedNotes: JSON.parse(JSON.stringify(groupedNotes.value)),
         selectedValues: JSON.parse(JSON.stringify(selectedValues.value)),
         noProblemImages: JSON.parse(JSON.stringify(noProblemImages.value)),
@@ -791,6 +844,8 @@ const loadDraft = async () => {
   if (draft) {
     formData.prHasProblem = draft.prHasProblem || false;
     formData.prNote = draft.prNote || '';
+    formData.rpLat = draft.rpLat || null;
+    formData.rpLng = draft.rpLng || null;
     groupedNotes.value = draft.groupedNotes || [];
     selectedValues.value = draft.selectedValues || [];
     noProblemImages.value = draft.noProblemImages || [];
