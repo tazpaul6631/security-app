@@ -10,7 +10,8 @@
       "1": "Thông tin đăng nhập chưa chính xác",
       "2": "Tài khoản chưa từng đăng nhập trên thiết bị này. Cần mạng cho lần đầu!",
       "3": "Mật khẩu không chính xác (Offline)!",
-      "4": "Không thể kết nối với server hoặc có lỗi xảy ra. Vui lòng thử lại!"
+      "4": "Không thể kết nối với server hoặc có lỗi xảy ra. Vui lòng thử lại!",
+      "camera_permission_denied": "Quyền truy cập Camera bị từ chối"
     }
   },
   "layout": {

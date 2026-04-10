@@ -10,7 +10,8 @@
       "1": "Invalid login credentials.",
       "2": "This account has never logged in on this device. Network connection is required for the first time!",
       "3": "Incorrect password (Offline)!",
-      "4": "Cannot connect to the server or an error occurred. Please try again!"
+      "4": "Cannot connect to the server or an error occurred. Please try again!",
+      "camera_permission_denied": "Camera permission denied"
     }
   },
   "layout": {
