@@ -1,214 +1,215 @@
 {
-    "login": {
-        "title": "Login",
-        "username": "Username",
-        "password": "Password",
-        "btn_login": "Login",
-        "lang_select": "Select Language",
-        "cancel": "Cancel",
-        "message": {
-            "1": "Invalid login credentials.",
-            "2": "This account has never logged in on this device. Network connection is required for the first time!",
-            "3": "Incorrect password (Offline)!",
-            "4": "Cannot connect to the server or an error occurred. Please try again!"
-        }
-    },
-    "layout": {
-        "warning": "Warning",
-        "understood": "Got it",
-        "online": "Online",
-        "offline": "Offline"
-    },
-    "home": {
-        "roles": "Roles",
-        "users": "Users",
-        "areas": "Areas",
-        "routes": "Routes",
-        "reports": "Reports",
-        "tutorial": "Tutorial",
-        "adm": "Administrator",
-        "it": "IT",
-        "expat": "Expatriate",
-        "security": "Security",
-        "info-areas": "Loading personal information..."
-    },
-    "page": {
-        "roles": "Roles",
-        "users": "Users",
-        "areas": {
-            "index": "Areas",
-            "detail": "Area Details",
-            "report": "Area Report"
-        },
-        "routes": "Routes",
-        "reports": "Reports",
-        "tutorial": "Tutorial"
-    },
-    "routes": {
-        "cancel": "Cancel",
-        "scan": "Scan",
-        "code": "Code:",
-        "shift": "Shift:",
-        "countdown": "Countdown:",
-        "loading-route": "Loading route...",
-        "txt-info": "The {currentHour}h route is completed",
-        "all-scanned": "You have completed all checkpoints for this time slot.",
-        "route-not-found": "{currentHour}h route not found",
-        "no-shift-data": "Shift data is not loaded or there is no shift in this time slot.",
-        "go-home": "Back to Home",
-        "warning-title": "Warning!",
-        "cancel-confirm-msg": "Are you sure you want to cancel? All scanned data will be lost.",
-        "confirm-cancel": "Confirm Cancel",
-        "verifying-checkpoint": "Verifying checkpoint..."
-    },
-    "areas": {
-        "index": {
-            "selected": "Selected:",
-            "cancel": "Close",
-            "await-sync": "Waiting for sync",
-            "points": "Points",
-            "emty-data": "No data available",
-            "please-route": "Please select a route",
-            "go-home": "Back to Home",
-            "load-more": "Loading more...",
-            "expat": "Expatriate",
-            "security": "Security",
-            "all": "All",
-            "message": {
-                "1": "Loading details...",
-                "2": "No network connection",
-                "3": "Please check your network connection to view details.",
-                "4": "Detailed data not found.",
-                "5": "Notification"
-            }
-        },
-        "detail": {
-            "emty-data": "No data available",
-            "go-home": "Back to Home",
-            "cancel": "Close",
-            "area": "Area:",
-            "position": "Location:",
-            "estimated-time": "Estimated time:",
-            "actual-time": "Actual time:",
-            "user-report": "Reported by:",
-            "date-report": "Report date:",
-            "user-update": "Updated by:",
-            "date-update": "Update date:",
-            "cp-desc": "Checkpoint description:",
-            "general-notes": "General Notes:",
-            "pic-rp": "Report photos",
-            "stt-pending": "Pending",
-            "stt-processing": "In Progress",
-            "stt-completed": "Completed",
-            "stt-no-issue": "No Issues",
-            "issue-none": "No issues found",
-            "issue-found": "Issues found"
-        },
-        "report": {
-            "no-issue": "No issues / incidents detected",
-            "camera": "Camera",
-            "gallery": "Gallery",
-            "placeholder-input": "Enter here...",
-            "issue-detected": "Issue / incident detected",
-            "select-status": "Select status",
-            "btn-submit": "SUBMIT REPORT",
-            "issue-type": "ISSUE TYPE",
-            "close": "Close",
-            "selected-status": "Selected status:",
-            "other-note": "Other (Enter note)...",
-            "btn-confirm": "CONFIRM",
-            "detail-note": "Enter detailed notes",
-            "pending-sync": "Pending sync",
-            "offline": "Offline",
-            "loading-more": "Loading more reports...",
-            "content": "Content",
-            "code": "Code:",
-            "shift": "Shift:",
-            "countdown": "Time remaining:",
-            "validate-img": "Validate image",
-            "label_requirement": "Requirement:",
-            "msg_capture_before_report": "Take a photo of the patrol point before reporting.",
-            "btn_take_checkin": "Take Check-in Photo",
-            "status_photo_confirmed": "Confirmation photo taken",
-            "img-status": "No photos for this status",
-            "message": {
-                "1": "Error: Checkpoint data not found",
-                "2": "Saving data...",
-                "3": "Error: Image format {blob.type} is not supported!",
-                "4": "Error: Image size is too large ({sizeInMB}MB). Maximum 10MB!",
-                "5": "Route completed successfully!",
-                "6": "Failed to save report",
-                "7": "Warning",
-                "8": "You are on shift, please complete the remaining checkpoints!",
-                "9": "Got it",
-                "10": "Processing image...",
-                "11": "Are you sure you want to submit this report?",
-                "location_permission": "Please grant location access to take a photo!",
-                "fetching_gps": "Fetching GPS location...",
-                "gps_not_available": "Unable to get location. Please move to a more open area or restart location services.",
-                "gps_error": "Enable GPS (location) before taking patrol photos."
-            }
-        }
-    },
-    "role": {
-        "load-data": "Loading data...",
-        "role-menu": "Role Menus:",
-        "created-date": "Created date:",
-        "updated-date": "Updated date:",
-        "no-role-data": "No role data.",
-        "loading-more": "Loading more data..."
-    },
-    "users": {
-        "loading": "Loading data...",
-        "no-data": "No user data.",
-        "loading-more": "Loading more data..."
-    },
-    "messages": {
-        "nav": {
-            "got": "Got it",
-            "warning": "Warning",
-            "incomplete-route": "The patrol route is incomplete. You cannot return to the homepage at this time!",
-            "unable-to-logout": "Unable to log out",
-            "incomplete-patrol": "You are currently in an incomplete patrol route. Please finish the route before logging out!",
-            "data-loss": "Data loss warning!",
-            "pending-reports": "You have {pendingItems.value.length} unsynchronized reports. Please connect to the network to synchronize before logging out!"
-        },
-        "use-camera": {
-            "max-images": "Maximum 10 images allowed!",
-            "limit-reached": "Limit of 10 images reached!",
-            "taking-images": "Taking only the first {slotsLeft} images to stay within the 10-image limit."
-        },
-        "use-offline": {
-            "saved-to-queue": "Saved to queue. Will send automatically when the network is available.",
-            "maintenance": "Server is under maintenance. Data has been safely saved locally and will be automatically resent later.",
-            "syncing": "Reconnecting and syncing...",
-            "cleaning": "Cleaning up old data...",
-            "uploading": "Uploading reports ({processedItems}/{totalItems})...",
-            "completed": "Sync completed!"
-        },
-        "scanner": {
-            "notification": "Notification",
-            "grant-camera-permission": "Please grant camera permission to scan the code.",
-            "route-not-found": "Selected route information not found.",
-            "invalid-qr-code": "Invalid QR code",
-            "route-completed": "All checkpoints for this route have been completed.",
-            "wrong-patrol-order": "Incorrect patrol order",
-            "next-checkpoint": "is the next checkpoint to scan. Please follow the correct route.",
-            "checkpoint-not-found": "Information for this checkpoint was not found in the system data.",
-            "unable-to-process": "The system cannot process the scanned code."
-        },
-        "sync": {
-            "loading_shift_data": "Loading shift data...",
-            "updating": "Updating...",
-            "loading_step": "Loading {name}...",
-            "completed": "Completed!",
-            "steps": {
-                "checkpoints": "Checkpoints",
-                "area_bu": "Areas",
-                "list_route": "Routes",
-                "report_note_category": "Error Categories",
-                "base_point_report": "Report Data"
-            }
-        }
+  "login": {
+    "title": "Login",
+    "username": "Username",
+    "password": "Password",
+    "btn_login": "Login",
+    "lang_select": "Select Language",
+    "cancel": "Cancel",
+    "message": {
+      "1": "Invalid login credentials.",
+      "2": "This account has never logged in on this device. Network connection is required for the first time!",
+      "3": "Incorrect password (Offline)!",
+      "4": "Cannot connect to the server or an error occurred. Please try again!"
     }
+  },
+  "layout": {
+    "warning": "Warning",
+    "understood": "Got it",
+    "online": "Online",
+    "offline": "Offline"
+  },
+  "home": {
+    "roles": "Roles",
+    "users": "Users",
+    "areas": "Areas",
+    "routes": "Routes",
+    "reports": "Reports",
+    "tutorial": "Tutorial",
+    "adm": "Administrator",
+    "it": "IT",
+    "expat": "Expatriate",
+    "security": "Security",
+    "info-areas": "Loading personal information..."
+  },
+  "page": {
+    "roles": "Roles",
+    "users": "Users",
+    "areas": {
+      "index": "Areas",
+      "detail": "Area Details",
+      "report": "Area Report"
+    },
+    "routes": "Routes",
+    "reports": "Reports",
+    "tutorial": "Tutorial"
+  },
+  "routes": {
+    "cancel": "Cancel",
+    "scan": "Scan",
+    "code": "Code:",
+    "shift": "Shift:",
+    "countdown": "Countdown:",
+    "loading-route": "Loading route...",
+    "txt-info": "The {currentHour}h route is completed",
+    "all-scanned": "You have completed all checkpoints for this time slot.",
+    "route-not-found": "{currentHour}h route not found",
+    "no-shift-data": "Shift data is not loaded or there is no shift in this time slot.",
+    "go-home": "Back to Home",
+    "warning-title": "Warning!",
+    "cancel-confirm-msg": "Are you sure you want to cancel? All scanned data will be lost.",
+    "confirm-cancel": "Confirm Cancel",
+    "verifying-checkpoint": "Verifying checkpoint..."
+  },
+  "areas": {
+    "index": {
+      "selected": "Selected:",
+      "cancel": "Close",
+      "await-sync": "Waiting for sync",
+      "points": "Points",
+      "emty-data": "No data available",
+      "please-route": "Please select a route",
+      "go-home": "Back to Home",
+      "load-more": "Loading more...",
+      "expat": "Expatriate",
+      "security": "Security",
+      "all": "All",
+      "message": {
+        "1": "Loading details...",
+        "2": "No network connection",
+        "3": "Please check your network connection to view details.",
+        "4": "Detailed data not found.",
+        "5": "Notification"
+      }
+    },
+    "detail": {
+      "emty-data": "No data available",
+      "go-home": "Back to Home",
+      "cancel": "Close",
+      "area": "Area:",
+      "position": "Location:",
+      "estimated-time": "Estimated time:",
+      "actual-time": "Actual time:",
+      "user-report": "Reported by:",
+      "date-report": "Report date:",
+      "user-update": "Updated by:",
+      "date-update": "Update date:",
+      "cp-desc": "Checkpoint description:",
+      "general-notes": "General Notes:",
+      "pic-rp": "Report photos",
+      "stt-pending": "Pending",
+      "stt-processing": "In Progress",
+      "stt-completed": "Completed",
+      "stt-no-issue": "No Issues",
+      "issue-none": "No issues found",
+      "issue-found": "Issues found"
+    },
+    "report": {
+      "no-issue": "No issues / incidents detected",
+      "camera": "Camera",
+      "gallery": "Gallery",
+      "placeholder-input": "Enter here...",
+      "issue-detected": "Issue / incident detected",
+      "select-status": "Select status",
+      "btn-submit": "SUBMIT REPORT",
+      "issue-type": "ISSUE TYPE",
+      "close": "Close",
+      "selected-status": "Selected status:",
+      "other-note": "Other (Enter note)...",
+      "btn-confirm": "CONFIRM",
+      "detail-note": "Enter detailed notes",
+      "pending-sync": "Pending sync",
+      "offline": "Offline",
+      "loading-more": "Loading more reports...",
+      "content": "Content",
+      "code": "Code:",
+      "shift": "Shift:",
+      "countdown": "Time remaining:",
+      "validate-img": "Validate image",
+      "label_requirement": "Requirement:",
+      "msg_capture_before_report": "Take a photo of the patrol point before reporting.",
+      "btn_take_checkin": "Take Check-in Photo",
+      "status_photo_confirmed": "Confirmation photo taken",
+      "img-status": "No photos for this status",
+      "message": {
+        "1": "Error: Checkpoint data not found",
+        "2": "Saving data...",
+        "3": "Error: Image format {blob.type} is not supported!",
+        "4": "Error: Image size is too large ({sizeInMB}MB). Maximum 10MB!",
+        "5": "Route completed successfully!",
+        "6": "Failed to save report",
+        "7": "Warning",
+        "8": "You are on shift, please complete the remaining checkpoints!",
+        "9": "Got it",
+        "10": "Processing image...",
+        "11": "Are you sure you want to submit this report?",
+        "location_permission": "Please grant location access to take a photo!",
+        "fetching_gps": "Fetching GPS location...",
+        "gps_not_available": "Unable to get location. Please move to a more open area or restart location services.",
+        "gps_error": "Enable GPS (location) before taking patrol photos."
+      }
+    }
+  },
+  "role": {
+    "load-data": "Loading data...",
+    "role-menu": "Role Menus:",
+    "created-date": "Created date:",
+    "updated-date": "Updated date:",
+    "no-role-data": "No role data.",
+    "loading-more": "Loading more data..."
+  },
+  "users": {
+    "loading": "Loading data...",
+    "no-data": "No user data.",
+    "loading-more": "Loading more data..."
+  },
+  "messages": {
+    "nav": {
+      "got": "Got it",
+      "warning": "Warning",
+      "incomplete-route": "The patrol route is incomplete. You cannot return to the homepage at this time!",
+      "unable-to-logout": "Unable to log out",
+      "incomplete-patrol": "You are currently in an incomplete patrol route. Please finish the route before logging out!",
+      "data-loss": "Data loss warning!",
+      "pending-reports": "You have {pendingItems.value.length} unsynchronized reports. Please connect to the network to synchronize before logging out!",
+      "msg-logout-sync-offline": "The system has ${totalUnsynced} process(es) pending synchronization due to a weak or missing internet connection. Logging out now will result in data loss. Please wait for a stable connection!"
+    },
+    "use-camera": {
+      "max-images": "Maximum 10 images allowed!",
+      "limit-reached": "Limit of 10 images reached!",
+      "taking-images": "Taking only the first {slotsLeft} images to stay within the 10-image limit."
+    },
+    "use-offline": {
+      "saved-to-queue": "Saved to queue. Will send automatically when the network is available.",
+      "maintenance": "Server is under maintenance. Data has been safely saved locally and will be automatically resent later.",
+      "syncing": "Reconnecting and syncing...",
+      "cleaning": "Cleaning up old data...",
+      "uploading": "Uploading reports ({processedItems}/{totalItems})...",
+      "completed": "Sync completed!"
+    },
+    "scanner": {
+      "notification": "Notification",
+      "grant-camera-permission": "Please grant camera permission to scan the code.",
+      "route-not-found": "Selected route information not found.",
+      "invalid-qr-code": "Invalid QR code",
+      "route-completed": "All checkpoints for this route have been completed.",
+      "wrong-patrol-order": "Incorrect patrol order",
+      "next-checkpoint": "is the next checkpoint to scan. Please follow the correct route.",
+      "checkpoint-not-found": "Information for this checkpoint was not found in the system data.",
+      "unable-to-process": "The system cannot process the scanned code."
+    },
+    "sync": {
+      "loading_shift_data": "Loading shift data...",
+      "updating": "Updating...",
+      "loading_step": "Loading {name}...",
+      "completed": "Completed!",
+      "steps": {
+        "checkpoints": "Checkpoints",
+        "area_bu": "Areas",
+        "list_route": "Routes",
+        "report_note_category": "Error Categories",
+        "base_point_report": "Report Data"
+      }
+    }
+  }
 }

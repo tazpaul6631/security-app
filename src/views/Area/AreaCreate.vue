@@ -114,11 +114,12 @@
 
       <category-modal :is-open="openCategoryModal" :api-categories="apiCategories" :grouped-notes="groupedNotes"
         @close="openCategoryModal = false" @selectCategory="selectSubCategory" @removeGroup="removeGroup"
-        @addPhoto="addGroupPhoto" @pickPhotos="pickGroupImages" @removePhoto="handleRemoveGroupPhoto" />
+        @addPhoto="addGroupPhoto" @pickPhotos="pickGroupImages" @removePhoto="handleRemoveGroupPhoto"
+        @selectDirectNote="handleSelectDirectNote" />
 
       <issue-detail-modal :is-open="openDetailModal" :selectedSubCategory="selectedSubCategory"
         :currentIssues="currentIssues" :selectedValues="selectedValues" @close="openDetailModal = false"
-        @toggleIssue="toggleIssue" @confirm="confirmDetails" />
+        @toggleIssue="toggleIssue" @confirm="confirmDetails" @addNoteIssue="handleAddNoteIssue" />
 
       <note-input-modal :is-open="openNoteModal" @close="openNoteModal = false" @confirm="handleConfirmNote" />
 
@@ -201,7 +202,7 @@ const currentActiveRoute = computed<Route | null>(() => {
 watch(() => currentActiveRoute.value, async (newRoute) => {
   if (newRoute && newRoute.routeId && newRoute.planMaxSecond && newRoute.planMinSecond) {
     await storageService.set('unfinished_route_id', newRoute.routeId);
-    await startTimer(newRoute.routeId, newRoute.planMaxSecond, newRoute.planMinSecond);
+    await startTimer(newRoute.routeId, newRoute.psId, newRoute.planMaxSecond, newRoute.planMinSecond);
   }
 }, { immediate: true });
 
@@ -217,13 +218,15 @@ const formData = reactive({ prHasProblem: false, prNote: '', cpId: '', rpLat: nu
 const groupedNotes = ref<GroupedNote[]>([]);
 const apiCategories = ref<ReportNode[]>([]);
 const selectedSubCategory = ref<ReportNode | null>(null);
-const selectedValues = ref<string[]>([]);
+const selectedValues = ref<any[]>([]);
 const isResetting = ref(false);
 
 // Modals
 const openCategoryModal = ref(false);
 const openDetailModal = ref(false);
 const openNoteModal = ref(false);
+
+const pendingNoteId = ref<string | null>(null);
 
 const currentIssues = computed(() => selectedSubCategory.value?.childs || []);
 
@@ -271,9 +274,18 @@ const handleCheckedHasProblem = () => {
   }
 };
 
+// Hàm xử lý khi user bấm vào nút (+) Thêm Note ở modal chi tiết
+const handleAddNoteIssue = (issue: any) => {
+  confirmDetails();
+  pendingNoteId.value = String(issue.rncId);
+  openNoteModal.value = true;
+};
+
 const selectSubCategory = (sub: ReportNode) => {
   selectedSubCategory.value = sub;
-  selectedValues.value = [];
+  selectedValues.value = (sub.childs || []).filter((child: any) =>
+    !child.isNote && groupedNotes.value.some(g => g.rncId === String(child.rncId))
+  );
   openDetailModal.value = true;
 };
 
@@ -283,11 +295,14 @@ const handleConfirmNote = (text: string) => {
     prGroup: groupedNotes.value.length + 1,
     priImageNote: text,
     reportImages: [],
-    type: 'note'
+    type: 'note',
+    rncId: pendingNoteId.value || '' // <-- GÁN ID VÀO ĐÂY
   });
+
   syncToMainForm();
   openNoteModal.value = false;
   openDetailModal.value = false;
+  pendingNoteId.value = null; // Xóa tạm để dùng cho lần sau
 };
 
 const syncToMainForm = () => {
@@ -300,12 +315,16 @@ const removeGroup = (idx: number) => {
   syncToMainForm();
 };
 
-const toggleIssue = (val: string) => {
-  const index = selectedValues.value.indexOf(val);
+const toggleIssue = (issue: any) => {
+  // Tìm xem lỗi này đã được tích chọn trước đó chưa
+  const index = selectedValues.value.findIndex(v => String(v.rncId) === String(issue.rncId));
+
   if (index > -1) {
+    // Nếu đã có rồi -> Xóa đi (Bỏ tích)
     selectedValues.value.splice(index, 1);
   } else {
-    selectedValues.value.push(val);
+    // Nếu chưa có -> Thêm vào mảng (Tích chọn)
+    selectedValues.value.push(issue);
   }
 };
 
@@ -313,29 +332,58 @@ const confirmDetails = () => {
   const subId = selectedSubCategory.value?.rncId;
   if (!subId) return;
 
-  selectedValues.value.forEach((val) => {
-    if (val === 'note') {
-      openNoteModal.value = true;
-    } else {
-      const exist = groupedNotes.value.some(
-        g => g.type === 'label' && g.rncId === String(subId) && g.priImageNote === val
-      );
-      if (!exist) {
-        groupedNotes.value.push({
-          id: generateId(),
-          prGroup: groupedNotes.value.length + 1,
-          priImageNote: val,
-          reportImages: [],
-          type: 'label',
-          rncId: String(subId)
-        });
-      }
+  const currentChildLabelIds = (selectedSubCategory.value?.childs || [])
+    .filter((c: any) => !c.isNote) // Bỏ qua Note
+    .map((c: any) => String(c.rncId));
+
+  // BƯỚC 1: Xóa label bỏ chọn
+  groupedNotes.value = groupedNotes.value.filter((g: any) => {
+    if (currentChildLabelIds.includes(g.rncId)) {
+      return selectedValues.value.some(v => String(v.rncId) === g.rncId);
+    }
+    return true;
+  });
+
+  // BƯỚC 2: Thêm label mới tích
+  selectedValues.value.forEach((issue) => {
+    const exist = groupedNotes.value.some(g => g.rncId === String(issue.rncId));
+    if (!exist && !issue.isNote) {
+      groupedNotes.value.push({
+        id: generateId(),
+        prGroup: 0,
+        priImageNote: issue.rncName,
+        reportImages: [],
+        type: 'label',
+        rncId: String(issue.rncId)
+      });
     }
   });
 
+  groupedNotes.value.forEach((g, i) => g.prGroup = i + 1);
   syncToMainForm();
-  if (!selectedValues.value.includes('note')) {
-    openDetailModal.value = false;
+  openDetailModal.value = false;
+};
+
+// Xử lý click thẳng vào mục không có child (ví dụ: Sự cố khác)
+const handleSelectDirectNote = (cat: any) => {
+  if (cat.isNote) {
+    // Luôn mở Note, KHÔNG check exist -> User bấm bao nhiêu lần tạo bấy nhiêu cái!
+    pendingNoteId.value = String(cat.rncId);
+    openNoteModal.value = true;
+  } else {
+    // Label bình thường thì vẫn chỉ cho phép add 1 cái
+    const exist = groupedNotes.value.some(g => g.rncId === String(cat.rncId));
+    if (!exist) {
+      groupedNotes.value.push({
+        id: generateId(),
+        prGroup: groupedNotes.value.length + 1,
+        priImageNote: cat.rncName,
+        reportImages: [],
+        type: 'label',
+        rncId: String(cat.rncId)
+      });
+      syncToMainForm();
+    }
   }
 };
 
@@ -525,7 +573,7 @@ const handleSubmit = async (): Promise<void> => {
     setTimeout(() => { isResetting.value = false; }, 300);
 
     if (allDone) {
-      await clearTimer(routeId);
+      await clearTimer(routeId, finalPsId);
       await Promise.all([
         storageService.remove('unfinished_route_id'),
         storageService.remove('current_route_id'),
@@ -731,7 +779,7 @@ const captureMandatoryPhoto = async () => {
     try {
       const coordinates = await Geolocation.getCurrentPosition({
         enableHighAccuracy: true,
-        timeout: 6000,
+        timeout: 15000,
         maximumAge: 0
       });
       formData.rpLat = coordinates.coords.latitude;
@@ -741,7 +789,7 @@ const captureMandatoryPhoto = async () => {
         // NẾU THẤT BẠI DO Ở TRONG XƯỞNG TÔN HOẶC TIMEOUT, DÙNG VỊ TRÍ MẠNG
         const fallbackCoords = await Geolocation.getCurrentPosition({
           enableHighAccuracy: false,
-          timeout: 4000, // Đợi tối đa 4 giây
+          timeout: 10000,
           maximumAge: 60000 // Chấp nhận xài lại vị trí đã cache trong vòng 1 phút trước đó
         });
 
@@ -751,7 +799,9 @@ const captureMandatoryPhoto = async () => {
       } catch (fallbackError) {
         await loadingGps.dismiss();
         await showToast(t('areas.report.message.gps_not_available'), 'danger');
-        return; // Dừng, không mở camera
+        formData.rpLat = 0;
+        formData.rpLng = 0;
+        // return; // Dừng, không mở camera
       }
     }
     await loadingGps.dismiss();

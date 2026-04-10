@@ -7,133 +7,143 @@ const minThreshold = ref(0);
 const isTimerRunning = ref(false);
 let intervalId: any = null;
 const currentTimerRouteId = ref<string | number | null>(null);
+const currentTimerPsId = ref<string | number | null>(null); // THÊM STATE LƯU psId
 
 export function useRouteTimer() {
 
-    // Thêm tham số planMinSecond vào hàm start
-    const startTimer = async (routeId: string | number, planMaxSecond: number, planMinSecond: number = 0) => {
-        if (isTimerRunning.value && currentTimerRouteId.value === routeId) return;
+  // 1. Thêm tham số psId vào startTimer
+  const startTimer = async (routeId: string | number, psId: string | number, planMaxSecond: number, planMinSecond: number = 0) => {
+    if (isTimerRunning.value && currentTimerRouteId.value === routeId && currentTimerPsId.value === psId) return;
 
-        currentTimerRouteId.value = routeId;
-        minThreshold.value = planMinSecond;
+    currentTimerRouteId.value = routeId;
+    currentTimerPsId.value = psId;
+    minThreshold.value = planMinSecond;
 
-        const savedEndTime = await storageService.get(`timer_end_${routeId}`);
-        const now = Math.floor(Date.now() / 1000);
+    // GHÉP KEY MỚI
+    const timerKey = `${routeId}_${psId}`;
+    const savedEndTime = await storageService.get(`timer_end_${timerKey}`);
+    const now = Math.floor(Date.now() / 1000);
 
-        let endTime = 0;
+    let endTime = 0;
 
-        if (savedEndTime) {
-            remainingSeconds.value = Math.max(0, savedEndTime - now);
-            endTime = savedEndTime;
+    if (savedEndTime) {
+      remainingSeconds.value = Math.max(0, savedEndTime - now);
+      endTime = savedEndTime;
+    } else {
+      remainingSeconds.value = planMaxSecond;
+      endTime = now + planMaxSecond;
+      await storageService.set(`timer_end_${timerKey}`, endTime);
+    }
+
+    await storageService.set(`timer_min_${timerKey}`, planMinSecond);
+
+    isTimerRunning.value = true;
+    if (intervalId) clearInterval(intervalId);
+
+    if (remainingSeconds.value > 0) {
+      intervalId = setInterval(() => {
+        const currentNow = Math.floor(Date.now() / 1000);
+        const diff = endTime - currentNow;
+
+        if (diff > 0) {
+          remainingSeconds.value = diff;
         } else {
-            remainingSeconds.value = planMaxSecond;
-            endTime = now + planMaxSecond;
-            await storageService.set(`timer_end_${routeId}`, endTime);
+          remainingSeconds.value = 0;
+          stopTimer();
         }
+      }, 1000);
+    } else {
+      stopTimer();
+    }
+  };
 
-        // Lưu luôn cả planMinSecond vào storage để khi reload app vẫn nhớ mốc đỏ
-        await storageService.set(`timer_min_${routeId}`, planMinSecond);
+  // 2. Thêm tham số psId vào restoreTimer
+  const restoreTimer = async (routeId: string | number, psId: string | number) => {
+    if (isTimerRunning.value && currentTimerRouteId.value === routeId && currentTimerPsId.value === psId) return;
 
+    // GHÉP KEY MỚI
+    const timerKey = `${routeId}_${psId}`;
+    const savedEndTime = await storageService.get(`timer_end_${timerKey}`);
+    const savedMin = await storageService.get(`timer_min_${timerKey}`);
+
+    if (savedEndTime) {
+      minThreshold.value = savedMin || 0;
+      const now = Math.floor(Date.now() / 1000);
+
+      currentTimerRouteId.value = routeId;
+      currentTimerPsId.value = psId;
+
+      if (savedEndTime > now) {
+        remainingSeconds.value = savedEndTime - now;
         isTimerRunning.value = true;
         if (intervalId) clearInterval(intervalId);
+        intervalId = setInterval(() => {
+          const currentNow = Math.floor(Date.now() / 1000);
+          const diff = savedEndTime - currentNow;
 
-        if (remainingSeconds.value > 0) {
-            intervalId = setInterval(() => {
-                const currentNow = Math.floor(Date.now() / 1000);
-                const diff = endTime - currentNow;
-
-                if (diff > 0) {
-                    remainingSeconds.value = diff;
-                } else {
-                    remainingSeconds.value = 0;
-                    stopTimer();
-                }
-            }, 1000);
-        } else {
+          if (diff > 0) {
+            remainingSeconds.value = diff;
+          } else {
+            remainingSeconds.value = 0;
             stopTimer();
-        }
-    };
-
-    const restoreTimer = async (routeId: string | number) => {
-        if (isTimerRunning.value && currentTimerRouteId.value === routeId) return;
-
-        const savedEndTime = await storageService.get(`timer_end_${routeId}`);
-        const savedMin = await storageService.get(`timer_min_${routeId}`);
-
-        if (savedEndTime) {
-            minThreshold.value = savedMin || 0;
-            const now = Math.floor(Date.now() / 1000);
-
-            currentTimerRouteId.value = routeId;
-            if (savedEndTime > now) {
-                remainingSeconds.value = savedEndTime - now;
-                isTimerRunning.value = true;
-                if (intervalId) clearInterval(intervalId);
-                intervalId = setInterval(() => {
-                    const currentNow = Math.floor(Date.now() / 1000);
-                    const diff = savedEndTime - currentNow;
-
-                    if (diff > 0) {
-                        remainingSeconds.value = diff;
-                    } else {
-                        remainingSeconds.value = 0;
-                        stopTimer();
-                    }
-                }, 1000);
-            } else {
-                remainingSeconds.value = 0;
-                stopTimer();
-            }
-        }
-    };
-
-    const clearTimer = async (routeId?: string | number | null) => {
-        const targetId = routeId || currentTimerRouteId.value;
-
-        stopTimer();
+          }
+        }, 1000);
+      } else {
         remainingSeconds.value = 0;
-        minThreshold.value = 0;
-        currentTimerRouteId.value = null;
+        stopTimer();
+      }
+    }
+  };
 
-        if (targetId) {
-            await storageService.remove(`timer_end_${targetId}`);
-            await storageService.remove(`timer_min_${targetId}`);
-        }
-    };
+  // 3. Thêm tham số psId vào clearTimer
+  const clearTimer = async (routeId?: string | number | null, psId?: string | number | null) => {
+    const targetRouteId = routeId || currentTimerRouteId.value;
+    const targetPsId = psId || currentTimerPsId.value;
 
-    const stopTimer = () => {
-        if (intervalId) {
-            clearInterval(intervalId);
-            intervalId = null;
-        }
-        isTimerRunning.value = false;
-    };
+    stopTimer();
+    remainingSeconds.value = 0;
+    minThreshold.value = 0;
+    currentTimerRouteId.value = null;
+    currentTimerPsId.value = null;
 
-    // LOGIC ĐỔI MÀU DỰA TRÊN planMinSecond
-    const timerColorClass = computed(() => {
-        if (currentTimerRouteId.value === null) return '';
+    if (targetRouteId && targetPsId) {
+      const timerKey = `${targetRouteId}_${targetPsId}`;
+      await storageService.remove(`timer_end_${timerKey}`);
+      await storageService.remove(`timer_min_${timerKey}`);
+    }
+  };
 
-        // Nếu giây còn lại ít hơn hoặc bằng mốc tối thiểu -> Chuyển Đỏ
-        if (remainingSeconds.value <= minThreshold.value) {
-            return 'text-danger';
-        }
-        return 'text-success';
-    });
+  const stopTimer = () => {
+    if (intervalId) {
+      clearInterval(intervalId);
+      intervalId = null;
+    }
+    isTimerRunning.value = false;
+  };
 
-    return {
-        remainingSeconds,
-        formattedTime: computed(() => {
-            if (currentTimerRouteId.value === null) return '';
-            if (remainingSeconds.value <= 0) return '00:00';
-            const m = Math.floor(remainingSeconds.value / 60);
-            const s = remainingSeconds.value % 60;
-            return `${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
-        }),
-        timerColorClass,
-        startTimer,
-        stopTimer,
-        clearTimer,
-        restoreTimer,
-        currentTimerRouteId
-    };
+  const timerColorClass = computed(() => {
+    if (currentTimerRouteId.value === null) return '';
+    if (remainingSeconds.value <= minThreshold.value) {
+      return 'text-danger';
+    }
+    return 'text-success';
+  });
+
+  return {
+    remainingSeconds,
+    formattedTime: computed(() => {
+      if (currentTimerRouteId.value === null) return '';
+      if (remainingSeconds.value <= 0) return '00:00';
+      const m = Math.floor(remainingSeconds.value / 60);
+      const s = remainingSeconds.value % 60;
+      return `${m < 10 ? '0' + m : m}:${s < 10 ? '0' + s : s}`;
+    }),
+    timerColorClass,
+    startTimer,
+    stopTimer,
+    clearTimer,
+    restoreTimer,
+    currentTimerRouteId,
+    currentTimerPsId
+  };
 }

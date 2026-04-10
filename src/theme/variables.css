@@ -2,42 +2,42 @@
 http://ionicframework.com/docs/theming/ */
 /* Tùy chỉnh màu sắc cho Alert lỗi */
 .custom-error-alert {
-    --backdrop-opacity: 0.6;
+  --backdrop-opacity: 0.6;
 }
 
 /* Đổi màu tiêu đề (Header) */
 .custom-error-alert .alert-sub-title {
-    color: #eb445a !important;
-    /* Màu đỏ của Ionic */
-    font-weight: bold !important;
-    text-transform: uppercase;
+  color: #eb445a !important;
+  /* Màu đỏ của Ionic */
+  font-weight: bold !important;
+  text-transform: uppercase;
 }
 
 /* Đổi màu nội dung (Message) */
 .custom-error-alert .alert-message {
-    color: #333 !important;
-    font-size: 16px !important;
+  color: #333 !important;
+  font-size: 16px !important;
 }
 
 /* Tùy chỉnh riêng cho cái tên điểm cần quét (nếu bạn dùng thẻ b ở bước 1) */
 .custom-error-alert .highlight-point {
-    color: #2fdf75;
-    /* Màu xanh lá nổi bật hoặc màu vàng tùy bạn */
-    font-size: 1.2em;
-    text-decoration: underline;
+  color: #2fdf75;
+  /* Màu xanh lá nổi bật hoặc màu vàng tùy bạn */
+  font-size: 1.2em;
+  text-decoration: underline;
 }
 
 .no-route-container {
-    margin-top: 100px;
+  margin-top: 100px;
 }
 
 .none-padding {
-    padding-top: 0 !important;
+  padding-top: 0 !important;
 }
 
 /* Đẩy nội dung của tất cả các trang lên một khoảng bằng với thanh điều hướng */
 ion-content {
-    --padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px) !important;
+  --padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 24px) !important;
 }
 
 /* Tắt bóng mờ (hover/focus) trên Segment Button */
@@ -46,24 +46,24 @@ ion-item,
 ion-button,
 ion-segment-button,
 ion-accordion ion-item {
-    --background-hover: transparent;
-    --background-hover-opacity: 0;
-    --background-focused: transparent;
-    --background-focused-opacity: 0;
-    --indicator-box-shadow: none;
-    /* Tắt luôn hiệu ứng loang nước khi click vào item có thuộc tính button */
-    --ripple-color: transparent;
+  --background-hover: transparent;
+  --background-hover-opacity: 0;
+  --background-focused: transparent;
+  --background-focused-opacity: 0;
+  --indicator-box-shadow: none;
+  /* Tắt luôn hiệu ứng loang nước khi click vào item có thuộc tính button */
+  --ripple-color: transparent;
 }
 
 @media (hover: none) {
 
-    ion-button,
-    ion-item,
-    ion-accordion ion-item,
-    ion-segment-button {
-        --background-hover: transparent;
-        --background-hover-opacity: 0;
-        --background-focused: transparent;
-        --background-focused-opacity: 0;
-    }
+  ion-button,
+  ion-item,
+  ion-accordion ion-item,
+  ion-segment-button {
+    --background-hover: transparent;
+    --background-hover-opacity: 0;
+    --background-focused: transparent;
+    --background-focused-opacity: 0;
+  }
 }

@@ -1,214 +1,215 @@
 {
-    "login": {
-        "title": "登入",
-        "username": "使用者名稱",
-        "password": "密碼",
-        "btn_login": "登入",
-        "lang_select": "選擇語言",
-        "cancel": "取消",
-        "message": {
-            "1": "登入資訊不正確",
-            "2": "此帳號從未在此裝置上登入過。首次登入需要網路連線！",
-            "3": "密碼不正確 (離線)！",
-            "4": "無法連線至伺服器或發生錯誤。請再試一次！"
-        }
-    },
-    "layout": {
-        "warning": "警告",
-        "understood": "知道了",
-        "online": "線上",
-        "offline": "離線"
-    },
-    "home": {
-        "roles": "角色",
-        "users": "使用者",
-        "areas": "區域",
-        "routes": "路線",
-        "reports": "報表",
-        "tutorial": "教學",
-        "adm": "管理員",
-        "it": "資訊人員",
-        "expat": "外派人員",
-        "security": "保全",
-        "info-areas": "正在載入個人資料..."
-    },
-    "page": {
-        "roles": "角色",
-        "users": "使用者",
-        "areas": {
-            "index": "區域",
-            "detail": "區域詳情",
-            "report": "區域報告"
-        },
-        "routes": "路線",
-        "reports": "報表",
-        "tutorial": "教學"
-    },
-    "routes": {
-        "cancel": "取消",
-        "scan": "掃描",
-        "code": "代碼:",
-        "shift": "班次:",
-        "countdown": "倒數計時:",
-        "loading-route": "正在載入路線...",
-        "txt-info": "{currentHour}時的路線已完成",
-        "all-scanned": "您已完成此時段的所有掃描點位。",
-        "route-not-found": "找不到 {currentHour}時的路線",
-        "no-shift-data": "班次資料尚未載入，或此時段無班次。",
-        "go-home": "返回首頁",
-        "warning-title": "警告！",
-        "cancel-confirm-msg": "確定要取消嗎？所有已掃描的資料將會遺失。",
-        "confirm-cancel": "確認取消",
-        "verifying-checkpoint": "正在驗證檢查點..."
-    },
-    "areas": {
-        "index": {
-            "selected": "已選擇:",
-            "cancel": "關閉",
-            "await-sync": "等待伺服器同步",
-            "points": "點位",
-            "emty-data": "暫無資料",
-            "please-route": "請選擇路線",
-            "go-home": "返回首頁",
-            "load-more": "正在載入更多...",
-            "expat": "外派人員",
-            "security": "保全",
-            "all": "全部",
-            "message": {
-                "1": "正在載入詳細資訊...",
-                "2": "無網路連線",
-                "3": "請檢查您的網路連線以查看詳細資訊。",
-                "4": "找不到詳細資料。",
-                "5": "通知"
-            }
-        },
-        "detail": {
-            "emty-data": "暫無資料",
-            "go-home": "返回首頁",
-            "cancel": "關閉",
-            "area": "區域:",
-            "position": "位置:",
-            "estimated-time": "預計時間:",
-            "actual-time": "實際時間:",
-            "user-report": "回報人:",
-            "date-report": "回報日期:",
-            "user-update": "更新人:",
-            "date-update": "更新日期:",
-            "cp-desc": "點位說明:",
-            "general-notes": "總備註:",
-            "pic-rp": "回報照片",
-            "stt-pending": "待處理",
-            "stt-processing": "處理中",
-            "stt-completed": "已完成",
-            "stt-no-issue": "無異常",
-            "issue-none": "無異常狀況",
-            "issue-found": "有異常狀況"
-        },
-        "report": {
-            "no-issue": "未發現問題 / 異常",
-            "camera": "相機",
-            "gallery": "相簿",
-            "placeholder-input": "請輸入...",
-            "issue-detected": "發現問題 / 異常",
-            "select-status": "選擇狀態",
-            "btn-submit": "送出回報",
-            "issue-type": "異常類型",
-            "close": "關閉",
-            "selected-status": "已選狀態:",
-            "other-note": "其他 (輸入備註)...",
-            "btn-confirm": "確認",
-            "detail-note": "輸入詳細備註",
-            "pending-sync": "等待同步",
-            "offline": "離線",
-            "loading-more": "正在載入更多報告...",
-            "content": "內容",
-            "code": "代碼:",
-            "shift": "班次:",
-            "countdown": "剩餘時間:",
-            "validate-img": "驗證圖片",
-            "label_requirement": "要求:",
-            "msg_capture_before_report": "報告前請先拍攝巡邏點照片。",
-            "btn_take_checkin": "拍入點打卡照",
-            "status_photo_confirmed": "已拍攝確認照片",
-            "img-status": "尚無狀態照片",
-            "message": {
-                "1": "錯誤：找不到檢查點資料",
-                "2": "正在儲存資料...",
-                "3": "錯誤：不支援的圖片格式 {blob.type}！",
-                "4": "錯誤：圖片檔案過大 ({sizeInMB}MB)。最大限制為 10MB！",
-                "5": "成功完成路線！",
-                "6": "無法儲存報告",
-                "7": "警告",
-                "8": "您正在值班中，請完成剩餘的檢查點！",
-                "9": "知道了",
-                "10": "正在處理圖片...",
-                "11": "您確定要提交這份報告嗎？",
-                "location_permission": "請允許存取位置資訊以進行拍照！",
-                "fetching_gps": "正在取得 GPS 位置...",
-                "gps_not_available": "無法取得位置。請移動到較空曠的區域或重新開啟定位。",
-                "gps_error": "請在拍攝巡邏照片前開啟 GPS (定位)。"
-            }
-        }
-    },
-    "role": {
-        "load-data": "正在載入資料...",
-        "role-menu": "角色選單:",
-        "created-date": "建立日期:",
-        "updated-date": "更新日期:",
-        "no-role-data": "沒有角色資料。",
-        "loading-more": "正在載入更多資料..."
-    },
-    "users": {
-        "loading": "正在載入資料...",
-        "no-data": "沒有使用者資料。",
-        "loading-more": "正在載入更多資料..."
-    },
-    "messages": {
-        "nav": {
-            "got": "知道了",
-            "warning": "警告",
-            "incomplete-route": "巡邏路線未完成。您目前無法返回首頁！",
-            "unable-to-logout": "無法登出",
-            "incomplete-patrol": "您目前正處於未完成的巡邏路線中。請在登出前結束路線！",
-            "data-loss": "資料遺失警告！",
-            "pending-reports": "您有 {pendingItems.value.length} 份尚未同步的報告。請在登出前連線網路進行同步！"
-        },
-        "use-camera": {
-            "max-images": "最多只能附加 10 張圖片！",
-            "limit-reached": "已達 10 張圖片上限！",
-            "taking-images": "僅擷取前 {slotsLeft} 張圖片，以免超過 10 張圖片的限制。"
-        },
-        "use-offline": {
-            "saved-to-queue": "已儲存至佇列。有網路連線時將自動傳送。",
-            "maintenance": "伺服器系統正在維護中。資料已安全儲存於本機，稍後將自動重新傳送。",
-            "syncing": "正在重新連線並同步...",
-            "cleaning": "正在清理舊資料...",
-            "uploading": "正在上傳報告 ({processedItems}/{totalItems})...",
-            "completed": "同步完成！"
-        },
-        "scanner": {
-            "notification": "通知",
-            "grant-camera-permission": "請授權使用相機以掃描條碼。",
-            "route-not-found": "找不到所選的路線資訊。",
-            "invalid-qr-code": "無效的 QR 碼",
-            "route-completed": "此路線的所有檢查點皆已完成。",
-            "wrong-patrol-order": "巡邏順序錯誤",
-            "next-checkpoint": "是下一個需要掃描的點。請遵循正確的路線。",
-            "checkpoint-not-found": "在系統資料中找不到此點的資訊。",
-            "unable-to-process": "系統無法處理掃描的條碼。"
-        },
-        "sync": {
-            "loading_shift_data": "正在載入班次資料...",
-            "updating": "正在更新...",
-            "loading_step": "正在載入 {name}...",
-            "completed": "已完成！",
-            "steps": {
-                "checkpoints": "巡檢點",
-                "area_bu": "區域",
-                "list_route": "路線列表",
-                "report_note_category": "故障類別",
-                "base_point_report": "報告資料"
-            }
-        }
+  "login": {
+    "title": "登入",
+    "username": "使用者名稱",
+    "password": "密碼",
+    "btn_login": "登入",
+    "lang_select": "選擇語言",
+    "cancel": "取消",
+    "message": {
+      "1": "登入資訊不正確",
+      "2": "此帳號從未在此裝置上登入過。首次登入需要網路連線！",
+      "3": "密碼不正確 (離線)！",
+      "4": "無法連線至伺服器或發生錯誤。請再試一次！"
     }
+  },
+  "layout": {
+    "warning": "警告",
+    "understood": "知道了",
+    "online": "線上",
+    "offline": "離線"
+  },
+  "home": {
+    "roles": "角色",
+    "users": "使用者",
+    "areas": "區域",
+    "routes": "路線",
+    "reports": "報表",
+    "tutorial": "教學",
+    "adm": "管理員",
+    "it": "資訊人員",
+    "expat": "外派人員",
+    "security": "保全",
+    "info-areas": "正在載入個人資料..."
+  },
+  "page": {
+    "roles": "角色",
+    "users": "使用者",
+    "areas": {
+      "index": "區域",
+      "detail": "區域詳情",
+      "report": "區域報告"
+    },
+    "routes": "路線",
+    "reports": "報表",
+    "tutorial": "教學"
+  },
+  "routes": {
+    "cancel": "取消",
+    "scan": "掃描",
+    "code": "代碼:",
+    "shift": "班次:",
+    "countdown": "倒數計時:",
+    "loading-route": "正在載入路線...",
+    "txt-info": "{currentHour}時的路線已完成",
+    "all-scanned": "您已完成此時段的所有掃描點位。",
+    "route-not-found": "找不到 {currentHour}時的路線",
+    "no-shift-data": "班次資料尚未載入，或此時段無班次。",
+    "go-home": "返回首頁",
+    "warning-title": "警告！",
+    "cancel-confirm-msg": "確定要取消嗎？所有已掃描的資料將會遺失。",
+    "confirm-cancel": "確認取消",
+    "verifying-checkpoint": "正在驗證檢查點..."
+  },
+  "areas": {
+    "index": {
+      "selected": "已選擇:",
+      "cancel": "關閉",
+      "await-sync": "等待伺服器同步",
+      "points": "點位",
+      "emty-data": "暫無資料",
+      "please-route": "請選擇路線",
+      "go-home": "返回首頁",
+      "load-more": "正在載入更多...",
+      "expat": "外派人員",
+      "security": "保全",
+      "all": "全部",
+      "message": {
+        "1": "正在載入詳細資訊...",
+        "2": "無網路連線",
+        "3": "請檢查您的網路連線以查看詳細資訊。",
+        "4": "找不到詳細資料。",
+        "5": "通知"
+      }
+    },
+    "detail": {
+      "emty-data": "暫無資料",
+      "go-home": "返回首頁",
+      "cancel": "關閉",
+      "area": "區域:",
+      "position": "位置:",
+      "estimated-time": "預計時間:",
+      "actual-time": "實際時間:",
+      "user-report": "回報人:",
+      "date-report": "回報日期:",
+      "user-update": "更新人:",
+      "date-update": "更新日期:",
+      "cp-desc": "點位說明:",
+      "general-notes": "總備註:",
+      "pic-rp": "回報照片",
+      "stt-pending": "待處理",
+      "stt-processing": "處理中",
+      "stt-completed": "已完成",
+      "stt-no-issue": "無異常",
+      "issue-none": "無異常狀況",
+      "issue-found": "有異常狀況"
+    },
+    "report": {
+      "no-issue": "未發現問題 / 異常",
+      "camera": "相機",
+      "gallery": "相簿",
+      "placeholder-input": "請輸入...",
+      "issue-detected": "發現問題 / 異常",
+      "select-status": "選擇狀態",
+      "btn-submit": "送出回報",
+      "issue-type": "異常類型",
+      "close": "關閉",
+      "selected-status": "已選狀態:",
+      "other-note": "其他 (輸入備註)...",
+      "btn-confirm": "確認",
+      "detail-note": "輸入詳細備註",
+      "pending-sync": "等待同步",
+      "offline": "離線",
+      "loading-more": "正在載入更多報告...",
+      "content": "內容",
+      "code": "代碼:",
+      "shift": "班次:",
+      "countdown": "剩餘時間:",
+      "validate-img": "驗證圖片",
+      "label_requirement": "要求:",
+      "msg_capture_before_report": "報告前請先拍攝巡邏點照片。",
+      "btn_take_checkin": "拍入點打卡照",
+      "status_photo_confirmed": "已拍攝確認照片",
+      "img-status": "尚無狀態照片",
+      "message": {
+        "1": "錯誤：找不到檢查點資料",
+        "2": "正在儲存資料...",
+        "3": "錯誤：不支援的圖片格式 {blob.type}！",
+        "4": "錯誤：圖片檔案過大 ({sizeInMB}MB)。最大限制為 10MB！",
+        "5": "成功完成路線！",
+        "6": "無法儲存報告",
+        "7": "警告",
+        "8": "您正在值班中，請完成剩餘的檢查點！",
+        "9": "知道了",
+        "10": "正在處理圖片...",
+        "11": "您確定要提交這份報告嗎？",
+        "location_permission": "請允許存取位置資訊以進行拍照！",
+        "fetching_gps": "正在取得 GPS 位置...",
+        "gps_not_available": "無法取得位置。請移動到較空曠的區域或重新開啟定位。",
+        "gps_error": "請在拍攝巡邏照片前開啟 GPS (定位)。"
+      }
+    }
+  },
+  "role": {
+    "load-data": "正在載入資料...",
+    "role-menu": "角色選單:",
+    "created-date": "建立日期:",
+    "updated-date": "更新日期:",
+    "no-role-data": "沒有角色資料。",
+    "loading-more": "正在載入更多資料..."
+  },
+  "users": {
+    "loading": "正在載入資料...",
+    "no-data": "沒有使用者資料。",
+    "loading-more": "正在載入更多資料..."
+  },
+  "messages": {
+    "nav": {
+      "got": "知道了",
+      "warning": "警告",
+      "incomplete-route": "巡邏路線未完成。您目前無法返回首頁！",
+      "unable-to-logout": "無法登出",
+      "incomplete-patrol": "您目前正處於未完成的巡邏路線中。請在登出前結束路線！",
+      "data-loss": "資料遺失警告！",
+      "pending-reports": "您有 {pendingItems.value.length} 份尚未同步的報告。請在登出前連線網路進行同步！",
+      "msg-logout-sync-offline": "由於網路連線不穩定或斷線，目前尚有 ${totalUnsynced} 項程序等待同步。此時登出將導致資料遺失，請務必等待網路恢復穩定！"
+    },
+    "use-camera": {
+      "max-images": "最多只能附加 10 張圖片！",
+      "limit-reached": "已達 10 張圖片上限！",
+      "taking-images": "僅擷取前 {slotsLeft} 張圖片，以免超過 10 張圖片的限制。"
+    },
+    "use-offline": {
+      "saved-to-queue": "已儲存至佇列。有網路連線時將自動傳送。",
+      "maintenance": "伺服器系統正在維護中。資料已安全儲存於本機，稍後將自動重新傳送。",
+      "syncing": "正在重新連線並同步...",
+      "cleaning": "正在清理舊資料...",
+      "uploading": "正在上傳報告 ({processedItems}/{totalItems})...",
+      "completed": "同步完成！"
+    },
+    "scanner": {
+      "notification": "通知",
+      "grant-camera-permission": "請授權使用相機以掃描條碼。",
+      "route-not-found": "找不到所選的路線資訊。",
+      "invalid-qr-code": "無效的 QR 碼",
+      "route-completed": "此路線的所有檢查點皆已完成。",
+      "wrong-patrol-order": "巡邏順序錯誤",
+      "next-checkpoint": "是下一個需要掃描的點。請遵循正確的路線。",
+      "checkpoint-not-found": "在系統資料中找不到此點的資訊。",
+      "unable-to-process": "系統無法處理掃描的條碼。"
+    },
+    "sync": {
+      "loading_shift_data": "正在載入班次資料...",
+      "updating": "正在更新...",
+      "loading_step": "正在載入 {name}...",
+      "completed": "已完成！",
+      "steps": {
+        "checkpoints": "巡檢點",
+        "area_bu": "區域",
+        "list_route": "路線列表",
+        "report_note_category": "故障類別",
+        "base_point_report": "報告資料"
+      }
+    }
+  }
 }

@@ -4,15 +4,15 @@ import en from './locales/en.json';
 import zh from './locales/zh.json';
 
 const i18n = createI18n({
-    legacy: false,
-    locale: 'vi',
-    fallbackLocale: 'en',
-    globalInjection: true,
-    messages: {
-        vi: vi,
-        en: en,
-        zh: zh
-    } as any
+  legacy: false,
+  locale: 'vi',
+  fallbackLocale: 'en',
+  globalInjection: true,
+  messages: {
+    vi: vi,
+    en: en,
+    zh: zh
+  } as any
 });
 
 export default i18n;

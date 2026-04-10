@@ -4,124 +4,139 @@ import { useI18n } from 'vue-i18n';
 
 // Interface trả về cho các file gọi Composable này sử dụng
 interface Photo {
-    fileName: string;
-    preview: string;
-    rawBase64?: string; // Giữ lại dự phòng nếu sau này cần
+  fileName: string;
+  preview: string;
+  rawBase64?: string; // Giữ lại dự phòng nếu sau này cần
 }
 
-let currentToast: HTMLIonToastElement | null = null;
+const toastQueue: Array<{ message: string; color: string }> = [];
+let isShowing = false;
 
 export function useCameraHandler() {
-    const { t } = useI18n();
+  const { t } = useI18n();
 
-    // Hàm tiện ích: Hiển thị thông báo (Giống hàm showToast ở file cha)
-    const showToast = async (message: string, color: string = 'warning') => {
-        if (currentToast) {
-            await currentToast.dismiss().catch(() => { });
-        }
+  // Hàm tiện ích: Hiển thị thông báo (Giống hàm showToast ở file cha)
+  const showToast = async (message: string, color: string = 'warning') => {
+    // Thêm thông báo mới vào hàng đợi
+    toastQueue.push({ message, color });
 
-        currentToast = await toastController.create({
-            message,
-            color,
-            duration: 1000,
-            position: 'top'
-        });
-        await currentToast.present();
+    // Nếu đang có toast hiển thị thì thôi, hàm processQueue sẽ lo phần còn lại
+    if (isShowing) return;
 
-        currentToast.onDidDismiss().then(() => {
-            currentToast = null;
-        });
-    };
+    await processQueue();
+  };
 
-    // 1. HÀM CHỤP ẢNH TỪ CAMERA
-    // currentCount: Số ảnh hiện có (để check giới hạn 10 tấm)
-    // prefix: Tiền tố tên file (ví dụ 'ok_cam_' hoặc 'err_cam_')
-    const takePhoto = async (currentCount: number, prefix: string = 'img_'): Promise<Photo | null> => {
-        if (currentCount >= 10) {
-            await showToast(t('messages.use-camera.max-images'));
-            return null; // Trả về null nếu vi phạm luật
-        }
+  const processQueue = async () => {
+    if (toastQueue.length === 0) {
+      isShowing = false;
+      return;
+    }
 
-        try {
-            const image = await Camera.getPhoto({
-                quality: 60,
-                width: 1024,
-                resultType: CameraResultType.Uri,
-                source: CameraSource.Camera
-            });
+    isShowing = true;
+    const { message, color } = toastQueue.shift()!;
 
-            if (image.webPath) {
-                return {
-                    fileName: `${prefix}${Date.now()}.jpg`,
-                    preview: image.webPath
-                };
-            }
-            return null;
-        } catch (e) {
-            console.log("Hủy chụp ảnh hoặc lỗi camera:", e);
-            return null;
-        }
-    };
+    const toast = await toastController.create({
+      message,
+      color,
+      duration: 1500,
+      position: 'top'
+    });
 
-    // 2. HÀM CHỌN ẢNH TỪ THƯ VIỆN
-    // currentCount: Số ảnh hiện có (để tính slotsLeft)
-    // prefix: Tiền tố tên file
-    const pickImagesFromGallery = async (currentCount: number, prefix: string = 'img_'): Promise<Photo[]> => {
-        const slotsLeft = 10 - currentCount;
+    await toast.present();
 
-        if (slotsLeft <= 0) {
-            await showToast(t('messages.use-camera.limit-reached'));
-            return []; // Trả về mảng rỗng nếu vi phạm
-        }
+    await toast.onDidDismiss();
+    await processQueue();
+  };
 
-        try {
-            const result = await Camera.pickImages({
-                quality: 60,
-                limit: slotsLeft
-            });
+  // 1. HÀM CHỤP ẢNH TỪ CAMERA
+  // currentCount: Số ảnh hiện có (để check giới hạn 10 tấm)
+  // prefix: Tiền tố tên file (ví dụ 'ok_cam_' hoặc 'err_cam_')
+  const takePhoto = async (currentCount: number, prefix: string = 'img_'): Promise<Photo | null> => {
+    if (currentCount >= 10) {
+      await showToast(t('messages.use-camera.max-images'));
+      return null; // Trả về null nếu vi phạm luật
+    }
 
-            let photosToAdd = result.photos;
+    try {
+      const image = await Camera.getPhoto({
+        quality: 60,
+        width: 1024,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Camera
+      });
 
-            // Cắt mảng dự phòng
-            if (photosToAdd.length > slotsLeft) {
-                await showToast(t('messages.use-camera.taking-images', { count: slotsLeft }));
-                photosToAdd = photosToAdd.slice(0, slotsLeft);
-            }
+      if (image.webPath) {
+        return {
+          fileName: `${prefix}${Date.now()}.jpg`,
+          preview: image.webPath
+        };
+      }
+      return null;
+    } catch (e) {
+      console.log("Hủy chụp ảnh hoặc lỗi camera:", e);
+      return null;
+    }
+  };
 
-            // Convert kết quả của Capacitor thành Interface Photo của chúng ta
-            return photosToAdd.map(photo => {
-                // photo.format thường trả về 'jpeg', 'png', 'webp', v.v.
-                // Fallback về 'jpg' nếu không lấy được format
-                let ext = photo.format ? `.${photo.format.toLowerCase()}` : '.jpg';
-                // Chuẩn hóa jpeg thành jpg để đồng nhất với mảng AllowImageExtetions của backend
-                if (ext === '.jpeg') ext = '.jpg';
+  // 2. HÀM CHỌN ẢNH TỪ THƯ VIỆN
+  // currentCount: Số ảnh hiện có (để tính slotsLeft)
+  // prefix: Tiền tố tên file
+  const pickImagesFromGallery = async (currentCount: number, prefix: string = 'img_'): Promise<Photo[]> => {
+    const slotsLeft = 10 - currentCount;
 
-                return {
-                    fileName: `${prefix}${Date.now()}_${Math.floor(Math.random() * 1000)}${ext}`,
-                    preview: photo.webPath
-                };
-            });
+    if (slotsLeft <= 0) {
+      await showToast(t('messages.use-camera.limit-reached'));
+      return []; // Trả về mảng rỗng nếu vi phạm
+    }
 
-        } catch (e) {
-            console.log("Hủy chọn ảnh thư viện:", e);
-            return [];
-        }
-    };
+    try {
+      const result = await Camera.pickImages({
+        quality: 60,
+        limit: slotsLeft
+      });
 
-    // 3. Hàm phụ trợ convert Blob (Dùng lúc Submit)
-    const convertBlobToBase64 = (blob: Blob): Promise<string> => {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onerror = reject;
-            reader.onload = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-        });
-    };
+      let photosToAdd = result.photos;
 
-    return {
-        takePhoto,
-        pickImagesFromGallery,
-        convertBlobToBase64,
-        showToast
-    };
+      // Cắt mảng dự phòng
+      if (photosToAdd.length > slotsLeft) {
+        await showToast(t('messages.use-camera.taking-images', { count: slotsLeft }));
+        photosToAdd = photosToAdd.slice(0, slotsLeft);
+      }
+
+      // Convert kết quả của Capacitor thành Interface Photo của chúng ta
+      return photosToAdd.map(photo => {
+        // photo.format thường trả về 'jpeg', 'png', 'webp', v.v.
+        // Fallback về 'jpg' nếu không lấy được format
+        let ext = photo.format ? `.${photo.format.toLowerCase()}` : '.jpg';
+        // Chuẩn hóa jpeg thành jpg để đồng nhất với mảng AllowImageExtetions của backend
+        if (ext === '.jpeg') ext = '.jpg';
+
+        return {
+          fileName: `${prefix}${Date.now()}_${Math.floor(Math.random() * 1000)}${ext}`,
+          preview: photo.webPath
+        };
+      });
+
+    } catch (e) {
+      console.log("Hủy chọn ảnh thư viện:", e);
+      return [];
+    }
+  };
+
+  // 3. Hàm phụ trợ convert Blob (Dùng lúc Submit)
+  const convertBlobToBase64 = (blob: Blob): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsDataURL(blob);
+    });
+  };
+
+  return {
+    takePhoto,
+    pickImagesFromGallery,
+    convertBlobToBase64,
+    showToast
+  };
 }

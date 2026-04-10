@@ -302,40 +302,6 @@ export function useOfflineManager() {
           mode: 'overlay'
         });
 
-        const originalTime = new Date(item.data.createdAt);
-        let isAlreadyOnServer = false;
-        const actualUser: any = storeInstance.state.dataUser;
-        const userData = actualUser?.data ? actualUser.data : actualUser;
-
-        // Kiểm tra xem dữ liệu đã tồn tại trên Server chưa (Tránh gửi trùng khi mạng chập chờn)
-        try {
-          const checkInfo = {
-            psId: item.data.psId,
-            psDay: originalTime.getDate(),
-            psMonth: originalTime.getMonth() + 1,
-            psYear: originalTime.getFullYear(),
-            userAreaId: item.data.areaId || userData?.userAreaId,
-            psHours: Array.from({ length: 24 }, (_, i) => i)
-          };
-
-          const res: any = await PatrolShiftView.postPatrolShiftView(checkInfo);
-          const routes = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-
-          isAlreadyOnServer = routes.some((r: any) =>
-            r.routeDetails?.some((rd: any) =>
-              String(rd.cpId) === String(item.data.cpId) && rd.status === 1
-            )
-          );
-        } catch (e) {
-          console.warn("Không thể kiểm tra trạng thái Server, thử gửi trực tiếp.");
-        }
-
-        if (isAlreadyOnServer) {
-          console.log(`[Sync] Điểm ${item.data.cpId} đã có trên Server. Dọn dẹp Mock.`);
-          await cleanUpItem(item);
-          continue;
-        }
-
         // Đọc ảnh từ file vật lý để gán lại vào payload
         if (item.imageFiles && item.imageFiles.length > 0) {
           let fileIndex = 0;
@@ -355,16 +321,36 @@ export function useOfflineManager() {
         try {
           const bodyFormData = await buildFormData(item);
           const result = await PointReport.createPointReport(bodyFormData);
-          const realReport = result?.data?.data || result?.data || result;
+
+          const responseData = result?.data || result;
+
+          // === BẮT LỖI SOFT ERROR TỪ BACKEND ===
+          if (responseData && responseData.success === false) {
+
+            // Hàm includes bắt trúng phóc câu "Point Report này đã tồn tại" của BE
+            if (responseData.message && responseData.message.includes('đã tồn tại')) {
+              console.warn(`[Sync] Báo cáo ${item.data.cpId} đã tồn tại trên Server. Xóa khỏi hàng chờ.`);
+              await cleanUpItem(item);
+              continue;
+            }
+            else {
+              // Ném các lỗi khác xuống catch để dừng Sync và báo Toast
+              throw { isCustom: true, status: 500, message: responseData.message };
+            }
+          }
+          // ==========================================
+
+          const realReport = responseData?.data || responseData;
 
           await cleanUpItem(item);
 
-          if (realReport) {
+          if (realReport && realReport !== false) {
             storeInstance.commit('ADD_OFFLINE_REPORT', realReport);
           }
+
         } catch (error: any) {
-          const statusCode = error.response?.status || error.status;
-          // Lỗi 400/409/422 thường là dữ liệu đã tồn tại hoặc không hợp lệ -> Xóa bỏ để tránh kẹt Queue
+          const statusCode = error.isCustom ? error.status : (error.response?.status || error.status);
+
           if ([400, 409, 422].includes(statusCode)) {
             await cleanUpItem(item);
           } else {
