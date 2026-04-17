@@ -170,7 +170,7 @@ const handleLogin = async () => {
           // checkpoints_id: () => PointReport.postPointReportView(),
           area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),
           list_route: () => PatrolShiftView.postPatrolShiftView(userData),
-          report_note_category: () => ReportNoteCategory.getReportNoteCategory(),
+          report_note_category: () => ReportNoteCategory.postReportNoteCategory(),
           base_point_report: () => PointReport.postBasePointReportView(0),
         };
 

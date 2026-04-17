@@ -113,13 +113,17 @@
       </div>
 
       <category-modal :is-open="openCategoryModal" :api-categories="apiCategories" :grouped-notes="groupedNotes"
+        @close="openCategoryModal = false" @removeGroup="removeGroup" @addPhoto="addGroupPhoto"
+        @pickPhotos="pickGroupImages" @removePhoto="handleRemoveGroupPhoto" @toggleCategory="handleToggleCategory" />
+
+      <!-- <category-modal :is-open="openCategoryModal" :api-categories="apiCategories" :grouped-notes="groupedNotes"
         @close="openCategoryModal = false" @selectCategory="selectSubCategory" @removeGroup="removeGroup"
         @addPhoto="addGroupPhoto" @pickPhotos="pickGroupImages" @removePhoto="handleRemoveGroupPhoto"
-        @selectDirectNote="handleSelectDirectNote" />
+        @selectDirectNote="handleSelectDirectNote" /> -->
 
-      <issue-detail-modal :is-open="openDetailModal" :selectedSubCategory="selectedSubCategory"
+      <!-- <issue-detail-modal :is-open="openDetailModal" :selectedSubCategory="selectedSubCategory"
         :currentIssues="currentIssues" :selectedValues="selectedValues" @close="openDetailModal = false"
-        @toggleIssue="toggleIssue" @confirm="confirmDetails" @addNoteIssue="handleAddNoteIssue" />
+        @toggleIssue="toggleIssue" @confirm="confirmDetails" @addNoteIssue="handleAddNoteIssue" /> -->
 
       <note-input-modal :is-open="openNoteModal" @close="openNoteModal = false" @confirm="handleConfirmNote" />
 
@@ -275,19 +279,19 @@ const handleCheckedHasProblem = () => {
 };
 
 // Hàm xử lý khi user bấm vào nút (+) Thêm Note ở modal chi tiết
-const handleAddNoteIssue = (issue: any) => {
-  confirmDetails();
-  pendingNoteId.value = String(issue.rncId);
-  openNoteModal.value = true;
-};
+// const handleAddNoteIssue = (issue: any) => {
+//   confirmDetails();
+//   pendingNoteId.value = String(issue.rncId);
+//   openNoteModal.value = true;
+// };
 
-const selectSubCategory = (sub: ReportNode) => {
-  selectedSubCategory.value = sub;
-  selectedValues.value = (sub.childs || []).filter((child: any) =>
-    !child.isNote && groupedNotes.value.some(g => g.rncId === String(child.rncId))
-  );
-  openDetailModal.value = true;
-};
+// const selectSubCategory = (sub: ReportNode) => {
+//   selectedSubCategory.value = sub;
+//   selectedValues.value = (sub.childs || []).filter((child: any) =>
+//     !child.isNote && groupedNotes.value.some(g => g.rncId === String(child.rncId))
+//   );
+//   openDetailModal.value = true;
+// };
 
 const handleConfirmNote = (text: string) => {
   groupedNotes.value.push({
@@ -315,75 +319,105 @@ const removeGroup = (idx: number) => {
   syncToMainForm();
 };
 
-const toggleIssue = (issue: any) => {
-  // Tìm xem lỗi này đã được tích chọn trước đó chưa
-  const index = selectedValues.value.findIndex(v => String(v.rncId) === String(issue.rncId));
+// const toggleIssue = (issue: any) => {
+//   // Tìm xem lỗi này đã được tích chọn trước đó chưa
+//   const index = selectedValues.value.findIndex(v => String(v.rncId) === String(issue.rncId));
 
-  if (index > -1) {
-    // Nếu đã có rồi -> Xóa đi (Bỏ tích)
-    selectedValues.value.splice(index, 1);
-  } else {
-    // Nếu chưa có -> Thêm vào mảng (Tích chọn)
-    selectedValues.value.push(issue);
-  }
-};
+//   if (index > -1) {
+//     // Nếu đã có rồi -> Xóa đi (Bỏ tích)
+//     selectedValues.value.splice(index, 1);
+//   } else {
+//     // Nếu chưa có -> Thêm vào mảng (Tích chọn)
+//     selectedValues.value.push(issue);
+//   }
+// };
 
-const confirmDetails = () => {
-  const subId = selectedSubCategory.value?.rncId;
-  if (!subId) return;
+// const confirmDetails = () => {
+//   const subId = selectedSubCategory.value?.rncId;
+//   if (!subId) return;
 
-  const currentChildLabelIds = (selectedSubCategory.value?.childs || [])
-    .filter((c: any) => !c.isNote) // Bỏ qua Note
-    .map((c: any) => String(c.rncId));
+//   const currentChildLabelIds = (selectedSubCategory.value?.childs || [])
+//     .filter((c: any) => !c.isNote) // Bỏ qua Note
+//     .map((c: any) => String(c.rncId));
 
-  // BƯỚC 1: Xóa label bỏ chọn
-  groupedNotes.value = groupedNotes.value.filter((g: any) => {
-    if (currentChildLabelIds.includes(g.rncId)) {
-      return selectedValues.value.some(v => String(v.rncId) === g.rncId);
-    }
-    return true;
-  });
+//   // BƯỚC 1: Xóa label bỏ chọn
+//   groupedNotes.value = groupedNotes.value.filter((g: any) => {
+//     if (currentChildLabelIds.includes(g.rncId)) {
+//       return selectedValues.value.some(v => String(v.rncId) === g.rncId);
+//     }
+//     return true;
+//   });
 
-  // BƯỚC 2: Thêm label mới tích
-  selectedValues.value.forEach((issue) => {
-    const exist = groupedNotes.value.some(g => g.rncId === String(issue.rncId));
-    if (!exist && !issue.isNote) {
-      groupedNotes.value.push({
-        id: generateId(),
-        prGroup: 0,
-        priImageNote: issue.rncName,
-        reportImages: [],
-        type: 'label',
-        rncId: String(issue.rncId)
-      });
-    }
-  });
+//   // BƯỚC 2: Thêm label mới tích
+//   selectedValues.value.forEach((issue) => {
+//     const exist = groupedNotes.value.some(g => g.rncId === String(issue.rncId));
+//     if (!exist && !issue.isNote) {
+//       groupedNotes.value.push({
+//         id: generateId(),
+//         prGroup: 0,
+//         priImageNote: issue.rncName,
+//         reportImages: [],
+//         type: 'label',
+//         rncId: String(issue.rncId)
+//       });
+//     }
+//   });
 
-  groupedNotes.value.forEach((g, i) => g.prGroup = i + 1);
-  syncToMainForm();
-  openDetailModal.value = false;
-};
+//   groupedNotes.value.forEach((g, i) => g.prGroup = i + 1);
+//   syncToMainForm();
+//   openDetailModal.value = false;
+// };
 
 // Xử lý click thẳng vào mục không có child (ví dụ: Sự cố khác)
-const handleSelectDirectNote = (cat: any) => {
-  if (cat.isNote) {
-    // Luôn mở Note, KHÔNG check exist -> User bấm bao nhiêu lần tạo bấy nhiêu cái!
-    pendingNoteId.value = String(cat.rncId);
-    openNoteModal.value = true;
-  } else {
-    // Label bình thường thì vẫn chỉ cho phép add 1 cái
-    const exist = groupedNotes.value.some(g => g.rncId === String(cat.rncId));
-    if (!exist) {
-      groupedNotes.value.push({
-        id: generateId(),
-        prGroup: groupedNotes.value.length + 1,
-        priImageNote: cat.rncName,
-        reportImages: [],
-        type: 'label',
-        rncId: String(cat.rncId)
-      });
-      syncToMainForm();
+// const handleSelectDirectNote = (cat: any) => {
+//   if (cat.isNote) {
+//     // Luôn mở Note, KHÔNG check exist -> User bấm bao nhiêu lần tạo bấy nhiêu cái!
+//     pendingNoteId.value = String(cat.rncId);
+//     openNoteModal.value = true;
+//   } else {
+//     // Label bình thường thì vẫn chỉ cho phép add 1 cái
+//     const exist = groupedNotes.value.some(g => g.rncId === String(cat.rncId));
+//     if (!exist) {
+//       groupedNotes.value.push({
+//         id: generateId(),
+//         prGroup: groupedNotes.value.length + 1,
+//         priImageNote: cat.rncName,
+//         reportImages: [],
+//         type: 'label',
+//         rncId: String(cat.rncId)
+//       });
+//       syncToMainForm();
+//     }
+//   }
+// };
+
+const handleToggleCategory = ({ cat, isChecked }: { cat: any, isChecked: boolean }) => {
+  if (isChecked) {
+    if (cat.isNote) {
+      // Nếu là loại "Sự cố khác" (có nhập note) thì mở modal nhập Note
+      pendingNoteId.value = String(cat.rncId);
+      openNoteModal.value = true;
+    } else {
+      // Checkbox bình thường -> Thêm thẳng vào groupedNotes
+      const exist = groupedNotes.value.some(g => g.rncId === String(cat.rncId));
+      if (!exist) {
+        groupedNotes.value.push({
+          id: generateId(),
+          prGroup: groupedNotes.value.length + 1,
+          priImageNote: cat.rncName,
+          reportImages: [],
+          type: 'label',
+          rncId: String(cat.rncId)
+        });
+        syncToMainForm();
+      }
     }
+  } else {
+    // Nếu Uncheck -> Xóa khỏi danh sách groupedNotes
+    groupedNotes.value = groupedNotes.value.filter(g => g.rncId !== String(cat.rncId));
+    // Đánh số lại thứ tự
+    groupedNotes.value.forEach((g, i) => g.prGroup = i + 1);
+    syncToMainForm();
   }
 };
 
@@ -460,7 +494,8 @@ const handleSubmit = async (): Promise<void> => {
         sourceData.push({
           prGroup: index + 2,
           priImageNote: g.priImageNote,
-          reportImages: g.reportImages
+          reportImages: g.reportImages,
+          rncId: Number(g.rncId)
         });
       });
     }
@@ -516,6 +551,7 @@ const handleSubmit = async (): Promise<void> => {
       finalNoteGroups.push({
         prGroup: group.prGroup,
         priImageNote: group.priImageNote,
+        rncId: group.rncId || 0,
         reportImages: mappedImages
       });
     }

@@ -2,7 +2,6 @@ import { ref, computed } from 'vue';
 import storage from '@/services/storage.service';
 import { ImageService } from '@/services/image.service';
 import PointReport from '@/api/PointReport';
-import PatrolShiftView from '@/api/PatrolShiftView';
 import store from '@/composables/useVuex';
 import { toastController } from '@ionic/vue';
 import PatrolShift from '@/api/PatrolShift';
@@ -56,6 +55,9 @@ export function useOfflineManager() {
         // Append Metadata cho từng Group
         fb.append(`noteGroups[${i}].prGroup`, group.prGroup.toString());
         fb.append(`noteGroups[${i}].priImageNote`, group.priImageNote || '');
+        if (group.rncId !== null && group.rncId !== undefined && group.rncId !== '') {
+          fb.append(`noteGroups[${i}].rncId`, group.rncId.toString());
+        }
 
         // 3. Xử lý ảnh lồng trong từng Group
         if (group.reportImages && group.reportImages.length > 0) {
@@ -181,6 +183,11 @@ export function useOfflineManager() {
     if (storeInstance.state.isOnline) {
       try {
         const bodyFormData = await buildFormData(newItem);
+        // console.log('--- CHI TIẾT FORM DATA ---');
+        // for (let [key, value] of bodyFormData.entries()) {
+        //   console.log(`${key}:`, value);
+        // }
+        // console.log('--------------------------');
 
         const result = await PointReport.createPointReport(bodyFormData);
         const realReport = result?.data?.data || result?.data || result;

@@ -10,30 +10,14 @@
     </ion-header>
 
     <ion-content class="ion-padding">
-      <ion-accordion-group>
-        <template v-for="cat in apiCategories" :key="cat.rncId">
-          <ion-accordion v-if="cat.childs && cat.childs.length > 0" :value="cat.rncName">
-            <ion-item slot="header" color="light">
-              <ion-label style="font-weight: bold;">{{ cat.rncName }}</ion-label>
-            </ion-item>
-            <div class="ion-padding" slot="content">
-              <ion-list>
-                <ion-item v-for="sub in cat.childs" :key="sub.rncId" button detail
-                  @click="$emit('selectCategory', sub)">
-                  <ion-label style="font-weight: bold;">{{ sub.rncName }}</ion-label>
-                </ion-item>
-              </ion-list>
-            </div>
-          </ion-accordion>
-        </template>
-      </ion-accordion-group>
 
-      <ion-list class="custom-direct-list" v-if="apiCategories.some(c => !c.childs || c.childs.length === 0)">
-        <ion-item v-for="cat in apiCategories.filter(c => !c.childs || c.childs.length === 0)"
-          :key="'direct-' + cat.rncId" button color="light" lines="full" class="direct-note-item"
-          @click="$emit('selectDirectNote', cat)">
+      <ion-list>
+        <ion-item v-for="cat in apiCategories" :key="'flat-' + cat.rncId" lines="full" button
+          @click="handleRowClick(cat)">
+          <ion-checkbox slot="start" :checked="isChecked(cat)" style="pointer-events: none;">
+          </ion-checkbox>
           <ion-label style="font-weight: bold;">
-            {{ cat.rncName }} {{ cat.isNote ? '...' : '' }}
+            {{ cat.rncName }} <span v-if="cat.isNote">...</span>
           </ion-label>
         </ion-item>
       </ion-list>
@@ -41,14 +25,12 @@
       <div v-if="groupedNotes.length > 0" class="ion-margin-top">
         <ion-card>
           <ion-card-header>
-            <ion-card-title style="font-size: 18px;">{{ $t('areas.report.selected-status')
-            }}</ion-card-title>
+            <ion-card-title style="font-size: 18px;">{{ $t('areas.report.selected-status') }}</ion-card-title>
           </ion-card-header>
           <ion-card-content class="ion-no-padding">
             <ion-card v-for="(group, index) in groupedNotes" :key="group.id" class="note-group-card">
               <ion-card-header>
-                <ion-card-title style="font-size: 16px;">{{ index + 1 }}. {{ group.priImageNote
-                }}</ion-card-title>
+                <ion-card-title style="font-size: 16px;">{{ index + 1 }}. {{ group.priImageNote }}</ion-card-title>
                 <ion-button fill="clear" color="danger" class="btn-delete-group" @click="$emit('removeGroup', index)">
                   <ion-icon slot="icon-only" :icon="trash"></ion-icon>
                 </ion-button>
@@ -58,15 +40,9 @@
                 <ion-row>
                   <ion-col>
                     <ion-button class="btn-camera" expand="block" @click="$emit('addPhoto', index)">
-                      <ion-icon slot="start" :icon="camera"></ion-icon> {{
-                        $t('areas.report.camera') }}
+                      <ion-icon slot="start" :icon="camera"></ion-icon> {{ $t('areas.report.camera') }}
                     </ion-button>
                   </ion-col>
-                  <!-- <ion-col size="6">
-                                <ion-button expand="block" size="small" @click="$emit('pickPhotos', index)">
-                                    <ion-icon slot="start" :icon="images"></ion-icon> {{ $t('areas.report.gallery') }}
-                                </ion-button>
-                            </ion-col> -->
                 </ion-row>
 
                 <ion-grid v-if="group.reportImages.length > 0 || group.isAddingPhoto">
@@ -101,7 +77,7 @@ import {
   IonModal, IonHeader, IonToolbar, IonTitle, IonButtons, IonButton, IonContent,
   IonAccordionGroup, IonAccordion, IonItem, IonLabel, IonList, IonCard,
   IonCardHeader, IonCardTitle, IonIcon, IonCardContent, IonRow, IonCol,
-  IonGrid, IonImg, IonSpinner
+  IonGrid, IonImg, IonSpinner, IonCheckbox
 } from '@ionic/vue';
 import { trash, camera, images } from 'ionicons/icons';
 import { useI18n } from 'vue-i18n';
@@ -118,8 +94,28 @@ const props = defineProps<{
 
 const emit = defineEmits([
   'close', 'selectCategory', 'removeGroup',
-  'addPhoto', 'pickPhotos', 'removePhoto', 'selectDirectNote'
+  'addPhoto', 'pickPhotos', 'removePhoto', 'selectDirectNote',
+  'toggleCategory'
 ]);
+
+const isChecked = (cat: any) => {
+  return props.groupedNotes.some((g: any) => g.rncId === String(cat.rncId));
+};
+
+// Xóa hàm handleToggle cũ đi và dùng hàm handleRowClick này
+const handleRowClick = (cat: any) => {
+  // Lấy trạng thái hiện tại
+  const currentChecked = isChecked(cat);
+
+  // Phát sự kiện toggle với trạng thái NGƯỢC LẠI (nếu đang check thì thành uncheck và ngược lại)
+  emit('toggleCategory', { cat, isChecked: !currentChecked });
+};
+// ------------------------------
+
+// const handleToggle = (cat: any, event: any) => {
+//   emit('toggleCategory', { cat, isChecked: event.detail.checked });
+// };
+// ------------------------------
 
 const checkCanDismiss = async () => {
   const isMissingImage = props.groupedNotes.some((group: any) => group.reportImages.length === 0);
@@ -128,16 +124,12 @@ const checkCanDismiss = async () => {
     await showToast(t('areas.report.img-status'), 'warning');
     return false;
   }
-
   return true;
 };
 
 const handleClose = async () => {
   const canClose = await checkCanDismiss();
-
-  if (canClose) {
-    emit('close');
-  }
+  if (canClose) emit('close');
 };
 </script>
 
