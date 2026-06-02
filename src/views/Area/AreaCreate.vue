@@ -12,7 +12,7 @@
     </ion-header>
 
     <ion-content class="ion-padding">
-      <div v-if="isReady && dataScanQr">
+      <div v-if="isReady && dataScanQr && currentActiveRoute">
         <checkpoint-info-card :dataScanQr="dataScanQr" :currentActiveRoute="currentActiveRoute"
           :formattedTime="formattedTime" :timerColorClass="timerColorClass" />
 
@@ -183,27 +183,15 @@ interface GroupedNote { id: string; prGroup: number; priImageNote: string; repor
 interface QueueItem { id: number | string; data?: any; imageFiles?: string[]; thumb?: string | null; }
 interface ReportNode { rncId: number | string; rncName: string; childs?: ReportNode[]; }
 
-// Lấy đúng data lộ trình từ Vuex theo ID đang quét
-const currentActiveRoute = computed<Route | null>(() => {
-  const routes = store.state.dataListRoute || [];
-  const targetRouteId = store.state.unfinishedRouteId || store.state.routeId;
-  const targetPsId = store.state.psId;
+// Ca trực đang active — đọc từ getter tập trung (usePatrolSession)
+const currentActiveRoute = computed<Route | null>(() => store.getters.activeRoute as Route | null);
 
-  if (!targetRouteId) return null;
-
-  if (targetPsId) {
-    const exactRoute = routes.find((r: any) =>
-      Number(r.routeId) === Number(targetRouteId) &&
-      Number(r.psId) === Number(targetPsId)
-    );
-    if (exactRoute) return exactRoute;
+// Đồng bộ psId + timer khi xác định được ca trực chính xác
+watch(() => currentActiveRoute.value, async (newRoute) => {
+  if (newRoute?.psId) {
+    store.commit('SET_PSID', newRoute.psId);
   }
 
-  return routes.find((r: any) => Number(r.routeId) === Number(targetRouteId)) || null;
-});
-
-// Watch để khởi chạy Timer khi vào trang hoặc reload
-watch(() => currentActiveRoute.value, async (newRoute) => {
   if (newRoute && newRoute.routeId && newRoute.planMaxSecond && newRoute.planMinSecond) {
     await storageService.set('unfinished_route_id', newRoute.routeId);
     await startTimer(newRoute.routeId, newRoute.psId, newRoute.planMaxSecond, newRoute.planMinSecond);
@@ -596,7 +584,7 @@ const handleSubmit = async (): Promise<void> => {
     const allDone = updatedRoutes[rIdx].routeDetails.every((p: any) => p.rdIsComplete);
 
     isResetting.value = true;
-    if (currentCpId) await storageService.remove(`draft_report_${currentCpId}`);
+    if (draftKey.value) await storageService.remove(draftKey.value);
 
     // Clear dữ liệu form
     formData.prHasProblem = false;
@@ -621,6 +609,7 @@ const handleSubmit = async (): Promise<void> => {
       store.commit('SET_ROUTE_ID', null);
       store.commit('SET_PSID', null);
       store.commit('SET_DATASCANQR', null);
+      await ImageService.purgeOfflineImages();
       await storageService.set('list_route', store.state.dataListRoute);
       await loading.dismiss();
       await showToast(t('areas.report.message.5'), 'success');
@@ -892,10 +881,11 @@ const captureMandatoryPhoto = async () => {
 /////////////////////////////////////////
 
 const draftKey = computed(() => {
-  if (dataScanQr.value && dataScanQr.value.cpId) {
-    return `draft_report_${dataScanQr.value.cpId}`;
-  }
-  return null;
+  const cpId = dataScanQr.value?.cpId;
+  const routeId = store.state.unfinishedRouteId || store.state.routeId;
+  const psId = store.state.psId;
+  if (!cpId || !routeId || !psId) return null;
+  return `draft_report_${routeId}_${psId}_${cpId}`;
 });
 
 let draftTimeout: any = null;
@@ -926,7 +916,13 @@ watch([formData, groupedNotes, selectedValues, noProblemImages, mandatoryPhoto],
 const loadDraft = async () => {
   if (!draftKey.value) return false;
 
-  const draft: any = await storageService.get(draftKey.value);
+  let draft: any = await storageService.get(draftKey.value);
+
+  // Tương thích nháp cũ (chỉ key theo cpId)
+  if (!draft && dataScanQr.value?.cpId) {
+    draft = await storageService.get(`draft_report_${dataScanQr.value.cpId}`);
+  }
+
   if (draft) {
     formData.prHasProblem = draft.prHasProblem || false;
     formData.prNote = draft.prNote || '';
@@ -942,8 +938,18 @@ const loadDraft = async () => {
   return false;
 };
 
+const redirectIfInvalidSession = async (): Promise<boolean> => {
+  if (store.getters.isPatrolSessionValid) return true;
+  console.warn('[AreaCreate] Session tuần tra không hợp lệ. Quay về Route.');
+  await showToast(t('areas.report.message.1'), 'warning');
+  router.replace('/route');
+  return false;
+};
+
 // --- Lifecycle ---
 onIonViewWillEnter(async () => {
+  if (!(await redirectIfInvalidSession())) return;
+
   setTimeout(async () => {
     const hasDraft = await loadDraft();
     if (!hasDraft) {
@@ -974,14 +980,21 @@ onIonViewDidLeave(async () => {
 });
 
 onMounted(async () => {
+  if (!store.state.isHydrated) await store.dispatch('initApp');
+
   const routeId = route.query.routeId || store.state.routeId;
+  const psIdFromQuery = route.query.psId;
+
+  if (psIdFromQuery) {
+    store.commit('SET_PSID', Number(psIdFromQuery));
+  }
 
   if (routeId) {
     store.commit('SET_UNFINISHED_ROUTE_ID', Number(routeId));
-    await storageService.set('unfinished_route_id', Number(routeId));
   }
 
-  if (!store.state.isHydrated) await store.dispatch('initApp');
+  if (!(await redirectIfInvalidSession())) return;
+
   await loadPendingItemsWithImages();
 
   const catData = store.state.dataReportNoteCategory;

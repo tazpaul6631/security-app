@@ -77,4 +77,23 @@ export const ImageService = {
       return null;
     }
   },
+
+  /** Xóa toàn bộ ảnh offline còn sót trong Filesystem (logout / hết ca / hủy ca) */
+  async purgeOfflineImages(): Promise<void> {
+    try {
+      const result = await Filesystem.readdir({
+        path: '',
+        directory: Directory.Data,
+      });
+      const files = result.files || [];
+      for (const file of files) {
+        const name = typeof file === 'string' ? file : file.name;
+        if (name.startsWith('offline_img_')) {
+          await this.deleteImage(name).catch(() => { });
+        }
+      }
+    } catch (e) {
+      console.warn('Không thể quét thư mục ảnh offline:', e);
+    }
+  },
 };

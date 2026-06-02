@@ -2,7 +2,7 @@ import { createRouter, createWebHashHistory } from '@ionic/vue-router';
 import { RouteRecordRaw } from 'vue-router';
 import store from '@/composables/useVuex';
 
-// THÊM MỚI Ở ĐÂY: Import sẵn toàn bộ các Component (Eager Load) 
+// Import sẵn toàn bộ các Component (Eager Load)
 // để tránh lỗi "Failed to fetch dynamically imported module" khi test Offline
 import Nav from '@/components/Nav.vue';
 import HomePage from '@/views/HomePage.vue';
@@ -113,9 +113,13 @@ router.beforeEach(async (to, from, next) => {
     return next({ name: 'home' });
   }
 
-  // 3. XỬ LÝ TRƯỜNG HỢP CHUYỂN MẠNG:
-  // Nếu mạng khôi phục khi đang ở giữa các trang, next() ngay lập tức 
-  // để tránh việc Router bị treo bởi các tiến trình async khác của Store
+  // 4. Bảo vệ màn báo cáo: phải có session tuần tra hợp lệ (quét QR + đúng ca)
+  if (to.name === 'checkpoint-create' && token) {
+    if (!store.getters.isPatrolSessionValid) {
+      return next({ name: 'route' });
+    }
+  }
+
   next();
 });
 

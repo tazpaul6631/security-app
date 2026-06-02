@@ -179,10 +179,6 @@ const currentActiveRoute = computed(() => {
       );
     }
 
-    if (!lockedRoute) {
-      lockedRoute = routes.find((r: any) => Number(r.routeId) === Number(lockedRouteId.value));
-    }
-
     if (lockedRoute) {
       const isFinished = lockedRoute.routeDetails.every((p: any) => p.rdIsComplete);
       if (!isFinished) return { ...lockedRoute };

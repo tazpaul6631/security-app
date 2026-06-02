@@ -2,6 +2,8 @@ import { createStore } from 'vuex'
 import storageService from '@/services/storage.service'
 import { markRaw } from 'vue';
 import i18n from '@/i18n';
+import { findActiveRoute, isPatrolSessionValid, isRouteUnfinished } from '@/composables/usePatrolSession';
+import { ImageService } from '@/services/image.service';
 const { t } = (i18n.global as any);
 
 const store = createStore({
@@ -37,7 +39,11 @@ const store = createStore({
   },
 
   // 2. Getters: Tính toán dữ liệu từ state (giống computed)
-  getters: {},
+  getters: {
+    activeRoute: (state) => findActiveRoute(state),
+    isPatrolSessionValid: (state) => isPatrolSessionValid(state),
+    isRouteUnfinished: (state) => isRouteUnfinished(state),
+  },
 
   // 3. Mutations: Hàm đồng bộ duy nhất được phép thay đổi State
   mutations: {
@@ -46,6 +52,11 @@ const store = createStore({
     },
     SET_PSID(state, data) {
       state.psId = data
+      if (data) {
+        storageService.set('current_ps_id', data);
+      } else {
+        storageService.remove('current_ps_id');
+      }
     },
     SET_DATAMENU(state, data) {
       if (JSON.stringify(state.dataMenu) === JSON.stringify(data)) return;
@@ -122,10 +133,12 @@ const store = createStore({
         const lockedId = Number(state.unfinishedRouteId);
         const lockedPsId = state.psId ? Number(state.psId) : null;
 
-        // Tìm chính xác ca đang bị khóa trong mảng vừa gộp
-        const lockedRouteInList = state.dataListRoute.find((r: any) =>
-          Number(r.routeId) === lockedId && (lockedPsId ? Number(r.psId) === lockedPsId : true)
-        );
+        // Tìm chính xác ca đang bị khóa — bắt buộc khớp cả routeId và psId
+        const lockedRouteInList = lockedPsId
+          ? state.dataListRoute.find((r: any) =>
+            Number(r.routeId) === lockedId && Number(r.psId) === lockedPsId
+          )
+          : null;
 
         // NẾU: Ca đó đã được đánh dấu xong (isComplete = true) HOẶC không tìm thấy -> GỠ KHÓA AN TOÀN
         if (!lockedRouteInList || lockedRouteInList.isComplete) {
@@ -203,42 +216,40 @@ const store = createStore({
         // 2. ÉP LUÔN routeId hiện tại thành ID này (Đồng bộ tuyệt đối)
         state.routeId = id;
         storageService.set('current_route_id', id);
-
-        // 3. BẢO VỆ PSID: Chỉ tự động tìm và gán cứng psId NẾU NÓ CHƯA TỒN TẠI
-        if (!state.psId) {
-          if (Array.isArray(state.dataListRoute)) {
-            const found = state.dataListRoute.find((r: any) => Number(r.routeId) === Number(id));
-            if (found && found.psId) {
-              state.psId = found.psId;
-              storageService.set('current_ps_id', found.psId);
-            }
-          }
-        } else {
-          // Đảm bảo lưu cứng lại psId chuẩn hiện tại xuống máy
-          storageService.set('current_ps_id', state.psId);
-        }
       } else {
         storageService.remove('unfinished_route_id');
-        storageService.remove('current_ps_id');
+        storageService.remove('current_route_id');
       }
     },
 
-    // Cập nhật lại RESET_ROUTE_DATA để xóa cả khóa cứng
-    RESET_ROUTE_DATA(state: any) {
+    // Reset chỉ ca trực (routeId + psId) đang hủy — không ảnh hưởng ca khác
+    RESET_ROUTE_DATA(state: any, payload?: { routeId?: number | string; psId?: number | string }) {
+      const targetRouteId = payload?.routeId ?? state.unfinishedRouteId ?? state.routeId;
+      const targetPsId = payload?.psId ?? state.psId;
+
       state.routeId = null;
       state.unfinishedRouteId = null;
       state.psId = null;
       state.dataScanQr = null;
 
-      if (Array.isArray(state.dataListRoute)) {
-        state.dataListRoute = state.dataListRoute.map((route: any) => ({
-          ...route,
-          routeDetails: route.routeDetails.map((point: any) => ({
-            ...point,
-            status: 0,
-            rdIsComplete: false
-          }))
-        }));
+      if (targetRouteId != null && targetPsId != null && Array.isArray(state.dataListRoute)) {
+        state.dataListRoute = state.dataListRoute.map((route: any) => {
+          if (
+            Number(route.routeId) !== Number(targetRouteId) ||
+            Number(route.psId) !== Number(targetPsId)
+          ) {
+            return route;
+          }
+          return {
+            ...route,
+            isComplete: false,
+            routeDetails: route.routeDetails.map((point: any) => ({
+              ...point,
+              status: 0,
+              rdIsComplete: false
+            }))
+          };
+        });
       }
     },
 
@@ -296,18 +307,8 @@ const store = createStore({
       if (!state.dataListRoute) return;
 
       if (!state.unfinishedRouteId && status === 1) {
-        // Gọi logic khóa ID
         state.unfinishedRouteId = routeId;
         storageService.set('unfinished_route_id', routeId);
-
-        // BẢO VỆ PSID
-        if (!state.psId) {
-          const found = state.dataListRoute.find((r: any) => Number(r.routeId) === Number(routeId));
-          if (found) {
-            state.psId = found.psId;
-            storageService.set('current_ps_id', found.psId);
-          }
-        }
       }
 
       state.dataListRoute = state.dataListRoute.map((route: any) => {
@@ -329,13 +330,18 @@ const store = createStore({
       storageService.set('list_route', state.dataListRoute);
     },
 
-    // Thêm vào mutations trong store/index.ts
-    RESET_SPECIFIC_ROUTE(state: any, routeId: number | string) {
+    RESET_SPECIFIC_ROUTE(state: any, { routeId, psId }: { routeId: number | string; psId: number | string }) {
       state.dataListRoute = state.dataListRoute.map((route: any) => {
-        if (String(route.routeId) !== String(routeId)) return route;
+        if (
+          Number(route.routeId) !== Number(routeId) ||
+          Number(route.psId) !== Number(psId)
+        ) {
+          return route;
+        }
 
         return {
           ...route,
+          isComplete: false,
           routeDetails: route.routeDetails.map((detail: any) => ({
             ...detail,
             status: 0,
@@ -344,9 +350,8 @@ const store = createStore({
         };
       });
 
-      // Lưu xuống SQLite ngay để đồng bộ
       storageService.set('list_route', state.dataListRoute);
-      console.log("Store: Đã reset lộ trình về 0");
+      console.log("Store: Đã reset ca trực về 0");
     },
 
     // Dùng để dọn sạch bộ nhớ RAM khi người dùng bấm Đăng Xuất
@@ -370,6 +375,8 @@ const store = createStore({
       state.syncMessage = '';
       state.isSyncing = false;
       state.currentCheckpoint = null;
+      state.isSyncingOffline = false;
+      state.syncMode = 'silent';
     }
   },
 
@@ -476,10 +483,10 @@ const store = createStore({
           'restoreCheckpoints',
           // 'restoreCheckpointsId',
           'restoreAreaBU',
+          'restoreListRoute',
+          'restorePsId',
           'restoreRouteId',
           'restoreUnfinishedRouteId',
-          'restorePsId',
-          'restoreListRoute',
           'restoreReportNoteCategory',
           'restoreBasePointReportView',
           'restoreScanQr',
@@ -678,18 +685,21 @@ const store = createStore({
 
     async resetCurrentRoute({ commit, state }) {
       try {
-        commit('RESET_ROUTE_DATA');
+        const routeId = state.unfinishedRouteId ?? state.routeId;
+        const psId = state.psId;
 
-        // Xóa tất cả các khóa cứng trong Storage
+        commit('RESET_ROUTE_DATA', { routeId, psId });
+
         await Promise.all([
           storageService.remove('current_route_id'),
           storageService.remove('unfinished_route_id'),
           storageService.remove('current_ps_id'),
           storageService.remove('data_scanqr'),
+          storageService.remove('currentTime_scanqr'),
         ]);
 
-        const updatedList = state.dataListRoute;
-        await storageService.set('list_route', updatedList);
+        await storageService.set('list_route', state.dataListRoute);
+        await ImageService.purgeOfflineImages();
 
         console.log('Đã xóa lộ trình và reset trạng thái thành công');
       } catch (error) {
@@ -697,11 +707,9 @@ const store = createStore({
       }
     },
 
-    async restorePsId({ commit, state }) {
-      if (!state.psId) {
-        const data = await storageService.get('current_ps_id');
-        if (data) commit('SET_PSID', data);
-      }
+    async restorePsId({ commit }) {
+      const data = await storageService.get('current_ps_id');
+      if (data) commit('SET_PSID', data);
     },
 
     async logout({ commit, state }) {
@@ -725,23 +733,11 @@ const store = createStore({
       // 2. Xóa sạch RAM
       commit('CLEAR_ALL_DATA');
 
-      // 3. Xóa sạch Ổ CỨNG (SỬA Ở ĐÂY: Thêm các key nghiệp vụ vào)
-      const keysToRemove = [
-        'user_token',
-        'user_data',
-        'current_route_id',
-        'unfinished_route_id',
-        'current_ps_id',
-        'data_scanqr',
-        'checkpoints',
-        'area_bu',
-        'list_route',
-        'report_note_category',
-        'base_point_report',
-        'menu_data'
-      ];
+      // 3. Xóa sạch toàn bộ SQLite (draft, timer, queue, checkpoint cache, ...)
+      await storageService.clear();
 
-      await Promise.all(keysToRemove.map(key => storageService.remove(key)));
+      // 3b. Dọn ảnh offline còn sót trên Filesystem
+      await ImageService.purgeOfflineImages();
 
       // 4. PHỤC HỒI LẠI DANH SÁCH TÀI KHOẢN OFFLINE
       if (offlineUsers && Object.keys(offlineUsers).length > 0) {

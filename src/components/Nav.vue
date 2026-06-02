@@ -57,10 +57,7 @@ const { t } = useI18n();
 ///////////////////////////////
 // Khởi tạo router riêng của Ionic
 const ionRouter = useIonRouter();
-const isRouteUnfinished = computed(() => {
-  const lockedId = store.state.unfinishedRouteId;
-  return !!lockedId;
-});
+const isRouteUnfinished = computed(() => store.getters.isRouteUnfinished);
 
 const goBackAndClearHistory = async () => {
   if (isRouteUnfinished.value) {

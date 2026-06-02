@@ -229,14 +229,17 @@ export const scannerService = {
       }
 
       if (finalData) {
-        // KHI QUÉT ĐÚNG: LƯU TỌA ĐỘ VÀO VUEX & SQLITE
+        // Lưu psId + khóa ca trực trước khi chuyển trang báo cáo
+        store.commit('SET_PSID', currentRoute.psId);
+        store.commit('SET_UNFINISHED_ROUTE_ID', Number(currentRoute.routeId));
+
         store.commit('SET_DATASCANQR', finalData);
         await storageService.set('data_scanqr', finalData);
         await storageService.set('currentTime_scanqr', currentTimeString);
 
         router.replace({
           path: '/checkpoint/create',
-          query: { routeId: routeId, t: Date.now() }
+          query: { routeId: routeId, psId: currentRoute.psId, t: Date.now() }
         });
       } else {
         await presentAlert.presentAlert(t('messages.scanner.notification'), '', t('messages.scanner.checkpoint-not-found'));
