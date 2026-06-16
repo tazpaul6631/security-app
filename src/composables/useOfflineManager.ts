@@ -25,6 +25,14 @@ export function useOfflineManager() {
   const storeInstance = store;
   const { t } = useI18n();
 
+  const countExpectedImages = (data: any): number => {
+    if (!data?.noteGroups || !Array.isArray(data.noteGroups)) return 0;
+    return data.noteGroups.reduce(
+      (sum: number, group: any) => sum + (group.reportImages?.length || 0),
+      0
+    );
+  };
+
   const buildFormData = async (item: PendingItem): Promise<FormData> => {
     const fb = new FormData();
 
@@ -56,25 +64,33 @@ export function useOfflineManager() {
         // Append Metadata cho từng Group
         fb.append(`noteGroups[${i}].prGroup`, group.prGroup.toString());
         fb.append(`noteGroups[${i}].priImageNote`, group.priImageNote || '');
-        if (group.rncId !== null && group.rncId !== undefined && group.rncId !== '') {
+        if (group.rncId !== null && group.rncId !== undefined && group.rncId !== '' && Number(group.rncId) > 0) {
           fb.append(`noteGroups[${i}].rncId`, group.rncId.toString());
         }
 
         // 3. Xử lý ảnh lồng trong từng Group
         if (group.reportImages && group.reportImages.length > 0) {
-          // Tiếp tục dùng vòng lặp for để đợi đọc ảnh
           for (let j = 0; j < group.reportImages.length; j++) {
+            const imgMeta = group.reportImages[j];
             const fileName = item.imageFiles[globalImageIndex];
 
             if (fileName) {
               const base64 = await ImageService.readImage(fileName);
               if (base64) {
-                const res = await fetch(`data:image/jpeg;base64,${base64}`);
+                const imageType = (imgMeta?.priImageType || 'jpg').replace(/^\./, '');
+                const mimeType = imageType === 'jpg' || imageType === 'jpeg' ? 'image/jpeg' : `image/${imageType}`;
+                const res = await fetch(`data:${mimeType};base64,${base64}`);
                 const blob = await res.blob();
 
-                // Append đúng cấu trúc List<IFormFile> lồng trong List<Group>
-                fb.append(`noteGroups[${i}].reportImages`, blob, `group${i}_img${j}.jpg`);
+                fb.append(`noteGroups[${i}].reportImages`, blob, `group${i}_img${j}.${imageType === 'jpeg' ? 'jpg' : imageType}`);
+                if (imgMeta?.priImageType) {
+                  fb.append(`noteGroups[${i}].reportImages[${j}].priImageType`, imgMeta.priImageType);
+                }
+              } else {
+                console.error(`Không đọc được file ảnh: ${fileName}`);
               }
+            } else {
+              console.error(`Thiếu file ảnh tại index ${globalImageIndex}`);
             }
             globalImageIndex++;
           }
@@ -168,6 +184,7 @@ export function useOfflineManager() {
   const sendData = async (url: string, data: any, imagesBase64: string[] = []): Promise<void> => {
     const id = Date.now().toString() + '_' + Math.random().toString(36).substring(2, 9);
     const imageFiles: string[] = [];
+    const expectedImageCount = countExpectedImages(data);
 
     // Lưu ảnh vật lý trước để giải phóng RAM
     for (const base64 of imagesBase64) {
@@ -179,24 +196,48 @@ export function useOfflineManager() {
       }
     }
 
+    if (expectedImageCount > 0 && imageFiles.length !== expectedImageCount) {
+      console.error(`Số file ảnh (${imageFiles.length}) không khớp metadata (${expectedImageCount})`);
+      for (const fileName of imageFiles) {
+        await ImageService.deleteImage(fileName).catch(() => { });
+      }
+      throw new Error('IMAGE_FILE_MISMATCH');
+    }
+
     const newItem: PendingItem = { id, url, data, imageFiles };
 
     if (storeInstance.state.isOnline) {
       try {
         const bodyFormData = await buildFormData(newItem);
-        // console.log('--- CHI TIẾT FORM DATA ---');
-        // for (let [key, value] of bodyFormData.entries()) {
-        //   console.log(`${key}:`, value);
-        // }
-        // console.log('--------------------------');
 
         const result = await PointReport.createPointReport(bodyFormData);
-        const realReport = result?.data?.data || result?.data || result;
+        const responseData = result?.data || result;
+
+        if (responseData && responseData.success === false) {
+          const msg = (responseData.message || '').toLowerCase();
+
+          if (responseData.statusCode === 401 || responseData.code === 401 || msg.includes('unauthorized') || msg.includes('token')) {
+            storeInstance.commit('SET_TOKEN', null);
+            await storage.remove('user_token');
+            router.replace('/login');
+            return;
+          }
+
+          if (msg.includes('đã tồn tại')) {
+            console.warn(`[Send] Báo cáo ${newItem.data.cpId} đã tồn tại trên Server. Dọn dẹp local.`);
+            await cleanUpItem(newItem);
+            return;
+          }
+
+          throw { isCustom: true, status: 500, message: responseData.message };
+        }
+
+        const realReport = responseData?.data || responseData;
 
         // Thành công: Xóa ảnh và Queue ngay
         await cleanUpItem(newItem);
 
-        if (realReport) {
+        if (realReport && realReport !== false) {
           storeInstance.commit('ADD_OFFLINE_REPORT', realReport);
         }
       } catch (error) {

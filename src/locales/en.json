@@ -147,7 +147,10 @@
         "location_permission": "Please grant location access to take a photo!",
         "fetching_gps": "Fetching GPS location...",
         "gps_not_available": "Unable to get location. Please move to a more open area or restart location services.",
-        "gps_error": "Enable GPS (location) before taking patrol photos."
+        "gps_error": "Enable GPS (location) before taking patrol photos.",
+        "12": "Failed to process the check-in photo. Please take it again.",
+        "13": "The check-in photo is invalid. Please retake it before submitting.",
+        "14": "Failed to process a report photo. Please review and try again."
       }
     }
   },

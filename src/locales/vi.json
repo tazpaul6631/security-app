@@ -147,7 +147,10 @@
         "location_permission": "Vui lòng cấp quyền truy cập vị trí để chụp ảnh!",
         "fetching_gps": "Đang lấy vị trí GPS...",
         "gps_not_available": "Không thể lấy vị trí. Vui lòng di chuyển ra khu vực thoáng hơn hoặc bật lại định vị.",
-        "gps_error": "Bật GPS( định vị ) trước khi chụp ảnh tuần tra."
+        "gps_error": "Bật GPS( định vị ) trước khi chụp ảnh tuần tra.",
+        "12": "Không xử lý được ảnh Check-in. Vui lòng chụp lại.",
+        "13": "Ảnh Check-in không hợp lệ. Vui lòng chụp lại trước khi gửi báo cáo.",
+        "14": "Không xử lý được ảnh báo cáo. Vui lòng kiểm tra và thử lại."
       }
     }
   },

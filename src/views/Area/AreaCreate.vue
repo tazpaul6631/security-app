@@ -100,9 +100,6 @@
             <div v-else>
               <div class="mandatory-img-container">
                 <ion-img :src="mandatoryPhoto.preview" class="thumb-img" />
-                <!-- <div class="delete-btn" @click="removeMandatoryPhoto">
-                  <ion-icon :icon="trash"></ion-icon>
-                </div> -->
               </div>
               <strong class="accept-img">
                 <ion-icon :icon="checkmarkCircleOutline"></ion-icon> {{ $t('areas.report.status_photo_confirmed') }}
@@ -159,6 +156,12 @@ import IssueDetailModal from '@/components/modals/IssueDetailModal.vue';
 import CategoryModal from '@/components/modals/CategoryModal.vue';
 import { useCameraHandler } from '@/composables/useCameraHandler';
 import { useI18n } from 'vue-i18n';
+import {
+  applySaveFileMismatchDebug,
+  getDebugSubmitPreview,
+  installImageDebugConsole,
+  shouldSimulateWatermarkFail
+} from '@/utils/imageDebug';
 
 // Lấy 3 hàm xịn xò ra xài
 const { takePhoto, pickImagesFromGallery, convertBlobToBase64, showToast } = useCameraHandler();
@@ -440,6 +443,7 @@ const confirmSubmit = async () => {
 
 // --- Submit Logic ---
 const isSubmitting = ref(false);
+
 const handleSubmit = async (): Promise<void> => {
   if (isSubmitting.value) return;
   isSubmitting.value = true;
@@ -453,10 +457,19 @@ const handleSubmit = async (): Promise<void> => {
     return;
   }
 
-  const loading = await loadingController.create({ message: t('areas.report.message.2') });
-  await loading.present();
+    const loading = await loadingController.create({ message: t('areas.report.message.2') });
+    await loading.present();
 
-  try {
+    const blockSubmitWithImageError = async (messageKey: string, resetCheckin = false) => {
+      if (resetCheckin) {
+        mandatoryPhoto.value = null;
+      }
+      await loading.dismiss();
+      await showToast(t(messageKey), 'danger');
+      isSubmitting.value = false;
+    };
+
+    try {
     const sourceData: any[] = [];
     const allBase64ForStorage: string[] = []; // Đây là nơi chứa data ảnh thực tế
 
@@ -465,7 +478,8 @@ const handleSubmit = async (): Promise<void> => {
       sourceData.push({
         prGroup: 1,
         priImageNote: t('areas.report.validate-img'),
-        reportImages: [mandatoryPhoto.value]
+        reportImages: [mandatoryPhoto.value],
+        isCheckin: true
       });
     }
 
@@ -493,30 +507,53 @@ const handleSubmit = async (): Promise<void> => {
     const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10 MB
     const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/gif", "image/webp"];
 
+    const resolveMimeType = (blob: Blob, preview: string): string => {
+      if (blob.type && ALLOWED_MIMES.includes(blob.type)) return blob.type;
+      if (preview.startsWith('data:image/')) {
+        const mime = preview.slice(5, preview.indexOf(';'));
+        if (ALLOWED_MIMES.includes(mime)) return mime;
+      }
+      const lowerPreview = preview.toLowerCase();
+      if (lowerPreview.includes('.png')) return 'image/png';
+      if (lowerPreview.includes('.webp')) return 'image/webp';
+      if (lowerPreview.includes('.gif')) return 'image/gif';
+      return 'image/jpeg';
+    };
+
+    const expectedImageCount = sourceData.reduce(
+      (sum, group) => sum + (group.reportImages?.length || 0),
+      0
+    );
+
     for (const group of sourceData) {
       const mappedImages: any[] = [];
 
       for (const item of group.reportImages) {
         try {
-          const response = await fetch(item.preview);
+          const preview = getDebugSubmitPreview(
+            item.preview,
+            group.isCheckin ? 'checkin' : 'report'
+          );
+          const response = await fetch(preview);
           const blob = await response.blob();
+          const mimeType = resolveMimeType(blob, preview);
 
           // 1. Kiểm tra định dạng (Mime Type)
-          if (!ALLOWED_MIMES.includes(blob.type)) {
-            await loading.dismiss();
-            await showToast(t('areas.report.message.3').replace('${blob.type}', blob.type), 'danger');
-            isSubmitting.value = false;
-            return; // Dừng submit ngay lập tức
+          if (!ALLOWED_MIMES.includes(mimeType)) {
+            await blockSubmitWithImageError(
+              group.isCheckin ? 'areas.report.message.13' : 'areas.report.message.14',
+              group.isCheckin
+            );
+            return;
           }
 
           // 2. Kiểm tra dung lượng ảnh (Size)
           if (blob.size > MAX_IMAGE_SIZE) {
-            await loading.dismiss();
-            // Convert ra MB để hiển thị cho thân thiện
-            const sizeInMB = (blob.size / (1024 * 1024)).toFixed(2);
-            await showToast(t('areas.report.message.4').replace('${sizeInMB}', sizeInMB), 'danger');
-            isSubmitting.value = false;
-            return; // Dừng submit ngay lập tức
+            await blockSubmitWithImageError(
+              group.isCheckin ? 'areas.report.message.13' : 'areas.report.message.14',
+              group.isCheckin
+            );
+            return;
           }
 
           const base64Full = await convertBlobToBase64(blob);
@@ -524,24 +561,40 @@ const handleSubmit = async (): Promise<void> => {
 
           allBase64ForStorage.push(base64Data);
 
-          const fileExt = (blob.type && blob.type.includes('/')) ? blob.type.split('/')[1] : 'jpg';
+          const fileExt = mimeType.includes('/') ? mimeType.split('/')[1] : 'jpg';
           mappedImages.push({
             priImage: "",
-            priImageType: fileExt
+            priImageType: fileExt === 'jpeg' ? 'jpg' : fileExt
           });
         } catch (imgError) {
           console.error("Lỗi xử lý ảnh:", imgError);
-          await showToast(t('areas.report.message.11'), 'danger');
-          continue; // Bỏ qua ảnh lỗi, vẫn tiếp tục xử lý các ảnh khác
+          await blockSubmitWithImageError(
+            group.isCheckin ? 'areas.report.message.13' : 'areas.report.message.14',
+            group.isCheckin
+          );
+          return;
         }
       }
 
-      finalNoteGroups.push({
+      const noteGroup: any = {
         prGroup: group.prGroup,
         priImageNote: group.priImageNote,
-        rncId: group.rncId || 0,
         reportImages: mappedImages
-      });
+      };
+      if (group.rncId) {
+        noteGroup.rncId = group.rncId;
+      }
+      finalNoteGroups.push(noteGroup);
+    }
+
+    if (mandatoryPhoto.value && allBase64ForStorage.length === 0) {
+      await blockSubmitWithImageError('areas.report.message.13', true);
+      return;
+    }
+
+    if (allBase64ForStorage.length !== expectedImageCount) {
+      await blockSubmitWithImageError('areas.report.message.14');
+      return;
     }
 
     // --- TẠO PAYLOAD JSON SẠCH ---
@@ -575,7 +628,11 @@ const handleSubmit = async (): Promise<void> => {
       (formData.prHasProblem ? groupedNotes.value[0]?.reportImages[0]?.preview : noProblemImages.value[0]?.preview);
 
     // sendData sẽ nhận mảng allBase64ForStorage, lưu thành file và dùng buildFormData để gửi IFormFile
-    await sendData(firstPreview || '', formSubmitData, allBase64ForStorage);
+    await sendData(
+      firstPreview || '',
+      formSubmitData,
+      applySaveFileMismatchDebug(allBase64ForStorage)
+    );
 
     // --- RESET VÀ CHUYỂN TRANG ---
     store.commit('UPDATE_POINT_STATUS', { routeId, cpId: currentCpId, status: 1 });
@@ -863,7 +920,17 @@ const captureMandatoryPhoto = async () => {
 
       const watermarkColor = isLate ? '#FF0000' : '#FFD700';
 
+      if (shouldSimulateWatermarkFail()) {
+        await showToast(t('areas.report.message.12'), 'danger');
+        return;
+      }
+
       const watermarkedBase64 = await addWatermarkToImage(photo.preview, timeString, watermarkColor);
+
+      if (!watermarkedBase64.startsWith('data:image')) {
+        await showToast(t('areas.report.message.12'), 'danger');
+        return;
+      }
 
       mandatoryPhoto.value = {
         fileName: photo.fileName,
@@ -980,6 +1047,8 @@ onIonViewDidLeave(async () => {
 });
 
 onMounted(async () => {
+  installImageDebugConsole();
+
   if (!store.state.isHydrated) await store.dispatch('initApp');
 
   const routeId = route.query.routeId || store.state.routeId;
