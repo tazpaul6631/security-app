@@ -699,7 +699,13 @@ const store = createStore({
         ]);
 
         await storageService.set('list_route', state.dataListRoute);
-        await ImageService.purgeOfflineImages();
+
+        const pendingQueue = (await storageService.get('offline_api_queue')) || [];
+        if (pendingQueue.length === 0) {
+          await ImageService.purgeOfflineImages();
+        } else {
+          console.warn('[resetCurrentRoute] Còn báo cáo chờ sync — giữ file ảnh offline');
+        }
 
         console.log('Đã xóa lộ trình và reset trạng thái thành công');
       } catch (error) {

@@ -254,7 +254,9 @@
       "syncing": "Đang kết nối lại và đồng bộ...",
       "cleaning": "Đang dọn dẹp dữ liệu cũ...",
       "uploading": "Đang tải lên báo cáo ({processedItems}/{totalItems})...",
-      "completed": "Đồng bộ hoàn tất!"
+      "completed": "Đồng bộ hoàn tất!",
+      "incomplete": "Đồng bộ chưa hoàn tất. Còn {count} báo cáo chờ gửi.",
+      "removed-invalid": "Đã bỏ {count} báo cáo không hợp lệ khỏi hàng chờ (không thể gửi lên server)."
     },
     "scanner": {
       "notification": "Thông báo",

@@ -189,7 +189,9 @@
       "syncing": "Reconnecting and syncing...",
       "cleaning": "Cleaning up old data...",
       "uploading": "Uploading reports ({processedItems}/{totalItems})...",
-      "completed": "Sync completed!"
+      "completed": "Sync completed!",
+      "incomplete": "Sync incomplete. {count} report(s) still pending.",
+      "removed-invalid": "Removed {count} invalid report(s) from the queue (could not be sent to the server)."
     },
     "scanner": {
       "notification": "Notification",

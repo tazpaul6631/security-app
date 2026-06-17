@@ -477,19 +477,19 @@ const handleSubmit = async (): Promise<void> => {
     return;
   }
 
-    const loading = await loadingController.create({ message: t('areas.report.message.2') });
-    await loading.present();
+  const loading = await loadingController.create({ message: t('areas.report.message.2') });
+  await loading.present();
 
-    const blockSubmitWithImageError = async (messageKey: string, resetCheckin = false) => {
-      if (resetCheckin) {
-        mandatoryPhoto.value = null;
-      }
-      await loading.dismiss();
-      await showToast(t(messageKey), 'danger');
-      isSubmitting.value = false;
-    };
+  const blockSubmitWithImageError = async (messageKey: string, resetCheckin = false) => {
+    if (resetCheckin) {
+      mandatoryPhoto.value = null;
+    }
+    await loading.dismiss();
+    await showToast(t(messageKey), 'danger');
+    isSubmitting.value = false;
+  };
 
-    try {
+  try {
     const sourceData: any[] = [];
     const allBase64ForStorage: string[] = []; // Đây là nơi chứa data ảnh thực tế
 
@@ -697,7 +697,15 @@ const handleSubmit = async (): Promise<void> => {
       store.commit('SET_ROUTE_ID', null);
       store.commit('SET_PSID', null);
       store.commit('SET_DATASCANQR', null);
-      await ImageService.purgeOfflineImages();
+
+      // Chỉ xóa file ảnh khi hàng chờ offline đã rỗng — tránh phá sync còn kẹt
+      await loadPendingItems();
+      if (pendingItems.value.length === 0) {
+        await ImageService.purgeOfflineImages();
+      } else {
+        console.warn('[AreaCreate] Còn báo cáo chờ sync — giữ file ảnh offline');
+      }
+
       await storageService.set('list_route', store.state.dataListRoute);
       await loading.dismiss();
       await showToast(t('areas.report.message.5'), 'success');
@@ -792,7 +800,6 @@ const pickGroupImages = async (idx: number) => {
 const handleRemoveGroupPhoto = (payload: { gIdx: number, pIdx: number }) => {
   groupedNotes.value[payload.gIdx].reportImages.splice(payload.pIdx, 1);
 };
-
 
 // ==========================================
 // XỬ LÝ ẢNH CHO: KHÔNG CÓ LỖI (NO PROBLEM)

@@ -189,7 +189,9 @@
       "syncing": "正在重新連線並同步...",
       "cleaning": "正在清理舊資料...",
       "uploading": "正在上傳報告 ({processedItems}/{totalItems})...",
-      "completed": "同步完成！"
+      "completed": "同步完成！",
+      "incomplete": "同步尚未完成。尚有 {count} 份報告待傳送。",
+      "removed-invalid": "已從佇列移除 {count} 份無效報告（無法傳送至伺服器）。"
     },
     "scanner": {
       "notification": "通知",

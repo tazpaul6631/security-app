@@ -39,6 +39,17 @@ export function useOfflineManager() {
     return !!(checkinGroup?.reportImages?.length);
   };
 
+  const isQueueItemValid = (item: PendingItem): boolean => {
+    const queueExpectedImages = countExpectedImages(item.data);
+    return (
+      Array.isArray(item.data?.noteGroups) &&
+      item.data.noteGroups.length > 0 &&
+      queueExpectedImages > 0 &&
+      (item.imageFiles?.length ?? 0) === queueExpectedImages &&
+      hasValidCheckinNoteGroup(item.data)
+    );
+  };
+
   const buildFormData = async (item: PendingItem): Promise<FormData> => {
     const fb = new FormData();
     const expectedImages = countExpectedImages(item.data);
@@ -311,6 +322,8 @@ export function useOfflineManager() {
 
     console.log("--- [START] BẮT ĐẦU ĐỒNG BỘ ---");
 
+    let removedInvalidCount = 0;
+
     try {
       // 1. Xử lý hàng chờ xóa
       let deleteQueue = (await storage.get('offline_delete_queue')) || [];
@@ -390,15 +403,10 @@ export function useOfflineManager() {
           }
         }
 
-        const queueExpectedImages = countExpectedImages(item.data);
-        if (
-          !Array.isArray(item.data?.noteGroups) ||
-          item.data.noteGroups.length === 0 ||
-          queueExpectedImages === 0 ||
-          item.imageFiles.length !== queueExpectedImages ||
-          !hasValidCheckinNoteGroup(item.data)
-        ) {
-          console.error(`[Sync] Item ${item.id} thiếu noteGroups / prGroup:1 / ảnh — bỏ qua`);
+        if (!isQueueItemValid(item)) {
+          console.error(`[Sync] Item ${item.id} không hợp lệ — dọn khỏi hàng chờ`);
+          await cleanUpItem(item);
+          removedInvalidCount++;
           continue;
         }
 
@@ -443,6 +451,15 @@ export function useOfflineManager() {
           }
 
         } catch (error: any) {
+          const errMsg = error?.message || '';
+
+          if (errMsg === 'FORM_DATA_IMAGE_MISMATCH') {
+            console.error(`[Sync] Item ${item.id} thiếu file ảnh — dọn khỏi hàng chờ`);
+            await cleanUpItem(item);
+            removedInvalidCount++;
+            continue;
+          }
+
           const statusCode = error.isCustom ? error.status : (error.response?.status || error.status);
 
           if ([400, 409, 422].includes(statusCode)) {
@@ -463,19 +480,52 @@ export function useOfflineManager() {
 
       await loadPendingItems();
 
+      const remainingCount = pendingItems.value.length;
+
       // Delay nhỏ để UI mượt mà hơn trước khi tắt trạng thái Syncing
       if (isProcessing) {
-        setTimeout(() => {
+        setTimeout(async () => {
           isProcessing = false;
           storeInstance.commit('SET_SYNC_OFFLINE_STATUS', false);
           isSyncing.value = false;
 
-          storeInstance.commit('SET_SYNC_STATUS', {
-            progress: 100,
-            message: t('messages.use-offline.completed'),
-            isSyncing: false,
-            mode: 'silent'
-          });
+          if (remainingCount === 0) {
+            if (removedInvalidCount > 0) {
+              storeInstance.commit('SET_SYNC_STATUS', {
+                progress: 100,
+                message: t('messages.use-offline.removed-invalid', { count: removedInvalidCount }),
+                isSyncing: false,
+                mode: 'silent'
+              });
+              await presentToast(
+                t('messages.use-offline.removed-invalid', { count: removedInvalidCount }),
+                'danger'
+              );
+            } else {
+              storeInstance.commit('SET_SYNC_STATUS', {
+                progress: 100,
+                message: t('messages.use-offline.completed'),
+                isSyncing: false,
+                mode: 'silent'
+              });
+            }
+          } else {
+            storeInstance.commit('SET_SYNC_STATUS', {
+              progress: 0,
+              message: t('messages.use-offline.incomplete', { count: remainingCount }),
+              isSyncing: false,
+              mode: 'silent'
+            });
+            await presentToast(t('messages.use-offline.incomplete', { count: remainingCount }), 'warning');
+
+            if (removedInvalidCount > 0) {
+              await presentToast(
+                t('messages.use-offline.removed-invalid', { count: removedInvalidCount }),
+                'danger'
+              );
+            }
+          }
+
           console.log("--- [END] KẾT THÚC ĐỒNG BỘ ---");
         }, 800);
       }
