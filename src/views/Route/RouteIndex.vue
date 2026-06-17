@@ -64,10 +64,10 @@
     <ion-footer v-if="!isLoading && currentActiveRoute" class="ion-no-border">
       <ion-toolbar class="ion-padding-horizontal ion-padding-bottom">
         <div class="active-controls">
-          <!-- <ion-button color="danger" @click="confirmCancelRoute" class="btn-cancel">
+          <ion-button v-if="canCancelRoute" color="danger" @click="confirmCancelRoute" class="btn-cancel">
             <ion-icon slot="start" :icon="trashOutline"></ion-icon>
             {{ $t('routes.cancel') }}
-          </ion-button> -->
+          </ion-button>
           <ion-button color="success" class="btn-continue" @click="handleContinueScanning(currentActiveRoute.routeId)"
             :disabled="isScanning">
             <ion-spinner v-if="isScanning" slot="start" name="crescent"></ion-spinner>
@@ -148,6 +148,12 @@ let timer: any = null;
 const lockedRouteId = computed(() => store.state.unfinishedRouteId);
 const { t } = useI18n();
 const cardRoutePointsRef = ref<any>(null);
+
+const canCancelRoute = computed(() => {
+  const user = store.state.dataUser;
+  const userCode = user?.userCode || user?.data?.userCode;
+  return userCode === 'R39557';
+});
 
 // ==========================================
 // 1. KHAI BÁO LỘ TRÌNH HIỆN TẠI

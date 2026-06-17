@@ -416,8 +416,16 @@ const handleToggleCategory = ({ cat, isChecked }: { cat: any, isChecked: boolean
 const noProblemImages = ref<Photo[]>([]);
 
 const confirmSubmit = async () => {
+  if (!mandatoryPhoto.value) {
+    return showToast(t('areas.report.msg_capture_before_report'), 'warning');
+  }
+
   if (formData.prHasProblem && groupedNotes.value.length === 0) {
     return showToast(t('areas.report.select-status'), 'warning');
+  }
+
+  if (formData.prHasProblem && groupedNotes.value.some(g => g.reportImages.length === 0)) {
+    return showToast(t('areas.report.img-status'), 'warning');
   }
 
   const alert = await alertController.create({
@@ -444,6 +452,12 @@ const confirmSubmit = async () => {
 // --- Submit Logic ---
 const isSubmitting = ref(false);
 
+/** noteGroups bắt buộc có nhóm check-in prGroup: 1 và ít nhất 1 ảnh */
+const hasValidCheckinNoteGroup = (groups: any[]): boolean => {
+  const checkinGroup = groups.find((g) => Number(g.prGroup) === 1);
+  return !!(checkinGroup?.reportImages?.length);
+};
+
 const handleSubmit = async (): Promise<void> => {
   if (isSubmitting.value) return;
   isSubmitting.value = true;
@@ -453,6 +467,12 @@ const handleSubmit = async (): Promise<void> => {
 
   if (!dataScanQr.value?.cpId) {
     await showToast(t('areas.report.message.1'), 'danger');
+    isSubmitting.value = false;
+    return;
+  }
+
+  if (!mandatoryPhoto.value) {
+    await showToast(t('areas.report.msg_capture_before_report'), 'warning');
     isSubmitting.value = false;
     return;
   }
@@ -473,15 +493,13 @@ const handleSubmit = async (): Promise<void> => {
     const sourceData: any[] = [];
     const allBase64ForStorage: string[] = []; // Đây là nơi chứa data ảnh thực tế
 
-    // --- GOM NHÓM DỮ LIỆU ---
-    if (mandatoryPhoto.value) {
-      sourceData.push({
-        prGroup: 1,
-        priImageNote: t('areas.report.validate-img'),
-        reportImages: [mandatoryPhoto.value],
-        isCheckin: true
-      });
-    }
+    // --- GOM NHÓM DỮ LIỆU — nhóm 1 (check-in) luôn bắt buộc ---
+    sourceData.push({
+      prGroup: 1,
+      priImageNote: t('areas.report.validate-img'),
+      reportImages: [mandatoryPhoto.value],
+      isCheckin: true
+    });
 
     if (!formData.prHasProblem) {
       if (noProblemImages.value.length > 0) {
@@ -597,6 +615,19 @@ const handleSubmit = async (): Promise<void> => {
       return;
     }
 
+    if (!hasValidCheckinNoteGroup(finalNoteGroups)) {
+      await blockSubmitWithImageError('areas.report.message.13', true);
+      return;
+    }
+
+    const hasEmptyImageGroup = finalNoteGroups.some(
+      (g) => !g.reportImages || g.reportImages.length === 0
+    );
+    if (hasEmptyImageGroup) {
+      await blockSubmitWithImageError('areas.report.message.14');
+      return;
+    }
+
     // --- TẠO PAYLOAD JSON SẠCH ---
     const currentCpId = dataScanQr.value.cpId;
     const routeId = store.state.routeId;
@@ -677,10 +708,16 @@ const handleSubmit = async (): Promise<void> => {
       router.replace('/route');
     }
 
-  } catch (error) {
+  } catch (error: any) {
     await loading.dismiss();
     console.error("Lỗi:", error);
-    await showToast(t('areas.report.message.6'), 'danger');
+    const errMsg = error?.message || '';
+    if (errMsg === 'MISSING_CHECKIN_GROUP' || errMsg === 'EMPTY_NOTE_GROUPS') {
+      mandatoryPhoto.value = null;
+      await showToast(t('areas.report.message.13'), 'danger');
+    } else {
+      await showToast(t('areas.report.message.6'), 'danger');
+    }
   } finally {
     isSubmitting.value = false;
   }

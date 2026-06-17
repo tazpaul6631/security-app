@@ -33,8 +33,16 @@ export function useOfflineManager() {
     );
   };
 
+  const hasValidCheckinNoteGroup = (data: any): boolean => {
+    if (!Array.isArray(data?.noteGroups)) return false;
+    const checkinGroup = data.noteGroups.find((g: any) => Number(g.prGroup) === 1);
+    return !!(checkinGroup?.reportImages?.length);
+  };
+
   const buildFormData = async (item: PendingItem): Promise<FormData> => {
     const fb = new FormData();
+    const expectedImages = countExpectedImages(item.data);
+    let attachedImages = 0;
 
     // 1. Append các trường phẳng (Primitive)
     fb.append('psId', item.data.psId.toString());
@@ -86,6 +94,7 @@ export function useOfflineManager() {
                 if (imgMeta?.priImageType) {
                   fb.append(`noteGroups[${i}].reportImages[${j}].priImageType`, imgMeta.priImageType);
                 }
+                attachedImages++;
               } else {
                 console.error(`Không đọc được file ảnh: ${fileName}`);
               }
@@ -96,6 +105,10 @@ export function useOfflineManager() {
           }
         }
       }
+    }
+
+    if (expectedImages > 0 && attachedImages !== expectedImages) {
+      throw new Error('FORM_DATA_IMAGE_MISMATCH');
     }
 
     return fb;
@@ -185,6 +198,16 @@ export function useOfflineManager() {
     const id = Date.now().toString() + '_' + Math.random().toString(36).substring(2, 9);
     const imageFiles: string[] = [];
     const expectedImageCount = countExpectedImages(data);
+
+    if (!Array.isArray(data?.noteGroups) || data.noteGroups.length === 0 || expectedImageCount === 0) {
+      console.error('[sendData] noteGroups rỗng hoặc không có ảnh — từ chối gửi');
+      throw new Error('EMPTY_NOTE_GROUPS');
+    }
+
+    if (!hasValidCheckinNoteGroup(data)) {
+      console.error('[sendData] thiếu nhóm check-in prGroup: 1 — từ chối gửi');
+      throw new Error('MISSING_CHECKIN_GROUP');
+    }
 
     // Lưu ảnh vật lý trước để giải phóng RAM
     for (const base64 of imagesBase64) {
@@ -365,6 +388,18 @@ export function useOfflineManager() {
               }
             }
           }
+        }
+
+        const queueExpectedImages = countExpectedImages(item.data);
+        if (
+          !Array.isArray(item.data?.noteGroups) ||
+          item.data.noteGroups.length === 0 ||
+          queueExpectedImages === 0 ||
+          item.imageFiles.length !== queueExpectedImages ||
+          !hasValidCheckinNoteGroup(item.data)
+        ) {
+          console.error(`[Sync] Item ${item.id} thiếu noteGroups / prGroup:1 / ảnh — bỏ qua`);
+          continue;
         }
 
         try {
