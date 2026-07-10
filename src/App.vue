@@ -2,22 +2,30 @@
   <ion-app>
     <div v-if="store.state.isSyncing" class="sync-overlay">
       <div class="sync-box">
-        <ion-spinner name="bubbles" color="primary" style="transform: scale(1.5); margin-bottom: 16px;"></ion-spinner>
-        <ion-text color="primary">
-          <h3>{{ store.state.syncMessage || 'Đang đồng bộ dữ liệu...' }}</h3>
-        </ion-text>
-        <ion-progress-bar :value="store.state.syncProgress / 100" color="success"></ion-progress-bar>
-        <p>{{ store.state.syncProgress }}%</p>
+        <div class="sync-header">
+          <span class="sync-label">
+            {{ syncMessage }}
+          </span>
+          <span class="sync-percent">{{ syncProgressLabel }}</span>
+        </div>
+        <ProgressBar :value="store.state.syncProgress" :show-value="false" :pt="{
+          root: { class: 'sync-progress-root' },
+          value: { class: 'sync-progress-value' },
+        }" />
       </div>
     </div>
 
     <ion-router-outlet v-if="isAppReady" />
+    <Toast position="top-center" :pt="{
+      root: { class: 'app-toast' }
+    }" />
   </ion-app>
 </template>
 
 <script setup lang="ts">
-import { IonApp, IonRouterOutlet, IonSpinner, IonProgressBar, IonText } from '@ionic/vue';
-import { onMounted, ref } from 'vue';
+import { IonApp, IonRouterOutlet } from '@ionic/vue';
+import { ProgressBar, Toast } from '@/plugins/primevue.components';
+import { computed, onMounted, ref } from 'vue';
 import { useSQLite } from '@/composables/useSQLite';
 import store from '@/composables/useVuex';
 import { Network } from '@capacitor/network';
@@ -28,7 +36,6 @@ import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 
 // Import APIs
-import PointReport from '@/api/PointReport';
 import AreaBU from '@/api/AreaBU';
 import ReportNoteCategory from '@/api/ReportNoteCategory';
 import PatrolShiftView from '@/api/PatrolShiftView';
@@ -87,7 +94,6 @@ const getGlobalApiList = (userData: any) => {
     },
 
     report_note_category: () => ReportNoteCategory.postReportNoteCategory(),
-    base_point_report: () => PointReport.postBasePointReportView(0),
   };
 };
 
@@ -178,6 +184,11 @@ const safeSync = async (isInitApp = false) => {
 };
 
 const { locale } = useI18n();
+
+const syncMessage = computed(
+  () => store.state.syncMessage || 'Đang đồng bộ dữ liệu...'
+);
+const syncProgressLabel = computed(() => `${store.state.syncProgress}%`);
 
 onMounted(async () => {
   if (Capacitor.isNativePlatform()) {
@@ -291,27 +302,53 @@ onMounted(async () => {
   width: 80%;
   max-width: 320px;
   background-color: #ffffff;
-  /* Nền trắng đặc cho box */
   padding: 24px 20px;
   border-radius: 16px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-  /* Bóng đổ mềm */
-  text-align: center;
 }
 
-.sync-box h3 {
-  margin-top: 0;
-  margin-bottom: 16px;
-  font-size: 16px;
-  font-weight: 600;
+.sync-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+}
+
+.sync-label {
+  font-weight: 500;
+  color: #334155;
   line-height: 1.4;
+  text-align: left;
 }
 
-.sync-box p {
-  margin-top: 12px;
-  margin-bottom: 0;
-  font-size: 15px;
+.sync-percent {
+  flex-shrink: 0;
   font-weight: 600;
-  color: #333;
+  color: #64748b;
+}
+
+.sync-box :deep(.sync-progress-root) {
+  height: 20px !important;
+  border-radius: 9999px !important;
+  background: #e2e8f0 !important;
+  overflow: hidden;
+}
+
+.sync-box :deep(.sync-progress-value) {
+  background: #2563eb !important;
+  border-radius: 9999px !important;
+}
+
+:global(.app-toast) {
+  top: 38px !important;
+  width: min(92vw, 22rem) !important;
+  max-width: min(92vw, 22rem) !important;
+}
+
+:global(.app-toast .p-toast-message) {
+  width: 100% !important;
+  max-width: 100% !important;
 }
 </style>

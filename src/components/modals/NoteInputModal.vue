@@ -1,32 +1,26 @@
 <template>
-  <ion-modal :is-open="isOpen" @didDismiss="closeModal" class="custom-center-modal">
-    <ion-content class="modal-transparent-content">
-      <div class="flex-center-container">
-        <ion-card class="popup-card">
-          <ion-card-header>
-            <ion-card-title style="font-size: 18px;">{{ $t('areas.report.detail-note') }}</ion-card-title>
-          </ion-card-header>
-          <ion-card-content>
-            <ion-textarea :label="$t('areas.report.content')" label-placement="floating" fill="outline"
-              v-model="localNote" :rows="4" :placeholder="$t('areas.report.placeholder-input')">
-            </ion-textarea>
+  <Dialog :visible="isOpen" modal :header="$t('areas.report.detail-note')" class="note-dialog"
+    :style="{ width: 'min(92vw, 28rem)' }" :draggable="false" :closable="false" :close-on-escape="false"
+    :dismissable-mask="false" @update:visible="onDialogVisibleChange">
+    <div class="note-content">
+      <label class="note-label" for="note-input">{{ $t('areas.report.content') }}</label>
+      <Textarea id="note-input" v-model="localNote" rows="4" :placeholder="$t('areas.report.placeholder-input')"
+        class="note-textarea" />
+    </div>
 
-            <ion-button expand="block" color="success" class="ion-margin-top btn-confirm" @click="confirm">
-              {{ $t('areas.report.btn-confirm') }}
-            </ion-button>
-            <ion-button expand="block" fill="clear" color="medium" @click="closeModal">
-              {{ $t('areas.report.close') }}
-            </ion-button>
-          </ion-card-content>
-        </ion-card>
-      </div>
-    </ion-content>
-  </ion-modal>
+    <template #footer>
+      <Button :label="$t('areas.report.close')" severity="secondary" variant="outlined" @click="closeModal"
+        size="large" />
+      <Button :label="$t('areas.report.btn-confirm')" icon="pi pi-check" severity="success"
+        :disabled="!localNote.trim()" @click="confirm" size="large" />
+    </template>
+  </Dialog>
 </template>
 
 <script setup lang="ts">
+import { useBackButton } from '@ionic/vue';
 import { ref, watch } from 'vue';
-import { IonModal, IonContent, IonCard, IonCardHeader, IonCardTitle, IonCardContent, IonTextarea, IonButton } from '@ionic/vue';
+import { Button, Dialog, Textarea } from '@/plugins/primevue.components';
 
 const props = defineProps<{ isOpen: boolean }>();
 const emit = defineEmits(['close', 'confirm']);
@@ -39,6 +33,9 @@ watch(() => props.isOpen, (newVal) => {
 });
 
 const closeModal = () => emit('close');
+const onDialogVisibleChange = (visible: boolean) => {
+  if (!visible) closeModal();
+};
 
 const confirm = () => {
   if (localNote.value.trim()) {
@@ -46,36 +43,35 @@ const confirm = () => {
     localNote.value = '';
   }
 };
+
+// Chặn back vật lý trong lúc modal note đang mở.
+useBackButton(10002, () => {
+  if (props.isOpen) return;
+});
 </script>
 
 <style scoped>
-ion-modal.custom-center-modal {
-  --background: transparent;
+.note-dialog :deep(.p-dialog-header) {
+  padding-bottom: 0.8rem;
 }
 
-.modal-transparent-content {
-  --background: rgba(0, 0, 0, 0.4);
+.note-dialog :deep(.p-dialog-content) {
+  padding-top: 0.6rem;
 }
 
-.flex-center-container {
+.note-content {
   display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100%;
-  padding: 20px;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.popup-card {
+.note-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.note-textarea {
   width: 100%;
-  max-width: 400px;
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
-  margin: 0;
-}
-
-.btn-confirm {
-  --ion-color-contrast: white !important;
-  font-size: 20px;
 }
 </style>

@@ -1,49 +1,31 @@
 <template>
-  <ion-card>
-    <ion-grid>
-      <ion-row>
-        <ion-col>
-          <ion-card-header class="pad-0">
-            <ion-row>
-              <ion-col>
-                <ion-card-title>{{ dataScanQr.areaName }}</ion-card-title>
-              </ion-col>
-              <ion-col size="auto" class="ion-text-end" v-if="formattedTime">
-                <span class="timer-display" :class="timerColorClass">
-                  <ion-icon class="icon-clock" :icon="timeOutline"></ion-icon>
-                  {{ $t('areas.report.countdown') }} {{ formattedTime }}
-                </span>
-              </ion-col>
-            </ion-row>
-            <ion-row>
-              <ion-col>{{ dataScanQr.cpCode }} - {{ dataScanQr.cpName }}</ion-col>
-            </ion-row>
-          </ion-card-header>
-        </ion-col>
-      </ion-row>
-      <ion-row v-if="currentActiveRoute">
-        <ion-col>
-          <ion-card-subtitle>
-            {{ $t('areas.report.code') }} {{ currentActiveRoute.routeCode }} | {{ $t('areas.report.shift')
-            }} {{ currentActiveRoute.psHourFrom }}h - {{ currentActiveRoute.psDay }}/{{ currentActiveRoute.psMonth }}/{{
-              currentActiveRoute.psYear }}
-          </ion-card-subtitle>
-        </ion-col>
-      </ion-row>
-      <ion-row v-if="dataScanQr.cpDescription">
-        <ion-col>
-          <ion-card-content class="pad-0 ion-padding-top">
-            {{ dataScanQr.cpDescription }}
-          </ion-card-content>
-        </ion-col>
-      </ion-row>
-    </ion-grid>
-  </ion-card>
+  <Card class="checkpoint-card">
+    <template #content>
+      <div class="checkpoint-header">
+        <h2 class="checkpoint-area">{{ dataScanQr.areaName }}</h2>
+        <span v-if="formattedTime" class="timer-display" :class="timerColorClass">
+          <i class="pi pi-clock icon-clock" aria-hidden="true" />
+          {{ $t('areas.report.countdown') }} {{ formattedTime }}
+        </span>
+      </div>
+
+      <p class="checkpoint-name">{{ dataScanQr.cpCode }} - {{ dataScanQr.cpName }}</p>
+
+      <p v-if="currentActiveRoute" class="checkpoint-subtitle">
+        {{ $t('areas.report.code') }} {{ currentActiveRoute.routeCode }} | {{ $t('areas.report.shift') }}
+        {{ currentActiveRoute.psHourFrom }}h -
+        {{ currentActiveRoute.psDay }}/{{ currentActiveRoute.psMonth }}/{{ currentActiveRoute.psYear }}
+      </p>
+
+      <p v-if="dataScanQr.cpDescription" class="checkpoint-description">
+        {{ dataScanQr.cpDescription }}
+      </p>
+    </template>
+  </Card>
 </template>
 
 <script setup lang="ts">
-import { IonCard, IonGrid, IonRow, IonCol, IonCardHeader, IonCardTitle, IonCardSubtitle, IonCardContent, IonIcon } from '@ionic/vue';
-import { timeOutline } from 'ionicons/icons';
+import { Card } from '@/plugins/primevue.components';
 
 // Nhận dữ liệu từ Component Cha truyền vào
 defineProps<{
@@ -55,31 +37,75 @@ defineProps<{
 </script>
 
 <style scoped>
-.pad-0 {
-  padding: 0;
+.checkpoint-card {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+}
+
+.checkpoint-card :deep(.p-card-body) {
+  padding: 14px;
+}
+
+.checkpoint-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.checkpoint-area {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #0f172a;
+}
+
+.checkpoint-name {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  color: #334155;
+  line-height: 1.45;
+}
+
+.checkpoint-subtitle {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.checkpoint-description {
+  margin: 6px 0 0;
+  font-size: 0.9rem;
+  color: #475569;
+  line-height: 1.5;
 }
 
 .timer-display {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  margin-top: 5px;
+  flex-shrink: 0;
   font-size: 0.9rem;
-  font-weight: 500;
-  color: #666;
+  font-weight: 600;
+  color: #64748b;
   transition: color 0.3s ease;
 }
 
 .icon-clock {
-  margin-right: 1px;
-  font-size: 1.1rem;
+  margin-right: 4px;
+  font-size: 0.95rem;
 }
 
 .text-success {
-  color: var(--ion-color-success, #2dd36f);
+  color: #16a34a;
 }
 
 .text-danger {
-  color: var(--ion-color-danger, #eb445a);
+  color: #dc2626;
   animation: pulse-red 1s infinite;
 }
 

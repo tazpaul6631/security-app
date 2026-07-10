@@ -1,5 +1,39 @@
 /* For information on how to create your own theme, please refer to:
 http://ionicframework.com/docs/theming/ */
+
+:root {
+  --app-font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --ion-font-family: var(--app-font-family);
+  --ion-background-color: #ffffff;
+  --ion-background-color-rgb: 255, 255, 255;
+  --ion-text-color: #000000;
+  --ion-text-color-rgb: 0, 0, 0;
+  --ion-item-background: #ffffff;
+  --ion-card-background: #ffffff;
+  --ion-toolbar-background: #ffffff;
+}
+
+html.ios,
+html.md {
+  --ion-default-font: var(--app-font-family);
+}
+
+/* Ép light mode — không theo system dark của điện thoại */
+html,
+body,
+ion-app,
+#app,
+.p-component {
+  color-scheme: light only;
+  font-family: var(--app-font-family);
+}
+
+html,
+body {
+  background: #ffffff;
+  color: #000000;
+}
+
 /* Tùy chỉnh màu sắc cho Alert lỗi */
 .custom-error-alert {
   --backdrop-opacity: 0.6;
@@ -28,7 +62,7 @@ http://ionicframework.com/docs/theming/ */
 }
 
 .no-route-container {
-  margin-top: 100px;
+  margin-top: 150px;
 }
 
 .none-padding {
@@ -66,4 +100,8 @@ ion-accordion ion-item {
     --background-focused: transparent;
     --background-focused-opacity: 0;
   }
+}
+
+.p-button-outlined {
+  border-color: rgb(31, 206, 31) !important;
 }

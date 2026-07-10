@@ -1,9 +1,10 @@
 {
   "login": {
-    "title": "Login",
     "username": "Username",
     "password": "Password",
     "btn_login": "Login",
+    "scan_qr": "Scan employee QR code",
+    "scan_qr_hint": "Scan QR code to fill username",
     "lang_select": "Select Language",
     "cancel": "Cancel",
     "message": {
@@ -18,7 +19,11 @@
     "warning": "Warning",
     "understood": "Got it",
     "online": "Online",
-    "offline": "Offline"
+    "offline": "Offline",
+    "logout": "Log out",
+    "logout_confirm_title": "Confirm log out",
+    "logout_confirm_message": "Are you sure you want to log out?",
+    "cancel": "Cancel"
   },
   "home": {
     "roles": "Roles",
@@ -48,6 +53,7 @@
   "routes": {
     "cancel": "Cancel",
     "scan": "Scan",
+    "opening-camera": "Opening camera...",
     "code": "Code:",
     "shift": "Shift:",
     "countdown": "Countdown:",
@@ -111,7 +117,7 @@
       "gallery": "Gallery",
       "placeholder-input": "Enter here...",
       "issue-detected": "Issue / incident detected",
-      "select-status": "Select status",
+      "select-status": "Not selected status",
       "btn-submit": "SUBMIT REPORT",
       "issue-type": "ISSUE TYPE",
       "close": "Close",

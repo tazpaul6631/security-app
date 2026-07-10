@@ -3,7 +3,7 @@ import storage from '@/services/storage.service';
 import { ImageService } from '@/services/image.service';
 import PointReport from '@/api/PointReport';
 import store from '@/composables/useVuex';
-import { toastController } from '@ionic/vue';
+import { useToast } from 'primevue/usetoast';
 import PatrolShift from '@/api/PatrolShift';
 import Sync from '@/api/Sync';
 import { useI18n } from 'vue-i18n';
@@ -24,6 +24,7 @@ interface PendingItem {
 export function useOfflineManager() {
   const storeInstance = store;
   const { t } = useI18n();
+  const toast = useToast();
 
   const countExpectedImages = (data: any): number => {
     if (!data?.noteGroups || !Array.isArray(data.noteGroups)) return 0;
@@ -48,6 +49,81 @@ export function useOfflineManager() {
       (item.imageFiles?.length ?? 0) === queueExpectedImages &&
       hasValidCheckinNoteGroup(item.data)
     );
+  };
+
+  const hasReadableImageFiles = async (item: PendingItem): Promise<boolean> => {
+    const expectedImages = countExpectedImages(item.data);
+    if (expectedImages === 0) return false;
+    if (!item.imageFiles?.length) return false;
+    if (item.imageFiles.length !== expectedImages) return false;
+
+    for (const fileName of item.imageFiles) {
+      const base64 = await ImageService.readImage(fileName);
+      if (!base64) return false;
+    }
+    return true;
+  };
+
+  /** Dọn mục zombie: metadata còn nhưng file ảnh mất hoặc payload không hợp lệ */
+  const sanitizeQueue = async (): Promise<number> => {
+    const queue: PendingItem[] = (await storage.get('offline_api_queue')) || [];
+    const kept: PendingItem[] = [];
+    let removed = 0;
+
+    for (const item of queue) {
+      const readable = await hasReadableImageFiles(item);
+      if (!isQueueItemValid(item) || !readable) {
+        console.warn(`[Offline] Item ${item.id} không hợp lệ hoặc thiếu ảnh — xóa khỏi hàng chờ`);
+        for (const fileName of item.imageFiles || []) {
+          await ImageService.deleteImage(fileName).catch(() => { });
+        }
+        storeInstance.commit('REMOVE_OFFLINE_REPORT', item.id);
+        removed++;
+      } else {
+        kept.push(item);
+      }
+    }
+
+    if (removed > 0) {
+      await storage.set('offline_api_queue', kept);
+    }
+    pendingItems.value = kept;
+    return removed;
+  };
+
+  /** Khi chuyển ca: dọn mục orphan thuộc ca cũ; giữ mục ca cũ còn ảnh hợp lệ để sync nền */
+  const purgeStaleShiftQueue = async (currentPsId: number | string | null | undefined): Promise<number> => {
+    if (currentPsId == null || currentPsId === '') return 0;
+
+    const queue: PendingItem[] = (await storage.get('offline_api_queue')) || [];
+    const kept: PendingItem[] = [];
+    let removed = 0;
+
+    for (const item of queue) {
+      const isCurrentShift = Number(item.data?.psId) === Number(currentPsId);
+      if (isCurrentShift) {
+        kept.push(item);
+        continue;
+      }
+
+      const readable = await hasReadableImageFiles(item);
+      if (!readable || !isQueueItemValid(item)) {
+        console.warn(`[Offline] Dọn mục ca cũ ${item.id} (psId ${item.data?.psId}) — thiếu ảnh hoặc không hợp lệ`);
+        for (const fileName of item.imageFiles || []) {
+          await ImageService.deleteImage(fileName).catch(() => { });
+        }
+        storeInstance.commit('REMOVE_OFFLINE_REPORT', item.id);
+        removed++;
+      } else {
+        kept.push(item);
+      }
+    }
+
+    if (removed > 0) {
+      await storage.set('offline_api_queue', kept);
+      pendingItems.value = kept;
+    }
+    return removed;
   };
 
   const buildFormData = async (item: PendingItem): Promise<FormData> => {
@@ -125,19 +201,25 @@ export function useOfflineManager() {
     return fb;
   };
 
-  const presentToast = async (message: string, color: string = 'warning') => {
-    const toast = await toastController.create({
-      message,
-      duration: 3000,
-      position: 'top',
-      color
+  const presentToast = (message: string, color: string = 'warning') => {
+    const severity = color === 'danger'
+      ? 'error'
+      : color === 'success'
+        ? 'success'
+        : color === 'warning'
+          ? 'warn'
+          : 'info';
+
+    toast.add({
+      severity,
+      summary: message,
+      life: 6000,
+      closable: false,
     });
-    await toast.present();
   };
 
   const loadPendingItems = async (): Promise<void> => {
-    const data = await storage.get('offline_api_queue');
-    pendingItems.value = (data as PendingItem[]) || [];
+    await sanitizeQueue();
   };
 
   const removeQueueItem = async (id: string | number) => {
@@ -147,18 +229,16 @@ export function useOfflineManager() {
     pendingItems.value = updatedQueue;
   };
 
-  // Hàm dọn dẹp tập trung: Xóa ảnh vật lý + Xóa Mock Vuex + Xóa Queue SQLite
+  // Hàm dọn dẹp tập trung: Xóa Queue SQLite trước, tránh zombie khi xóa ảnh thành công mà ghi DB lỗi
   const cleanUpItem = async (item: PendingItem) => {
-    // 1. Xóa ảnh trong máy
-    if (item.imageFiles?.length > 0) {
-      for (const fileName of item.imageFiles) {
-        await ImageService.deleteImage(fileName).catch(() => { });
-      }
-    }
-    // 2. Xóa báo cáo ảo (Mock) khỏi RAM
-    storeInstance.commit('REMOVE_OFFLINE_REPORT', item.id);
-    // 3. Xóa khỏi hàng chờ SQLite
+    const imageFiles = item.imageFiles?.length ? [...item.imageFiles] : [];
+
     await removeQueueItem(item.id);
+    storeInstance.commit('REMOVE_OFFLINE_REPORT', item.id);
+
+    for (const fileName of imageFiles) {
+      await ImageService.deleteImage(fileName).catch(() => { });
+    }
   };
 
   const addToQueue = async (item: PendingItem): Promise<void> => {
@@ -201,7 +281,7 @@ export function useOfflineManager() {
       reportImages: []
     };
 
-    await presentToast(t('messages.use-offline.saved-to-queue'));
+    presentToast(t('messages.use-offline.saved-to-queue'));
     storeInstance.commit('ADD_OFFLINE_REPORT', mockReport);
   };
 
@@ -387,6 +467,21 @@ export function useOfflineManager() {
           mode: 'overlay'
         });
 
+        if (!isQueueItemValid(item)) {
+          console.error(`[Sync] Item ${item.id} không hợp lệ — dọn khỏi hàng chờ`);
+          await cleanUpItem(item);
+          removedInvalidCount++;
+          continue;
+        }
+
+        const imagesReadable = await hasReadableImageFiles(item);
+        if (!imagesReadable) {
+          console.error(`[Sync] Item ${item.id} thiếu file ảnh — dọn khỏi hàng chờ`);
+          await cleanUpItem(item);
+          removedInvalidCount++;
+          continue;
+        }
+
         // Đọc ảnh từ file vật lý để gán lại vào payload
         if (item.imageFiles && item.imageFiles.length > 0) {
           let fileIndex = 0;
@@ -401,13 +496,6 @@ export function useOfflineManager() {
               }
             }
           }
-        }
-
-        if (!isQueueItemValid(item)) {
-          console.error(`[Sync] Item ${item.id} không hợp lệ — dọn khỏi hàng chờ`);
-          await cleanUpItem(item);
-          removedInvalidCount++;
-          continue;
         }
 
         try {
@@ -467,7 +555,7 @@ export function useOfflineManager() {
           } else {
             console.error("Lỗi mạng/Server, dừng tiến trình Sync.");
             if (statusCode >= 500) {
-              await presentToast(t('messages.use-offline.maintenance'), 'danger');
+              presentToast(t('messages.use-offline.maintenance'), 'danger');
             }
             break;
           }
@@ -497,7 +585,7 @@ export function useOfflineManager() {
                 isSyncing: false,
                 mode: 'silent'
               });
-              await presentToast(
+              presentToast(
                 t('messages.use-offline.removed-invalid', { count: removedInvalidCount }),
                 'danger'
               );
@@ -516,10 +604,10 @@ export function useOfflineManager() {
               isSyncing: false,
               mode: 'silent'
             });
-            await presentToast(t('messages.use-offline.incomplete', { count: remainingCount }), 'warning');
+            presentToast(t('messages.use-offline.incomplete', { count: remainingCount }), 'warning');
 
             if (removedInvalidCount > 0) {
-              await presentToast(
+              presentToast(
                 t('messages.use-offline.removed-invalid', { count: removedInvalidCount }),
                 'danger'
               );
@@ -540,6 +628,8 @@ export function useOfflineManager() {
     loadPendingItems,
     syncData,
     removeQueueItem,
+    purgeStaleShiftQueue,
+    cleanUpItem,
     addToQueue // Trả về để có thể dùng nếu cần
   };
 }

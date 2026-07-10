@@ -1,32 +1,36 @@
 <template>
   <ion-page id="main-content">
     <div class="ion-page" id="main-app-content">
-      <ion-header class="nav-header">
-        <ion-toolbar>
+      <header class="nav-topbar">
+        <button type="button" class="nav-brand-btn" :aria-label="'Internal Patrol'" @click="goBackAndClearHistory">
+          <span class="nav-brand-logo" aria-hidden="true">
+            <img class="logo-company" src="/assets/icon.png" alt="" />
+          </span>
+          <span class="nav-brand-title">
+            <span class="brand-title-part">Internal</span>
+            <span class="accent">Patrol</span>
+          </span>
+        </button>
 
-          <ion-buttons slot="start">
-            <ion-button fill="clear" @click="goBackAndClearHistory">
-              <img class="logo-company" src="/assets/icon.png" alt="logo-company"></img>
-              <strong style="color: darkgray;">
-                Internal
-                <ion-text color="danger" style="margin-left: 1px;">Patrol</ion-text>
-              </strong>
-            </ion-button>
-          </ion-buttons>
+        <div class="nav-actions">
+          <Tag :value="isOnline ? $t('layout.online') : $t('layout.offline')"
+            :class="isOnline ? 'status-online' : 'status-offline'" class="status-tag" />
+          <Button icon="pi pi-sign-out" severity="secondary" variant="text" rounded class="logout-btn"
+            :aria-label="$t('layout.logout')" size="large" @click="isLogoutModalOpen = true" />
+        </div>
+      </header>
 
-          <ion-buttons slot="end" style="display: flex; align-items: center;">
-            <ion-badge :class="isOnline ? 'status-online' : 'status-offline'" class="ion-margin-horizontal">
-              {{ isOnline ? $t('layout.online') : $t('layout.offline') }}
-            </ion-badge>
-
-            <ion-button @click="handleLogout" color="dark">
-              <ion-icon class="button_logout" :icon="exitOutline"></ion-icon>
-            </ion-button>
-
-          </ion-buttons>
-
-        </ion-toolbar>
-      </ion-header>
+      <Dialog v-model:visible="isLogoutModalOpen" modal :header="t('layout.logout_confirm_title')" class="logout-dialog"
+        :style="{ width: 'min(92vw, 22rem)' }" :draggable="false" :close-on-escape="!isLoggingOut" :closable="false"
+        :dismissable-mask="!isLoggingOut">
+        <p class="logout-dialog-message">{{ t('layout.logout_confirm_message') }}</p>
+        <template #footer>
+          <Button :label="t('layout.cancel')" severity="secondary" variant="outlined" :disabled="isLoggingOut"
+            size="large" @click="isLogoutModalOpen = false" />
+          <Button :label="t('layout.logout')" icon="pi pi-sign-out" severity="danger" :loading="isLoggingOut"
+            size="large" @click="confirmLogout" />
+        </template>
+      </Dialog>
 
       <ion-content>
         <ion-router-outlet></ion-router-outlet>
@@ -37,18 +41,24 @@
 
 <script setup lang="ts">
 import {
-  IonButton, IonContent, IonHeader, IonPage, IonToolbar, IonRouterOutlet,
-  IonIcon, alertController, IonBadge, useIonRouter, IonText, IonButtons
+  IonContent, IonPage, IonRouterOutlet,
+  alertController, useIonRouter,
 } from '@ionic/vue';
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { exitOutline } from 'ionicons/icons';
 import router from '@/router';
 import { useStore } from 'vuex';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 import storageService from '@/services/storage.service';
 import Logout from '@/api/Logout';
 import { useRouteTimer } from '@/composables/useRouteTimer';
+import { useToast } from 'primevue/usetoast';
+import { Button, Dialog, Tag } from '@/plugins/primevue.components';
+
+const toast = useToast();
+
+const isLogoutModalOpen = ref(false);
+const isLoggingOut = ref(false);
 
 const { clearTimer } = useRouteTimer();
 const store = useStore();
@@ -61,12 +71,13 @@ const isRouteUnfinished = computed(() => store.getters.isRouteUnfinished);
 
 const goBackAndClearHistory = async () => {
   if (isRouteUnfinished.value) {
-    const alert = await alertController.create({
-      header: t('messages.nav.warning'),
-      message: t('messages.nav.incomplete-route'),
-      buttons: [t('messages.nav.got')]
+    toast.add({
+      severity: 'warn',
+      summary: t('messages.nav.warning'),
+      detail: t('messages.nav.incomplete-route'),
+      life: 8000,
+      closable: false,
     });
-    await alert.present();
     return;
   }
   ionRouter.navigate('/home', 'root', 'replace');
@@ -76,18 +87,29 @@ const goBackAndClearHistory = async () => {
 //////////////////////////////////////////
 const { pendingItems, loadPendingItems, isOnline } = useOfflineManager();
 
-const handleLogout = async () => {
+const confirmLogout = async () => {
+  isLoggingOut.value = true;
+  try {
+    await performLogout();
+  } finally {
+    isLoggingOut.value = false;
+  }
+};
+
+const performLogout = async () => {
   try {
     console.log('Bắt đầu kiểm tra trước khi đăng xuất...');
 
     // 1. Chặn nếu chưa hoàn thành lộ trình
     if (isRouteUnfinished.value) {
-      const alert = await alertController.create({
-        header: t('messages.nav.unable-to-logout'),
-        message: t('messages.nav.incomplete-patrol'),
-        buttons: [t('messages.nav.got')]
+      isLogoutModalOpen.value = false;
+      toast.add({
+        severity: 'warn',
+        summary: t('messages.nav.unable-to-logout'),
+        detail: t('messages.nav.incomplete-patrol'),
+        life: 8000,
+        closable: false,
       });
-      await alert.present();
       return;
     }
 
@@ -100,12 +122,14 @@ const handleLogout = async () => {
 
     // Nếu có bất kỳ data nào kẹt lại -> Hiện cảnh báo và CHẶN đăng xuất
     if (totalUnsynced > 0) {
-      const alert = await alertController.create({
-        header: t('messages.nav.data-loss'),
-        message: t('messages.nav.msg-logout-sync-offline', { totalUnsynced }),
-        buttons: [{ text: t('messages.nav.got'), role: 'cancel' }]
+      isLogoutModalOpen.value = false;
+      toast.add({
+        severity: 'warn',
+        summary: t('messages.nav.data-loss'),
+        detail: t('messages.nav.msg-logout-sync-offline', { totalUnsynced }),
+        life: 8000,
+        closable: false,
       });
-      await alert.present();
       return;
     }
 
@@ -131,6 +155,7 @@ const handleLogout = async () => {
 
   } catch (error) {
     console.error("Lỗi hệ thống khi đăng xuất:", error);
+    isLogoutModalOpen.value = false;
 
     // CHỐT CHẶN CUỐI CÙNG: Nếu SQLite bị khóa hoặc code gãy
     const alert = await alertController.create({
@@ -143,6 +168,179 @@ const handleLogout = async () => {
 };
 ////////////////////////////////////////////
 </script>
+
+<style scoped>
+.nav-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 56px;
+  padding: calc(env(safe-area-inset-top, 0px) + 4px) 8px 4px 4px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.nav-brand-btn {
+  flex: 1;
+  min-width: 0;
+  max-width: calc(100% - 7.5rem);
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 4px 6px 4px 2px;
+  min-height: 44px;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 10px;
+  text-align: left;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.nav-brand-btn:hover,
+.nav-brand-btn:focus,
+.nav-brand-btn:focus-visible,
+.nav-brand-btn:active {
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+}
+
+.nav-brand-logo {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+}
+
+.logo-company {
+  width: 20px;
+  height: 20px;
+  object-fit: contain;
+  display: block;
+}
+
+.nav-brand-title {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.brand-title-part {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.accent {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: #dc2626;
+}
+
+.nav-topbar :deep(.p-button),
+.logout-dialog :deep(.p-button) {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.logout-btn:hover,
+.logout-btn:focus,
+.logout-btn:active,
+.logout-btn.p-focus,
+.logout-btn.p-button:hover,
+.logout-btn.p-button:focus,
+.logout-btn.p-button:active,
+.logout-btn.p-button.p-focus {
+  background: transparent !important;
+  border-color: transparent !important;
+  color: #334155 !important;
+  box-shadow: none !important;
+}
+
+.logout-dialog :deep(.p-button-outlined:not(:disabled):hover),
+.logout-dialog :deep(.p-button-outlined:not(:disabled):focus),
+.logout-dialog :deep(.p-button-outlined:not(:disabled):active),
+.logout-dialog :deep(.p-button-outlined.p-focus) {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.logout-dialog :deep(.p-button-danger:not(:disabled):hover),
+.logout-dialog :deep(.p-button-danger:not(:disabled):focus),
+.logout-dialog :deep(.p-button-danger:not(:disabled):active),
+.logout-dialog :deep(.p-button-danger.p-focus) {
+  background: #dc2626 !important;
+  border-color: #dc2626 !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.status-tag {
+  white-space: nowrap;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  padding: 0.35rem 0.55rem;
+}
+
+.status-online {
+  background: #d4fcc7 !important;
+  color: #3c9441 !important;
+}
+
+.status-offline {
+  background: #ffdada !important;
+  color: #7a1b1b !important;
+}
+
+.logout-btn {
+  width: 2.5rem;
+  height: 2.5rem;
+  color: #334155;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.logout-btn :deep(.p-button-icon) {
+  font-size: 1.25rem;
+}
+
+.logout-dialog-message {
+  margin: 0;
+  color: #475569;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.logout-dialog :deep(.p-dialog-footer) {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+</style>
 
 <style>
 /* CSS giữ nguyên theo thiết kế của bạn */
@@ -172,96 +370,5 @@ div[slot='content'] {
   display: flex;
   justify-content: center;
   align-items: center;
-}
-
-.button_logout {
-  font-size: 25px;
-}
-
-@keyframes pulse-red {
-  0% {
-    transform: scale(0.98);
-    opacity: 0.8;
-  }
-
-  50% {
-    transform: scale(1.02);
-    opacity: 1;
-  }
-
-  100% {
-    transform: scale(0.98);
-    opacity: 0.8;
-  }
-}
-
-@keyframes pulse-red {
-  0% {
-    transform: scale(1);
-    opacity: 0.7;
-  }
-
-  50% {
-    transform: scale(1.05);
-    opacity: 1;
-  }
-
-  100% {
-    transform: scale(1);
-    opacity: 0.7;
-  }
-}
-
-.status-online {
-  background: #d4fcc7;
-  color: #3c9441;
-}
-
-.status-offline {
-  background: #ffdada;
-  color: #7a1b1b;
-}
-
-.ion-margin-horizontal {
-  width: fit-content;
-  border-radius: 10px;
-  margin: 0 !important;
-  padding: 5px;
-}
-
-.logo-company {
-  width: fit-content;
-  max-height: 17px;
-  object-fit: contain;
-  margin-right: 4px;
-}
-
-
-/* 1. NGĂN RỚT DÒNG CỤM LOGO & TITLE BÊN TRÁI */
-.nav-header ion-button strong {
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  /* Nếu màn hình quá nhỏ sẽ hiển thị "Internal..." thay vì tràn ra ngoài */
-}
-
-/* 2. ÉP CỤM BÊN PHẢI NẰM TRÊN 1 HÀNG NGANG */
-.nav-header ion-buttons[slot="end"] {
-  flex-wrap: nowrap;
-  /* Cấm bẻ dòng */
-}
-
-.status-online,
-.status-offline {
-  white-space: nowrap;
-  flex-shrink: 0;
-  /* Không cho badge bị ép lún chữ */
-}
-
-/* 4. TỐI ƯU KHOẢNG CÁCH NÚT LOGOUT CHO MÀN HÌNH NHỎ */
-.nav-header ion-buttons[slot="end"] ion-button {
-  --padding-start: 8px;
-  --padding-end: 8px;
-  margin: 0;
-  /* Cắt giảm margin thừa mặc định của Ionic */
 }
 </style>

@@ -2,28 +2,30 @@
   <div class="points-grid">
     <div v-for="(point, idx) in details" :key="point.rdId" class="grid-item-wrapper">
       <div class="point-node" :class="{
-        'done': point.status === 1,
-        'next-step': isCurrentStep(idx)
+        done: point.status === 1,
+        'next-step': isCurrentStep(idx),
       }">
         <div class="mini-thumb">
-          <ion-icon class="points-icon" :icon="libraryOutline"></ion-icon>
+          <i class="pi pi-map-marker points-icon" aria-hidden="true" />
 
-          <div v-if="point.status === 1" class="check-icon">
-            <ion-icon :icon="checkmark"></ion-icon>
-          </div>
+          <Badge v-if="point.status === 1" severity="success" class="check-badge">
+            <i class="pi pi-check" aria-hidden="true" />
+          </Badge>
 
-          <div v-if="getOfflineCount(point.cpId) > 0" class="offline-badge">
-            <ion-icon :icon="cloudOfflineOutline"></ion-icon>
-          </div>
+          <span v-if="getOfflineCount(point.cpId) > 0" class="sync-badge"
+            :title="`${getOfflineCount(point.cpId)} chờ đồng bộ`">
+            <i class="pi pi-cloud-upload sync-icon" aria-hidden="true" />
+            <span class="sync-count">{{ getOfflineCount(point.cpId) }}</span>
+          </span>
         </div>
-        <span class="point-number" :class="{
-          'done': point.status === 1
-        }">{{ point.cpPriority }}</span>
+
+        <Tag :value="String(point.cpPriority)"
+          :severity="point.status === 1 ? 'success' : isCurrentStep(idx) ? 'warn' : 'secondary'" class="point-number"
+          rounded />
       </div>
 
       <div v-if="(idx + 1) % 4 !== 0 && idx !== details.length - 1" class="h-line"
-        :class="{ 'active': point.status === 1 }">
-      </div>
+        :class="{ active: point.status === 1 }" />
 
       <div class="point-label">{{ point.cpName }}</div>
     </div>
@@ -32,14 +34,13 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { checkmark, cloudOfflineOutline, libraryOutline } from 'ionicons/icons';
-import { IonIcon, onIonViewWillEnter } from '@ionic/vue';
+import { onIonViewWillEnter } from '@ionic/vue';
 import storageService from '@/services/storage.service';
 import { useStore } from 'vuex';
+import { Badge, Tag } from '@/plugins/primevue.components';
 
 const store = useStore();
 
-// 1. Định nghĩa Interface cho Props
 interface RouteDetail {
   rdId: number | string;
   cpId: number | string;
@@ -49,23 +50,18 @@ interface RouteDetail {
 }
 
 const props = defineProps<{
-  details: RouteDetail[]
+  details: RouteDetail[];
 }>();
 
-// 2. Biến lưu trữ số lượng báo cáo offline: Object map { cpId: count }
 const offlineCounts = ref<Record<string, number>>({});
 
-// 3. Hàm tính toán số lượng báo cáo bị kẹt theo từng điểm
 const loadOfflineQueue = async () => {
   try {
     const queue = (await storageService.get('offline_api_queue')) || [];
     const counts: Record<string, number> = {};
-
-    // Lấy psId của ca trực đang active hiện tại
     const currentPsId = store.state.psId;
 
     queue.forEach((item: any) => {
-      // Chỉ cộng dồn nếu cpId tồn tại VÀ psId phải khớp với ca hiện tại
       if (item.data && item.data.cpId && Number(item.data.psId) === Number(currentPsId)) {
         const cpId = String(item.data.cpId);
         counts[cpId] = (counts[cpId] || 0) + (item.data.reports?.length || 1);
@@ -78,29 +74,24 @@ const loadOfflineQueue = async () => {
   }
 };
 
-// Hàm tiện ích để hiển thị số lượng trên template
 const getOfflineCount = (cpId: number | string): number => {
   return offlineCounts.value[String(cpId)] || 0;
 };
 
-// Kiểm tra điểm kế tiếp
 const isCurrentStep = (index: number): boolean => {
   if (!props.details) return false;
   const firstIncomplete = props.details.findIndex((p: RouteDetail) => p.status !== 1);
   return index === firstIncomplete;
 };
 
-// 4. Lấy dữ liệu khi Component vừa được tạo
 onMounted(() => {
   loadOfflineQueue();
 });
 
-// Load lại dữ liệu mỗi khi quay lại trang này (nếu Component nằm trong IonPage)
 onIonViewWillEnter(() => {
   loadOfflineQueue();
 });
 
-// Cho phép component cha gọi lại hàm này để cập nhật (Tùy chọn)
 defineExpose({ loadOfflineQueue });
 </script>
 
@@ -108,8 +99,7 @@ defineExpose({ loadOfflineQueue });
 .points-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 20px 5px;
-  padding: 0 0 15px 0;
+  gap: 7px 10px;
 }
 
 .grid-item-wrapper {
@@ -123,26 +113,28 @@ defineExpose({ loadOfflineQueue });
   width: 50px;
   height: 50px;
   position: relative;
-  border-radius: 12px;
+  border-radius: 14px;
   padding: 2px;
-  border: 2px solid #e0e0e0;
-  transition: all 0.3s ease;
-  background: white;
+  border: 2px solid #b8e6ea;
+  transition: border-color 0.3s ease, background-color 0.3s ease, box-shadow 0.3s ease;
+  background: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 3px 10px rgba(56, 189, 248, 0.12);
 }
 
 .point-node.done {
-  border-color: var(--ion-color-success);
-  background: #f6ffed;
+  border-color: #4ade80;
+  background: linear-gradient(180deg, #f0fdf4 0%, #dcfce7 100%);
+  box-shadow: 0 3px 10px rgba(74, 222, 128, 0.22);
 }
 
 .point-node.next-step {
-  border-color: var(--ion-color-warning);
+  border-color: #fbbf24;
   border-style: dashed;
+  background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
   animation: pulse-orange 2s infinite;
 }
 
@@ -150,106 +142,147 @@ defineExpose({ loadOfflineQueue });
   position: absolute;
   bottom: -9px;
   right: -13px;
-  background: #999;
-  color: white;
-  font-size: 13px;
-  padding-top: 1px;
-  width: 23px;
-  border-radius: 12px;
-  border: 1.5px solid white;
-  font-weight: bold;
-  display: flex;
-  align-items: center;
+  min-width: 1.45rem;
   justify-content: center;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  font-size: 0.75rem !important;
+  font-weight: 700 !important;
+  padding: 0.15rem 0.35rem !important;
+  border: 1.5px solid #ffffff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15);
+  z-index: 2;
 }
 
-.point-number.done {
-  background: var(--ion-color-success);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-}
-
-.point-node.next-step .point-number {
-  background: var(--ion-color-warning);
+.point-number :deep(.p-tag-label) {
+  line-height: 1.1;
 }
 
 .points-icon {
-  font-size: 35px;
-  color: #ccc;
+  font-size: 1.75rem;
+  color: #7dd3fc;
 }
 
 .point-node.done .points-icon {
-  color: var(--ion-color-success);
+  color: #22c55e;
 }
 
-/* --- CẬP NHẬT Ở ĐÂY --- */
-.check-icon {
+.point-node.next-step .points-icon {
+  color: #f59e0b;
+}
+
+.check-badge {
   position: absolute;
   top: -10px;
   right: -10px;
-  background: var(--ion-color-success);
-  border-radius: 50%;
-  color: white;
-  display: flex;
-  padding: 2px;
-  font-size: 12px;
-  border: 1.5px solid white;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  width: 1.3rem !important;
+  min-width: 1.3rem !important;
+  height: 1.3rem !important;
+  padding: 0 !important;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 6px rgba(34, 197, 94, 0.35);
 }
 
-/* Badge cảnh báo Offline */
-.offline-badge {
-  position: absolute;
-  bottom: -8px;
-  left: -11px;
-  background: var(--ion-color-warning);
-  color: white;
-  font-size: 12px;
-  font-weight: bold;
-  padding: 3px;
-  border-radius: 10px;
-  border: 1.5px solid white;
+.check-badge :deep(.p-badge) {
+  width: 100%;
+  height: 100%;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: #22c55e !important;
+}
+
+.check-badge i {
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.sync-badge {
+  position: absolute;
+  bottom: -9px;
+  left: -12px;
   z-index: 2;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 1.2rem;
+  padding: 0 0.3rem 0 0.22rem;
+  border-radius: 999px;
+  border: 2px solid #ffffff;
+  background: linear-gradient(135deg, #f8e538 0%, #e9d30e 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 8px rgba(233, 218, 14, 0.35);
+}
+
+.sync-icon {
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.sync-count {
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  min-width: 0.75rem;
+  text-align: center;
+}
+
+.point-number :deep(.p-tag) {
+  border: 2px solid #ffffff;
+}
+
+.point-number :deep(.p-tag-secondary) {
+  background: #94a3b8 !important;
+  color: #ffffff !important;
+}
+
+.point-number :deep(.p-tag-success) {
+  background: #22c55e !important;
+  color: #ffffff !important;
+}
+
+.point-number :deep(.p-tag-warn) {
+  background: #f59e0b !important;
+  color: #ffffff !important;
 }
 
 .point-label {
   margin-top: 8px;
   font-size: 0.7rem;
-  color: #444;
+  color: #334155;
+  font-weight: 500;
   text-align: center;
+  line-height: 1.25;
 }
 
 .h-line {
-  background: #eee;
+  background: #cfe8eb;
   position: absolute;
   top: 25px;
-  right: -28%;
+  right: -33%;
   width: 50%;
   height: 2px;
   z-index: 0;
 }
 
 .h-line.active {
-  background: var(--ion-color-success);
+  background: linear-gradient(90deg, #4ade80 0%, #22c55e 100%);
 }
 
 @keyframes pulse-orange {
   0% {
-    box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.4);
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0.45);
     transform: scale(1);
   }
 
   70% {
-    box-shadow: 0 0 0 8px rgba(255, 152, 0, 0);
+    box-shadow: 0 0 0 8px rgba(251, 191, 36, 0);
     transform: scale(1.05);
   }
 
   100% {
-    box-shadow: 0 0 0 0 rgba(255, 152, 0, 0);
+    box-shadow: 0 0 0 0 rgba(251, 191, 36, 0);
     transform: scale(1);
   }
 }

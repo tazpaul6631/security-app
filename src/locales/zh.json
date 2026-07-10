@@ -1,9 +1,10 @@
 {
   "login": {
-    "title": "登入",
     "username": "使用者名稱",
     "password": "密碼",
     "btn_login": "登入",
+    "scan_qr": "掃描員工條碼",
+    "scan_qr_hint": "掃描 QR 碼以填入使用者名稱",
     "lang_select": "選擇語言",
     "cancel": "取消",
     "message": {
@@ -18,7 +19,11 @@
     "warning": "警告",
     "understood": "知道了",
     "online": "線上",
-    "offline": "離線"
+    "offline": "離線",
+    "logout": "登出",
+    "logout_confirm_title": "確認登出",
+    "logout_confirm_message": "確定要登出系統嗎？",
+    "cancel": "取消"
   },
   "home": {
     "roles": "角色",
@@ -48,6 +53,7 @@
   "routes": {
     "cancel": "取消",
     "scan": "掃描",
+    "opening-camera": "正在開啟相機...",
     "code": "代碼:",
     "shift": "班次:",
     "countdown": "倒數計時:",
@@ -111,7 +117,7 @@
       "gallery": "相簿",
       "placeholder-input": "請輸入...",
       "issue-detected": "發現問題 / 異常",
-      "select-status": "選擇狀態",
+      "select-status": "未選擇狀態",
       "btn-submit": "送出回報",
       "issue-type": "異常類型",
       "close": "關閉",

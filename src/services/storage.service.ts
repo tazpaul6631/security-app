@@ -12,13 +12,14 @@ class StorageService {
     await this.sqlite.initDatabase();
   }
 
-  // 1. Lưu dữ liệu
+  // 1. Lưu dữ liệu — ném lỗi để caller biết ghi SQLite thất bại (tránh lệch RAM vs DB)
   async set(key: string, value: any): Promise<void> {
     try {
       await this.ensureReady();
       await this.sqlite.setItem(key, value);
     } catch (error) {
       console.error(`StorageService Error (set ${key}):`, error);
+      throw error;
     }
   }
 

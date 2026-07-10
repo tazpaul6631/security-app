@@ -1,9 +1,10 @@
 {
   "login": {
-    "title": "Đăng nhập",
     "username": "Tên đăng nhập",
     "password": "Mật khẩu",
     "btn_login": "Đăng nhập",
+    "scan_qr": "Quét mã nhân viên",
+    "scan_qr_hint": "Quét mã để đăng nhập",
     "lang_select": "Chọn ngôn ngữ",
     "cancel": "Hủy bỏ",
     "message": {
@@ -18,7 +19,11 @@
     "warning": "Cảnh báo",
     "understood": "Đã hiểu",
     "online": "Trực tuyến",
-    "offline": "Ngoại tuyến"
+    "offline": "Ngoại tuyến",
+    "logout": "Đăng xuất",
+    "logout_confirm_title": "Xác nhận đăng xuất",
+    "logout_confirm_message": "Bạn có chắc chắn muốn đăng xuất khỏi hệ thống?",
+    "cancel": "Hủy"
   },
   "home": {
     "roles": "Vai Trò",
@@ -48,6 +53,7 @@
   "routes": {
     "cancel": "Hủy",
     "scan": "Quét",
+    "opening-camera": "Đang mở Camera...",
     "code": "Mã:",
     "shift": "Ca Trực:",
     "countdown": "Đồng hồ đếm ngược:",
@@ -111,7 +117,7 @@
       "gallery": "Thư viện",
       "placeholder-input": "Nhập tại đây...",
       "issue-detected": "Phát hiện vấn đề / Sự cố",
-      "select-status": "Chọn tình trạng",
+      "select-status": "Chưa chọn tình trạng",
       "btn-submit": "GỬI BÁO CÁO",
       "issue-type": "LOẠI SỰ CỐ",
       "close": "Đóng",

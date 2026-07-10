@@ -1,46 +1,54 @@
 <template>
-  <ion-page>
-    <ion-header>
-      <ion-toolbar class="none-padding">
-        <ion-buttons slot="start">
-          <ion-back-button default-href="/home"></ion-back-button>
-        </ion-buttons>
-        <ion-title>{{ $t('page.routes') }}</ion-title>
-      </ion-toolbar>
-    </ion-header>
+  <ion-page class="route-page">
+    <header class="route-header">
+      <button type="button" class="route-back-btn" :aria-label="$t('routes.go-home')" @click="router.replace('/home')">
+        <i class="pi pi-arrow-left route-back-icon" aria-hidden="true" />
+        <span class="route-title">{{ $t('page.routes') }}</span>
+      </button>
+    </header>
 
-    <ion-content>
-      <div v-if="isLoading" class="ion-padding ion-text-center">
-        <ion-spinner name="crescent"></ion-spinner>
+    <ion-content class="route-content" :class="{ 'route-content--locked': !isLoading && !!currentActiveRoute }">
+      <div class="route-bg" aria-hidden="true">
+        <span class="route-blob route-blob-green" />
+        <span class="route-blob route-blob-purple" />
+      </div>
+
+      <div v-if="isLoading" class="loading-state">
+        <ProgressSpinner stroke-width="4" />
         <p>{{ $t('routes.loading-route') }}</p>
       </div>
 
       <transition v-else name="fade-route" mode="out-in">
-        <div v-if="currentActiveRoute" :key="currentActiveRoute.routeId">
-          <ion-card class="inspection-grid-card">
-            <ion-card-header>
-              <ion-card-title>{{ currentActiveRoute.routeName }}</ion-card-title>
-              <ion-card-subtitle>
-                {{ $t('routes.code') }} {{ currentActiveRoute.routeCode }} | {{ $t('routes.shift') }} {{
-                  currentActiveRoute.psHourFrom }}h - {{ currentActiveRoute.psDay }}/{{ currentActiveRoute.psMonth }}/{{
-                  currentActiveRoute.psYear }}
-                <br />
-                <span class="timer-display" :class="timerColorClass" v-show="formattedTime">
-                  <ion-icon :icon="timeOutline" class="icon-clock"></ion-icon>
+        <div v-if="currentActiveRoute" :key="currentActiveRoute.routeId" class="route-body">
+          <Card class="route-card"
+            :pt="{ body: { class: 'route-card-body' }, content: { class: 'route-card-content' } }">
+            <template #title>
+              <span class="route-name">{{ currentActiveRoute.routeName }}</span>
+            </template>
+            <template #subtitle>
+              <div class="route-meta">
+                <span>
+                  {{ $t('routes.code') }} {{ currentActiveRoute.routeCode }} |
+                  {{ $t('routes.shift') }} {{ currentActiveRoute.psHourFrom }}h -
+                  {{ currentActiveRoute.psDay }}/{{ currentActiveRoute.psMonth }}/{{ currentActiveRoute.psYear }}
+                </span>
+                <span v-show="formattedTime" class="timer-display" :class="timerColorClass">
+                  <i class="pi pi-clock icon-clock" />
                   {{ $t('routes.countdown') }} {{ formattedTime }}
                 </span>
-              </ion-card-subtitle>
-            </ion-card-header>
-
-            <ion-card-content>
-              <card-route-points ref="cardRoutePointsRef" :details="currentActiveRoute.routeDetails" />
-            </ion-card-content>
-          </ion-card>
+              </div>
+            </template>
+            <template #content>
+              <div class="route-points-scroll">
+                <card-route-points ref="cardRoutePointsRef" :details="currentActiveRoute.routeDetails" />
+              </div>
+            </template>
+          </Card>
         </div>
 
-        <div v-else class="ion-padding ion-text-center no-route-container">
+        <div v-else class="no-route-container">
           <div class="no-route-content">
-            <ion-icon :icon="calendarOutline" class="big-icon"></ion-icon>
+            <i class="pi pi-calendar big-icon" />
 
             <div v-if="hasDataButFinished">
               <h3>{{ $t('routes.txt-info', { currentHour: currentHour }) }}</h3>
@@ -50,35 +58,44 @@
               <h3>{{ $t('routes.route-not-found', { currentHour: currentHour }) }}</h3>
               <p>{{ $t('routes.no-shift-data') }}</p>
             </div>
-            <ion-button fill="outline" @click="router.replace('/home')" class="ion-margin-top">
-              {{ $t('routes.go-home') }}
-            </ion-button>
+            <Button :label="$t('routes.go-home')" severity="secondary" variant="outlined" icon="pi pi-home"
+              class="go-home-btn" size="large" @click="router.replace('/home')" />
           </div>
         </div>
       </transition>
 
-      <ion-alert :is-open="isCancelAlertOpen" :header="$t('routes.warning-title')"
-        :message="$t('routes.cancel-confirm-msg')" :buttons="cancelButtons" @didDismiss="isCancelAlertOpen = false" />
+      <Dialog v-model:visible="isCancelAlertOpen" modal :header="$t('routes.warning-title')" class="cancel-route-dialog"
+        :style="{ width: 'min(92vw, 22rem)' }" :draggable="false" :closable="false" :close-on-escape="!isCancelling"
+        :dismissable-mask="!isCancelling">
+        <p class="cancel-dialog-message">{{ $t('routes.cancel-confirm-msg') }}</p>
+        <template #footer>
+          <Button :label="$t('routes.cancel')" severity="secondary" variant="outlined" :disabled="isCancelling"
+            size="large" @click="isCancelAlertOpen = false" />
+          <Button :label="$t('routes.confirm-cancel')" icon="pi pi-trash" severity="danger" :loading="isCancelling"
+            size="large" @click="handleCancelConfirm" />
+        </template>
+      </Dialog>
+
+      <Dialog v-model:visible="isWrongOrderOpen" modal :header="$t('messages.scanner.wrong-patrol-order')"
+        class="wrong-order-dialog" :style="{ width: 'min(92vw, 22rem)' }" :draggable="false" :closable="false">
+        <p class="wrong-order-point">{{ wrongOrderPointName }}</p>
+        <p class="wrong-order-message">{{ $t('messages.scanner.next-checkpoint') }}</p>
+        <template #footer>
+          <Button :label="$t('areas.report.close')" severity="secondary" variant="outlined" size="large"
+            @click="isWrongOrderOpen = false" />
+        </template>
+      </Dialog>
     </ion-content>
 
-    <ion-footer v-if="!isLoading && currentActiveRoute" class="ion-no-border">
-      <ion-toolbar class="ion-padding-horizontal ion-padding-bottom">
-        <div class="active-controls">
-          <ion-button v-if="canCancelRoute" color="danger" @click="confirmCancelRoute" class="btn-cancel">
-            <ion-icon slot="start" :icon="trashOutline"></ion-icon>
-            {{ $t('routes.cancel') }}
-          </ion-button>
-          <ion-button color="success" class="btn-continue" @click="handleContinueScanning(currentActiveRoute.routeId)"
-            :disabled="isScanning">
-            <ion-spinner v-if="isScanning" slot="start" name="crescent"></ion-spinner>
-            <ion-icon v-else slot="start" :icon="qrCodeOutline"></ion-icon>
-
-            {{ isScanning ? 'Đang mở Camera...' : $t('routes.scan') }}
-          </ion-button>
-        </div>
-      </ion-toolbar>
-    </ion-footer>
-
+    <footer v-if="!isLoading && currentActiveRoute" class="route-footer">
+      <div class="active-controls">
+        <Button v-if="canCancelRoute" :label="$t('routes.cancel')" icon="pi pi-trash" severity="danger"
+          class="btn-cancel" size="large" @click="confirmCancelRoute" />
+        <Button :label="isScanning ? $t('routes.opening-camera') : $t('routes.scan')" icon="pi pi-qrcode"
+          severity="success" class="btn-continue" :loading="isScanning" :disabled="isScanning" size="large"
+          @click="handleContinueScanning(currentActiveRoute.routeId)" />
+      </div>
+    </footer>
   </ion-page>
 </template>
 
@@ -87,17 +104,14 @@ import { ref, computed, onUnmounted, onMounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import {
-  IonPage, IonHeader, IonToolbar, IonTitle, IonIcon, IonButtons, IonBackButton,
-  IonCardContent, IonContent, IonAlert, IonButton, IonCard, IonCardHeader,
-  IonCardSubtitle, IonCardTitle, IonSpinner, IonFooter, onIonViewWillEnter,
+  IonPage, IonContent, onIonViewWillEnter,
   loadingController, useBackButton
 } from '@ionic/vue';
-import { qrCodeOutline, calendarOutline, trashOutline, timeOutline } from 'ionicons/icons';
 import CardRoutePoints from '@/components/CardRoutePoints.vue';
+import { Button, Card, Dialog, ProgressSpinner } from '@/plugins/primevue.components';
 import { scannerService } from '@/services/scanner.service';
 import storageService from '@/services/storage.service';
 import PatrolShiftView from '@/api/PatrolShiftView';
-import { ImageService } from '@/services/image.service';
 
 // IMPORT GLOBAL TIMER
 import { useRouteTimer } from '@/composables/useRouteTimer';
@@ -137,6 +151,8 @@ interface Route {
 const store = useStore();
 const router = useRouter();
 const isCancelAlertOpen = ref(false);
+const isWrongOrderOpen = ref(false);
+const wrongOrderPointName = ref('');
 const isLoading = ref(true);
 const isScanning = ref(false);
 const userRoleIsAdmin = ref();
@@ -148,6 +164,7 @@ let timer: any = null;
 const lockedRouteId = computed(() => store.state.unfinishedRouteId);
 const { t } = useI18n();
 const cardRoutePointsRef = ref<any>(null);
+const { pendingItems, loadPendingItems, cleanUpItem, purgeStaleShiftQueue } = useOfflineManager();
 
 const canCancelRoute = computed(() => {
   const user = store.state.dataUser;
@@ -248,6 +265,8 @@ watch(() => currentActiveRoute.value, async (newRoute) => {
   if (newRoute && newRoute.psId) {
     store.commit('SET_PSID', newRoute.psId);
     storageService.set('current_ps_id', newRoute.psId);
+    await purgeStaleShiftQueue(newRoute.psId);
+    await loadPendingItems();
   }
 
   if (newRoute) {
@@ -303,8 +322,11 @@ const processScannedData = async (qrCodeString: string, routeId: number) => {
 
   try {
     // Gọi logic xử lý nặng (Check lộ trình, API, SQLite)
-    await scannerService.processQRString(store, router, routeId, qrCodeString, t);
-
+    const result = await scannerService.processQRString(store, router, routeId, qrCodeString, t);
+    if (result?.code === 'WRONG_ORDER') {
+      wrongOrderPointName.value = result.nextPointName;
+      isWrongOrderOpen.value = true;
+    }
   } catch (error) {
     console.error("Lỗi xử lý dữ liệu quét:", error);
   } finally {
@@ -488,83 +510,62 @@ const confirmCancelRoute = () => {
 };
 
 const isCancelling = ref(false);
-const { pendingItems, loadPendingItems, removeQueueItem } = useOfflineManager();
-const cancelButtons = [
-  { text: t('routes.cancel'), role: 'cancel' },
-  {
-    text: t('routes.confirm-cancel'),
-    role: 'confirm',
-    cssClass: 'alert-button-confirm',
-    handler: async () => {
-      if (isCancelling.value) return false;
-      isCancelling.value = true;
+
+const handleCancelConfirm = async () => {
+  if (isCancelling.value) return;
+  isCancelling.value = true;
+  try {
+    const currentRoute = currentActiveRoute.value;
+    if (!currentRoute) return;
+
+    const removeData = {
+      routeId: currentRoute.routeId,
+      psId: currentRoute.psId,
+      updatedBy: store.state.dataUser?.userId,
+      isDeleteAction: true
+    };
+
+    await clearTimer(currentRoute.routeId, currentRoute.psId);
+    await loadPendingItems();
+
+    const itemsToDelete = pendingItems.value.filter(
+      (item: any) => item.data.psId === currentRoute.psId
+    );
+
+    for (const item of itemsToDelete) {
+      await cleanUpItem(item);
+    }
+
+    try {
+      await PatrolShift.postRemovePatrolShift(removeData);
+    } catch (error) {
       try {
-        const currentRoute = currentActiveRoute.value;
-        if (!currentRoute) return;
+        let deleteQueue = await storageService.get('offline_delete_queue');
 
-        const removeData = {
-          routeId: currentRoute.routeId,
-          psId: currentRoute.psId,
-          updatedBy: store.state.dataUser?.userId,
-          isDeleteAction: true
-        };
-
-        await clearTimer(currentRoute.routeId, currentRoute.psId);
-        await loadPendingItems();
-
-        const itemsToDelete = pendingItems.value.filter(
-          (item: any) => item.data.psId === currentRoute.psId
-        );
-
-        for (const item of itemsToDelete) {
-          // XÓA ẢNH VẬT LÝ TRƯỚC ---
-          if (item.imageFiles && item.imageFiles.length > 0) {
-            for (const fileName of item.imageFiles) {
-              await ImageService.deleteImage(fileName).catch(() => { });
-            }
-          }
-          // ------------------------------------
-
-          // Xóa Mock trong Vuex
-          store.commit('REMOVE_OFFLINE_REPORT', item.id);
-          // Xóa trong SQLite
-          await removeQueueItem(item.id);
+        if (!Array.isArray(deleteQueue)) {
+          deleteQueue = [];
         }
 
-        try {
-          await PatrolShift.postRemovePatrolShift(removeData);
-        } catch (error) {
-          // NẾU OFFLINE: Lưu lệnh xóa vào hàng chờ
-          try {
-            let deleteQueue = await storageService.get('offline_delete_queue');
+        const isExist = deleteQueue.some((item: any) => item.psId === removeData.psId);
 
-            if (!Array.isArray(deleteQueue)) {
-              deleteQueue = [];
-            }
-
-            const isExist = deleteQueue.some((item: any) => item.psId === removeData.psId);
-
-            if (!isExist) {
-              deleteQueue.push(removeData);
-              await storageService.set('offline_delete_queue', deleteQueue);
-              console.warn("Offline: Đã lưu lệnh xóa vào hàng chờ.");
-            }
-          } catch (storageErr) {
-            console.error("Lỗi parse dữ liệu từ Storage:", storageErr);
-            await storageService.set('offline_delete_queue', [removeData]);
-          }
+        if (!isExist) {
+          deleteQueue.push(removeData);
+          await storageService.set('offline_delete_queue', deleteQueue);
+          console.warn("Offline: Đã lưu lệnh xóa vào hàng chờ.");
         }
-
-        // Reset và về Home
-        await store.dispatch('resetCurrentRoute');
-        // shiftDataList.value = store.state.dataListRoute;
-        router.replace('/home');
-      } finally {
-        isCancelling.value = false;
+      } catch (storageErr) {
+        console.error("Lỗi parse dữ liệu từ Storage:", storageErr);
+        await storageService.set('offline_delete_queue', [removeData]);
       }
     }
+
+    await store.dispatch('resetCurrentRoute');
+    isCancelAlertOpen.value = false;
+    router.replace('/home');
+  } finally {
+    isCancelling.value = false;
   }
-];
+};
 
 useBackButton(10, () => {
   router.replace('/home');
@@ -579,29 +580,243 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
 </script>
 
 <style scoped>
-/* Thêm CSS cho Timer */
-.timer-display {
-  margin-top: 5px;
-  font-size: 0.9rem;
-  color: #666;
-  transition: color 0.3s ease;
+.route-page {
   display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.route-header {
+  min-height: 48px;
+  padding: 4px 8px 4px 4px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+}
+
+.route-back-btn {
+  width: 100%;
+  display: inline-flex;
   align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 6px 8px;
+  min-height: 44px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: 10px;
+  text-align: left;
+  appearance: none;
+  -webkit-tap-highlight-color: transparent;
+  font: inherit;
+}
+
+.route-back-btn:hover,
+.route-back-btn:focus,
+.route-back-btn:focus-visible,
+.route-back-btn:active {
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+}
+
+.route-back-icon {
+  flex-shrink: 0;
+  font-size: 1rem;
+  color: #334155;
+}
+
+.route-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: #0f172a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+
+.route-content {
+  flex: 1;
+  min-height: 0;
+  --background: #d1e5e6;
+}
+
+.route-content::part(scroll) {
+  height: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0
+}
+
+.route-content--locked {
+  --overflow: hidden;
+}
+
+.route-content--locked::part(scroll) {
+  overflow: hidden;
+}
+
+.route-bg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.route-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(72px);
+  -webkit-filter: blur(72px);
+  opacity: 0.9;
+}
+
+.route-blob-green {
+  width: 250px;
+  height: 250px;
+  background: #e3f7ac;
+  top: 20%;
+  right: -50px;
+}
+
+.route-blob-purple {
+  width: 250px;
+  height: 250px;
+  background: #cac2e9;
+  bottom: 10%;
+  left: -80px;
+}
+
+.route-body {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  padding: 16px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+
+.loading-state {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 48px 16px;
+  color: #64748b;
+}
+
+.loading-state p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.route-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+}
+
+.route-card :deep(.p-card) {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.route-card :deep(.route-card-body) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.route-card :deep(.p-card-caption) {
+  flex-shrink: 0;
+  padding: 0 10px;
+}
+
+.route-card :deep(.route-card-content) {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.route-points-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  align-content: flex-start;
+  padding: 16px 0;
+}
+
+.route-card :deep(.p-card-body) {
+  padding: 10px;
+}
+
+.route-card :deep(.p-card-title) {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.route-name {
+  line-height: 1.3;
+}
+
+.route-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.875rem;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.timer-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.875rem;
+  color: #64748b;
+  transition: color 0.3s ease;
 }
 
 .icon-clock {
-  margin-right: 1px;
-  font-size: 1.1rem;
+  font-size: 0.95rem;
 }
 
 .text-success {
-  color: var(--ion-color-success, #2dd36f);
-  font-weight: bold;
+  color: #16a34a;
+  font-weight: 600;
 }
 
 .text-danger {
-  color: var(--ion-color-danger, #eb445a);
-  font-weight: bold;
+  color: #dc2626;
+  font-weight: 600;
   animation: pulse-red 1s infinite;
 }
 
@@ -619,46 +834,107 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
   }
 }
 
-/* Layout */
+.route-footer {
+  flex-shrink: 0;
+  padding: 0 16px 40px 16px;
+  background: #d1e5e6;
+  border-top: 1px solid #e2e8f0;
+  box-shadow: 0 -2px 10px rgba(15, 23, 42, 0.04);
+}
+
 .active-controls {
   display: flex;
   gap: 12px;
-  justify-content: space-between;
-}
-
-.route-actions-bar {
-  margin-top: 20px;
-  padding-top: 15px;
-  border-top: 1px dashed #ddd;
 }
 
 .btn-cancel,
 .btn-continue {
-  --border-radius: 8px;
-  --ion-color-contrast: white !important;
-  height: 55px;
-  font-weight: bold;
   flex: 1;
-  font-size: 20px;
+  min-height: 3.5rem;
+  font-weight: 600;
+  border-radius: 12px;
 }
 
-/* No Route State */
+.cancel-dialog-message {
+  margin: 0;
+  color: #475569;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.cancel-route-dialog :deep(.p-dialog-footer) {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.wrong-order-point {
+  margin: 0 0 8px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #dc2626;
+  line-height: 1.4;
+}
+
+.wrong-order-message {
+  margin: 0;
+  color: #475569;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.wrong-order-dialog :deep(.p-dialog-footer) {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .no-route-container {
+  position: relative;
+  z-index: 1;
   display: flex;
   align-items: center;
-  justify-content: center;
+  padding: 24px;
+  margin: auto;
+}
+
+.no-route-content {
+  max-width: 360px;
+  text-align: center;
+  color: #475569;
+}
+
+.no-route-content h3 {
+  margin: 0 0 8px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.no-route-content p {
+  margin: 0 0 20px;
+  font-size: 0.9rem;
+  line-height: 1.5;
 }
 
 .big-icon {
-  font-size: 80px;
-  color: #cbd5e0;
+  font-size: 4rem;
+  color: #cbd5e1;
   margin-bottom: 16px;
 }
 
-/* Animations */
+.go-home-btn {
+  border-radius: 12px;
+}
+
 .fade-route-enter-active,
 .fade-route-leave-active {
   transition: all 0.4s ease;
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
 
 .fade-route-enter-from {
@@ -669,11 +945,5 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
 .fade-route-leave-to {
   opacity: 0;
   transform: translateY(-15px);
-}
-
-.inspection-grid-card {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-radius: 12px;
-  background-color: floralwhite;
 }
 </style>

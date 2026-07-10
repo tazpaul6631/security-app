@@ -1,128 +1,110 @@
 <template>
-  <ion-page>
-    <ion-header>
-      <ion-toolbar class="none-padding">
-        <ion-buttons slot="start">
-          <ion-button @click="handleGoBack">
-            <ion-icon slot="icon-only" :icon="arrowBackOutline"></ion-icon>
-          </ion-button>
-        </ion-buttons>
-        <ion-title>{{ $t('page.areas.report') }}</ion-title>
-      </ion-toolbar>
-    </ion-header>
+  <ion-page class="area-page">
+    <header class="area-header">
+      <h1 class="area-title">{{ $t('page.areas.report') }}</h1>
+    </header>
 
-    <ion-content class="ion-padding">
-      <div v-if="isReady && dataScanQr && currentActiveRoute">
+    <ion-content class="area-content">
+      <div class="area-bg" aria-hidden="true">
+        <span class="area-blob area-blob-green" />
+        <span class="area-blob area-blob-purple" />
+      </div>
+
+      <div v-if="isReady && dataScanQr && currentActiveRoute" class="area-body">
         <checkpoint-info-card :dataScanQr="dataScanQr" :currentActiveRoute="currentActiveRoute"
           :formattedTime="formattedTime" :timerColorClass="timerColorClass" />
 
-        <ion-card v-if="mandatoryPhoto">
-          <ion-card-content>
-            <ion-item v-if="!formData.prHasProblem" lines="none">
-              {{ $t('areas.report.no-issue') }}
-            </ion-item>
+        <Card v-if="mandatoryPhoto" class="area-card">
+          <template #content>
+            <p v-if="!formData.prHasProblem" class="section-label">{{ $t('areas.report.no-issue') }}</p>
 
             <transition name="smooth-collapse">
-              <div v-if="!formData.prHasProblem">
-                <ion-row>
-                  <ion-col>
-                    <ion-button class="btn-camera" expand="block" size="small" @click="addNoProblemPhoto">
-                      <ion-icon slot="start" :icon="camera"></ion-icon> {{ $t('areas.report.camera') }}
-                    </ion-button>
-                  </ion-col>
-                </ion-row>
+              <div v-if="!formData.prHasProblem" class="section-block">
+                <Button :label="$t('areas.report.camera')" icon="pi pi-camera" class="btn-camera" fluid size="large"
+                  @click="addNoProblemPhoto" />
 
-                <ion-grid v-if="noProblemImages.length > 0">
-                  <ion-row>
-                    <ion-col size="4" v-for="(photo, pIdx) in noProblemImages" :key="pIdx">
-                      <div class="image-container">
-                        <ion-img :src="photo.preview" class="thumb-img" />
-                        <div class="delete-btn" @click="removeNoProblemPhoto(pIdx)">
-                          <ion-icon :icon="trash"></ion-icon>
-                        </div>
-                      </div>
-                    </ion-col>
-                  </ion-row>
-                </ion-grid>
+                <div v-if="noProblemImages.length > 0" class="photo-grid">
+                  <div v-for="(photo, pIdx) in noProblemImages" :key="pIdx" class="image-container">
+                    <img :src="photo.preview" class="thumb-img" alt="" />
+                    <button type="button" class="delete-btn" :aria-label="$t('areas.report.camera')" size="large"
+                      @click="removeNoProblemPhoto(pIdx)">
+                      <i class="pi pi-trash" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
 
-                <ion-row>
-                  <ion-col>
-                    <ion-textarea :label="$t('areas.report.content')" label-placement="floating" fill="outline"
-                      v-model="formData.prNote" :rows="4" :placeholder="$t('areas.report.placeholder-input')">
-                    </ion-textarea>
-                  </ion-col>
-                </ion-row>
+                <div class="field-block">
+                  <label class="field-label" for="pr-note">{{ $t('areas.report.content') }}</label>
+                  <Textarea id="pr-note" v-model="formData.prNote" rows="4"
+                    :placeholder="$t('areas.report.placeholder-input')" class="note-textarea" />
+                </div>
               </div>
             </transition>
 
-            <ion-item lines="none">
-              <ion-checkbox v-model="formData.prHasProblem" @ionChange="handleCheckedHasProblem">
-                {{ $t('areas.report.issue-detected') }}
-              </ion-checkbox>
-            </ion-item>
-
-            <transition name="smooth-collapse">
-              <div v-if="formData.prHasProblem">
-                <ion-row>
-                  <ion-col>
-                    <ion-button class="btn-status" expand="block" fill="outline" @click="openCategoryModal = true">
-                      <ion-icon slot="start" :icon="images"></ion-icon>
-                      {{ $t('areas.report.select-status') }} ({{ groupedNotes.length }})
-                    </ion-button>
-                  </ion-col>
-                </ion-row>
-              </div>
-            </transition>
-          </ion-card-content>
-        </ion-card>
-
-        <ion-card v-if="mandatoryPhoto">
-          <ion-card-content>
-            <ion-button class="btn-submit" expand="block" color="success" :disabled="isSubmitting"
-              @click="confirmSubmit">
-              <ion-icon slot="start" :icon="sendOutline"></ion-icon>
-              {{ $t('areas.report.btn-submit') }}
-            </ion-button>
-          </ion-card-content>
-        </ion-card>
-
-        <ion-card class="ion-margin-bottom">
-          <ion-card-content class="ion-text-center">
-            <div v-if="!mandatoryPhoto">
-              <p><b class="require">{{ $t('areas.report.label_requirement') }}</b> {{
-                $t('areas.report.msg_capture_before_report') }}</p>
-              <ion-button expand="block" @click="captureMandatoryPhoto" class="btn-camera">
-                <ion-icon slot="start" :icon="camera"></ion-icon>
-                {{ $t('areas.report.btn_take_checkin') }}
-              </ion-button>
+            <div class="checkbox-row">
+              <label for="has-problem" class="checkbox-label">{{ $t('areas.report.issue-detected') }}</label>
+              <Checkbox v-model="formData.prHasProblem" input-id="has-problem" binary
+                @update:model-value="handleCheckedHasProblem" />
             </div>
 
-            <div v-else>
+            <transition name="smooth-collapse">
+              <div v-if="formData.prHasProblem" class="section-block">
+                <Button :label="`${$t('areas.report.select-status')} (${groupedNotes.length})`" icon="pi pi-images"
+                  severity="secondary" variant="outlined" class="btn-status" fluid size="large"
+                  @click="openCategoryModal = true" />
+              </div>
+            </transition>
+          </template>
+        </Card>
+
+        <Card v-if="mandatoryPhoto" class="area-card">
+          <template #content>
+            <Button :label="$t('areas.report.btn-submit')" icon="pi pi-send" severity="success" class="btn-submit" fluid
+              :disabled="isSubmitting" :loading="isSubmitting" size="large" @click="confirmSubmit" />
+          </template>
+        </Card>
+
+        <Card class="area-card area-card-checkin">
+          <template #content>
+            <div v-if="!mandatoryPhoto" class="checkin-prompt">
+              <p class="checkin-require">
+                <b class="require">{{ $t('areas.report.label_requirement') }}</b>
+                {{ $t('areas.report.msg_capture_before_report') }}
+              </p>
+              <Button :label="$t('areas.report.btn_take_checkin')" icon="pi pi-camera" class="btn-camera" fluid
+                size="large" @click="captureMandatoryPhoto" />
+            </div>
+
+            <div v-else class="checkin-confirmed">
               <div class="mandatory-img-container">
-                <ion-img :src="mandatoryPhoto.preview" class="thumb-img" />
+                <img :src="mandatoryPhoto.preview" class="mandatory-preview-img" alt="" />
               </div>
               <strong class="accept-img">
-                <ion-icon :icon="checkmarkCircleOutline"></ion-icon> {{ $t('areas.report.status_photo_confirmed') }}
+                <i class="pi pi-check-circle" aria-hidden="true" />
+                {{ $t('areas.report.status_photo_confirmed') }}
               </strong>
             </div>
-          </ion-card-content>
-        </ion-card>
+          </template>
+        </Card>
       </div>
 
       <category-modal :is-open="openCategoryModal" :api-categories="apiCategories" :grouped-notes="groupedNotes"
         @close="openCategoryModal = false" @removeGroup="removeGroup" @addPhoto="addGroupPhoto"
         @pickPhotos="pickGroupImages" @removePhoto="handleRemoveGroupPhoto" @toggleCategory="handleToggleCategory" />
 
-      <!-- <category-modal :is-open="openCategoryModal" :api-categories="apiCategories" :grouped-notes="groupedNotes"
-        @close="openCategoryModal = false" @selectCategory="selectSubCategory" @removeGroup="removeGroup"
-        @addPhoto="addGroupPhoto" @pickPhotos="pickGroupImages" @removePhoto="handleRemoveGroupPhoto"
-        @selectDirectNote="handleSelectDirectNote" /> -->
-
-      <!-- <issue-detail-modal :is-open="openDetailModal" :selectedSubCategory="selectedSubCategory"
-        :currentIssues="currentIssues" :selectedValues="selectedValues" @close="openDetailModal = false"
-        @toggleIssue="toggleIssue" @confirm="confirmDetails" @addNoteIssue="handleAddNoteIssue" /> -->
-
       <note-input-modal :is-open="openNoteModal" @close="openNoteModal = false" @confirm="handleConfirmNote" />
+
+      <Dialog v-model:visible="isSubmitConfirmOpen" modal :header="$t('areas.report.message.7')"
+        class="submit-confirm-dialog" :style="{ width: 'min(92vw, 22rem)' }" :draggable="false" :closable="false"
+        :close-on-escape="!isSubmitting" :dismissable-mask="!isSubmitting">
+        <p class="submit-dialog-message">{{ $t('areas.report.message.11') }}</p>
+        <template #footer>
+          <Button :label="$t('areas.report.close')" severity="secondary" variant="outlined" :disabled="isSubmitting"
+            size="large" @click="isSubmitConfirmOpen = false" />
+          <Button :label="$t('areas.report.btn-submit')" icon="pi pi-send" severity="success" :loading="isSubmitting"
+            size="large" :disabled="isSubmitting" @click="onConfirmSubmit" />
+        </template>
+      </Dialog>
 
       <offline-sync-list :displayItems="displayItems" :paginatedItems="paginatedItems" :loadedCount="loadedCount"
         :getCheckpointName="getCheckpointName" @delete="deleteItem" @loadMore="loadMoreOfflineItems" />
@@ -133,15 +115,11 @@
 <script setup lang="ts">
 import { computed, reactive, ref, onMounted, watch, markRaw } from 'vue';
 import {
-  IonPage, IonHeader, IonToolbar, IonTitle, IonContent, IonItem, IonTextarea,
-  IonCheckbox, IonButton, IonIcon, IonCard, IonCardContent, IonGrid, IonRow,
-  IonCol, IonImg, loadingController, onIonViewWillEnter,
-  IonButtons, onIonViewDidLeave, alertController, useBackButton
+  IonPage, IonContent, loadingController, onIonViewWillEnter,
+  onIonViewDidLeave, useBackButton
 } from '@ionic/vue';
-import {
-  sendOutline, camera, images, trash, arrowBackOutline, checkmarkCircleOutline
-} from 'ionicons/icons';
 import { useStore } from 'vuex';
+import { Button, Card, Checkbox, Dialog, Textarea } from '@/plugins/primevue.components';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 import { ImageService } from '@/services/image.service';
 import router from '@/router';
@@ -226,8 +204,22 @@ const pendingNoteId = ref<string | null>(null);
 const currentIssues = computed(() => selectedSubCategory.value?.childs || []);
 
 // --- Offline Manager ---
-const { sendData, pendingItems, loadPendingItems } = useOfflineManager();
+const { sendData, pendingItems, loadPendingItems, cleanUpItem } = useOfflineManager();
 const displayItems = ref<QueueItem[]>([]);
+
+const filterPendingByCurrentShift = (items: QueueItem[]): QueueItem[] => {
+  const psId = store.state.psId;
+  if (!psId) return items;
+  return items.filter((item) => Number(item.data?.psId) === Number(psId));
+};
+
+const buildDisplayItems = async (items: QueueItem[]) => {
+  const filtered = filterPendingByCurrentShift(items);
+  return Promise.all(filtered.map(async (item: QueueItem) => ({
+    ...item,
+    thumb: item.imageFiles?.[0] ? await ImageService.getDisplayUrl(item.imageFiles[0]) : null
+  })));
+};
 
 // --- TỐI ƯU HIỆU NĂNG BẰNG INFINITE SCROLL ---
 const itemsPerPage = 10;
@@ -237,22 +229,17 @@ const paginatedItems = computed(() => {
   return displayItems.value.slice(0, loadedCount.value);
 });
 
-const loadMoreOfflineItems = (ev: any) => {
-  setTimeout(() => {
-    loadedCount.value += itemsPerPage;
-    ev.target.complete();
-    if (loadedCount.value >= displayItems.value.length) {
-      ev.target.disabled = true;
-    }
-  }, 300);
+const loadMoreOfflineItems = () => {
+  loadedCount.value += itemsPerPage;
 };
 
 watch(() => pendingItems.value, async (newPendingQueue) => {
-  displayItems.value = await Promise.all(newPendingQueue.map(async (item: QueueItem) => ({
-    ...item,
-    thumb: item.imageFiles?.[0] ? await ImageService.getDisplayUrl(item.imageFiles[0]) : null
-  })));
+  displayItems.value = await buildDisplayItems(newPendingQueue);
 }, { deep: true });
+
+watch(() => store.state.psId, async () => {
+  displayItems.value = await buildDisplayItems(pendingItems.value);
+});
 ///////////////////////////////////////////////////////
 
 // --- Functions ---
@@ -414,6 +401,7 @@ const handleToggleCategory = ({ cat, isChecked }: { cat: any, isChecked: boolean
 
 // Xử lý ảnh cho trường hợp Không Lỗi ---
 const noProblemImages = ref<Photo[]>([]);
+const isSubmitConfirmOpen = ref(false);
 
 const confirmSubmit = async () => {
   if (!mandatoryPhoto.value) {
@@ -428,25 +416,12 @@ const confirmSubmit = async () => {
     return showToast(t('areas.report.img-status'), 'warning');
   }
 
-  const alert = await alertController.create({
-    header: t('areas.report.message.7'),
-    message: t('areas.report.message.11'),
-    buttons: [
-      {
-        text: t('areas.report.close'),
-        role: 'cancel',
-        cssClass: 'secondary',
-      },
-      {
-        text: t('areas.report.btn-submit'),
-        handler: () => {
-          handleSubmit();
-        },
-      },
-    ],
-  });
+  isSubmitConfirmOpen.value = true;
+};
 
-  await alert.present();
+const onConfirmSubmit = () => {
+  isSubmitConfirmOpen.value = false;
+  void handleSubmit();
 };
 
 // --- Submit Logic ---
@@ -731,18 +706,18 @@ const handleSubmit = async (): Promise<void> => {
   }
 };
 
-const handleGoBack = async () => {
-  const details = currentActiveRoute.value?.routeDetails || [];
-  const isFinished = details.every((p: RouteDetail) => p.rdIsComplete);
-  if (isFinished || details.length === 0) return router.replace('/route');
+// const handleGoBack = async () => {
+//   const details = currentActiveRoute.value?.routeDetails || [];
+//   const isFinished = details.every((p: RouteDetail) => p.rdIsComplete);
+//   if (isFinished || details.length === 0) return router.replace('/route');
 
-  const alert = await alertController.create({
-    header: t('areas.report.message.7'),
-    message: t('areas.report.message.8'),
-    buttons: [t('areas.report.message.9')]
-  });
-  await alert.present();
-};
+//   const alert = await alertController.create({
+//     header: t('areas.report.message.7'),
+//     message: t('areas.report.message.8'),
+//     buttons: [t('areas.report.message.9')]
+//   });
+//   await alert.present();
+// };
 
 // --- Utils ---
 const getCheckpointName = (cpId: string) => {
@@ -752,19 +727,16 @@ const getCheckpointName = (cpId: string) => {
 
 const loadPendingItemsWithImages = async () => {
   await loadPendingItems();
-  displayItems.value = await Promise.all(pendingItems.value.map(async (item: QueueItem) => ({
-    ...item, thumb: item.imageFiles?.[0] ? await ImageService.getDisplayUrl(item.imageFiles[0]) : null
-  })));
+  displayItems.value = await buildDisplayItems(pendingItems.value);
 };
 
 const deleteItem = async (id: any) => {
   const queue = (await storageService.get('offline_api_queue')) || [];
   const item = queue.find((i: any) => i.id === id);
-  if (item?.imageFiles) {
-    for (const f of item.imageFiles) await ImageService.deleteImage(f);
-  }
-  await storageService.set('offline_api_queue', queue.filter((i: any) => i.id !== id));
-  loadPendingItemsWithImages();
+  if (!item) return;
+
+  await cleanUpItem(item);
+  await loadPendingItemsWithImages();
 };
 
 ////////////////////////////////////////////
@@ -822,66 +794,83 @@ const removeNoProblemPhoto = (idx: number) => {
 // Biến lưu ảnh bắt buộc
 const mandatoryPhoto = ref<Photo | null>(null);
 
-// Hàm vẽ Watermark (ngày giờ) lên ảnh (Sử dụng FileReader thuần)
+// Hàm vẽ Watermark (ngày giờ) lên ảnh
 const addWatermarkToImage = async (imageSrc: string, text: string, textColor: string = '#FFD700'): Promise<string> => {
-  return new Promise(async (resolve) => {
-    try {
-      let base64Data = imageSrc;
+  try {
+    const response = await fetch(imageSrc);
+    const blob = await response.blob();
 
-      if (!imageSrc.startsWith('data:image')) {
-        const response = await fetch(imageSrc);
-        const blob = await response.blob();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return imageSrc;
 
-        base64Data = await new Promise((res, rej) => {
-          const reader = new FileReader();
-          reader.onloadend = () => res(reader.result as string);
-          reader.onerror = rej;
-          reader.readAsDataURL(blob);
-        });
-      }
+    let source: CanvasImageSource;
+    let width = 0;
+    let height = 0;
 
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
+    if (typeof createImageBitmap !== 'undefined') {
+      const bitmap = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+      source = bitmap;
+      width = bitmap.width;
+      height = bitmap.height;
+    } else {
+      const base64Data = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
 
-        if (!ctx) return resolve(base64Data);
+      const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = reject;
+        image.src = base64Data;
+      });
 
-        ctx.drawImage(img, 0, 0);
-
-        const fontSize = Math.max(Math.floor(img.height * 0.05), 25);
-        ctx.font = `bold ${fontSize}px sans-serif`;
-        ctx.textAlign = 'left';
-        ctx.textBaseline = 'top';
-
-        const padding = 30;
-        const x = padding;
-        const y = padding;
-
-        const metrics = ctx.measureText(text);
-        const textWidth = metrics.width;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        ctx.fillRect(x - 10, y - 10, textWidth + 20, fontSize + 20);
-
-        ctx.fillStyle = textColor;
-        ctx.fillText(text, x, y);
-
-        resolve(canvas.toDataURL('image/jpeg', 0.8));
-      };
-
-      img.onerror = (err) => {
-        console.error("Image load error in canvas:", err);
-        resolve(base64Data);
-      };
-
-      img.src = base64Data;
-    } catch (error) {
-      console.error("Watermark generation error:", error);
-      resolve(imageSrc);
+      source = img;
+      width = img.naturalWidth || img.width;
+      height = img.naturalHeight || img.height;
     }
-  });
+
+    canvas.width = width;
+    canvas.height = height;
+    ctx.drawImage(source, 0, 0, width, height);
+
+    if (source instanceof ImageBitmap) {
+      source.close();
+    }
+
+    const baseFontSize = Math.max(Math.floor(height * 0.04), 18);
+    const minFontSize = 14;
+    let fontSize = baseFontSize;
+    ctx.font = `bold ${fontSize}px sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+
+    const padding = Math.max(Math.floor(width * 0.03), 16);
+    const x = padding;
+    const y = padding;
+
+    const maxTextWidth = Math.max(width - (padding * 2) - 20, 80);
+    let metrics = ctx.measureText(text);
+    while (metrics.width > maxTextWidth && fontSize > minFontSize) {
+      fontSize -= 1;
+      ctx.font = `bold ${fontSize}px sans-serif`;
+      metrics = ctx.measureText(text);
+    }
+    const textWidth = metrics.width;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.fillRect(x - 10, y - 10, textWidth + 20, fontSize + 20);
+
+    ctx.fillStyle = textColor;
+    ctx.fillText(text, x, y);
+
+    return canvas.toDataURL('image/jpeg', 0.8);
+  } catch (error) {
+    console.error('Watermark generation error:', error);
+    return imageSrc;
+  }
 };
 
 // Hàm chụp ảnh bắt buộc
@@ -1061,6 +1050,8 @@ const redirectIfInvalidSession = async (): Promise<boolean> => {
 onIonViewWillEnter(async () => {
   if (!(await redirectIfInvalidSession())) return;
 
+  await loadPendingItemsWithImages();
+
   setTimeout(async () => {
     const hasDraft = await loadDraft();
     if (!hasDraft) {
@@ -1119,66 +1110,234 @@ onMounted(async () => {
   isReady.value = true;
 });
 
-useBackButton(10, () => {
-  handleGoBack();
-});
+// Chặn nút back vật lý để không rời màn report ngoài ý muốn.
+useBackButton(10000, () => { });
 </script>
 
 <style scoped>
+.area-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.area-header {
+  min-height: 48px;
+  padding: 8px 16px;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.area-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: #0f172a;
+  line-height: 1.3;
+}
+
+.area-content {
+  --background: #d1e5e6;
+}
+
+.area-content::part(scroll) {
+  height: 100%;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0
+}
+
+.area-bg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.area-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(70px);
+  -webkit-filter: blur(70px);
+  opacity: 0.9;
+}
+
+.area-blob-green {
+  width: 200px;
+  height: 200px;
+  background: #e3f7ac;
+  top: 15%;
+  right: -50px;
+}
+
+.area-blob-purple {
+  width: 270px;
+  height: 270px;
+  background: #cac2e9;
+  bottom: 5%;
+  left: 5px;
+}
+
+.area-body {
+  position: relative;
+  z-index: 1;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.area-card {
+  border-radius: 16px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  background: #ffffff;
+}
+
+.area-card :deep(.p-card-body) {
+  padding: 14px;
+}
+
+.area-card-checkin :deep(.p-card-body) {
+  text-align: center;
+}
+
+.section-label {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #334155;
+}
+
+.section-block {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.field-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.field-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #475569;
+}
+
+.note-textarea {
+  width: 100%;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.checkbox-label {
+  font-size: 0.95rem;
+  color: #334155;
+  cursor: pointer;
+}
+
+.photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
 .image-container {
   position: relative;
   aspect-ratio: 1;
-  border-radius: 4px;
+  border-radius: 8px;
   overflow: hidden;
-  background: #eee;
+  background: #f1f5f9;
 }
 
 .thumb-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .delete-btn {
   position: absolute;
-  top: 2px;
-  right: 2px;
-  background: rgba(255, 0, 0, 0.7);
-  color: white;
+  top: 4px;
+  right: 4px;
+  width: 1.6rem;
+  height: 1.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
   border-radius: 50%;
-  padding: 4px;
-  font-size: 14px;
-  height: 25px;
-}
-
-.btn-submit {
-  --ion-color-contrast: white !important;
+  background: rgba(220, 38, 38, 0.85);
+  color: #ffffff;
+  font-size: 0.75rem;
+  cursor: pointer;
+  padding: 0;
 }
 
 .btn-status,
 .btn-submit,
 .btn-camera {
-  height: 55px;
-  font-size: 16px;
-  font-weight: bold;
+  min-height: 3rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 12px;
 }
 
-.accept-img {
-  color: green;
+.checkin-prompt {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.checkin-require {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  color: #475569;
+}
+
+.checkin-confirmed {
+  display: flex;
+  flex-direction: column;
   align-items: center;
 }
 
-.accept-img ion-icon {
-  margin-right: 4px;
+.accept-img {
+  color: #16a34a;
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+}
+
+.accept-img i {
+  font-size: 1.1rem;
 }
 
 .mandatory-img-container {
   width: 100%;
-  height: 40vh;
+  min-height: 220px;
+  max-height: 55vh;
   background-color: #1a1a1a;
-  border-radius: 8px;
+  border-radius: 12px;
   overflow: hidden;
   display: flex;
   justify-content: center;
@@ -1186,14 +1345,30 @@ useBackButton(10, () => {
   margin-bottom: 10px;
 }
 
-.mandatory-img-container .thumb-img {
-  width: 100%;
-  height: 100%;
+.mandatory-preview-img {
+  max-width: 100%;
+  max-height: 55vh;
+  width: auto;
+  height: auto;
   object-fit: contain;
+  display: block;
 }
 
 .require {
-  color: red;
+  color: #dc2626;
+}
+
+.submit-dialog-message {
+  margin: 0;
+  color: #475569;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.submit-confirm-dialog :deep(.p-dialog-footer) {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
 }
 
 /* --- Smooth Collapse Animation --- */

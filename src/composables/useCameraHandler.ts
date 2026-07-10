@@ -1,5 +1,5 @@
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
-import { toastController } from '@ionic/vue';
+import { useToast } from 'primevue/usetoast';
 import { useI18n } from 'vue-i18n';
 
 // Interface trả về cho các file gọi Composable này sử dụng
@@ -9,43 +9,25 @@ interface Photo {
   rawBase64?: string; // Giữ lại dự phòng nếu sau này cần
 }
 
-const toastQueue: Array<{ message: string; color: string }> = [];
-let isShowing = false;
-
 export function useCameraHandler() {
   const { t } = useI18n();
+  const toast = useToast();
 
-  // Hàm tiện ích: Hiển thị thông báo (Giống hàm showToast ở file cha)
-  const showToast = async (message: string, color: string = 'warning') => {
-    // Thêm thông báo mới vào hàng đợi
-    toastQueue.push({ message, color });
+  const showToast = (message: string, color: string = 'warning') => {
+    const severity = color === 'danger'
+      ? 'error'
+      : color === 'success'
+        ? 'success'
+        : color === 'warning'
+          ? 'warn'
+          : 'info';
 
-    // Nếu đang có toast hiển thị thì thôi, hàm processQueue sẽ lo phần còn lại
-    if (isShowing) return;
-
-    await processQueue();
-  };
-
-  const processQueue = async () => {
-    if (toastQueue.length === 0) {
-      isShowing = false;
-      return;
-    }
-
-    isShowing = true;
-    const { message, color } = toastQueue.shift()!;
-
-    const toast = await toastController.create({
-      message,
-      color,
-      duration: 1500,
-      position: 'top'
+    toast.add({
+      severity,
+      summary: message,
+      life: 3000,
+      closable: false,
     });
-
-    await toast.present();
-
-    await toast.onDidDismiss();
-    await processQueue();
   };
 
   // 1. HÀM CHỤP ẢNH TỪ CAMERA
@@ -53,7 +35,7 @@ export function useCameraHandler() {
   // prefix: Tiền tố tên file (ví dụ 'ok_cam_' hoặc 'err_cam_')
   const takePhoto = async (currentCount: number, prefix: string = 'img_'): Promise<Photo | null> => {
     if (currentCount >= 10) {
-      await showToast(t('messages.use-camera.max-images'));
+      showToast(t('messages.use-camera.max-images'));
       return null; // Trả về null nếu vi phạm luật
     }
 
@@ -85,7 +67,7 @@ export function useCameraHandler() {
     const slotsLeft = 10 - currentCount;
 
     if (slotsLeft <= 0) {
-      await showToast(t('messages.use-camera.limit-reached'));
+      showToast(t('messages.use-camera.limit-reached'));
       return []; // Trả về mảng rỗng nếu vi phạm
     }
 
@@ -99,7 +81,7 @@ export function useCameraHandler() {
 
       // Cắt mảng dự phòng
       if (photosToAdd.length > slotsLeft) {
-        await showToast(t('messages.use-camera.taking-images', { slotsLeft }));
+        showToast(t('messages.use-camera.taking-images', { slotsLeft }));
         photosToAdd = photosToAdd.slice(0, slotsLeft);
       }
 

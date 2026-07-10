@@ -4,7 +4,16 @@ import router from '@/router';
 import store from '@/composables/useVuex'
 import i18n from '@/i18n';
 
+import '@fontsource/inter/400.css'
+import '@fontsource/inter/500.css'
+import '@fontsource/inter/600.css'
+import '@fontsource/inter/700.css'
+
 import { IonicVue } from '@ionic/vue';
+import PrimeVue from 'primevue/config';
+import ToastService from 'primevue/toastservice';
+import Aura from '@primevue/themes/aura';
+import 'primeicons/primeicons.css';
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/vue/css/core.css';
@@ -38,6 +47,15 @@ import './theme/variables.css';
 
 const app = createApp(App)
   .use(IonicVue)
+  .use(PrimeVue, {
+    theme: {
+      preset: Aura,
+      options: {
+        darkModeSelector: false,
+      },
+    },
+  })
+  .use(ToastService)
   .use(router)
   .use(store)
   .use(i18n);

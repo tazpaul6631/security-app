@@ -1,52 +1,56 @@
 <template>
   <ion-page>
-    <ion-content class="custom-bg">
+    <ion-content class="home-content">
+      <div class="home-bg" aria-hidden="true">
+        <span class="home-blob home-blob-green" />
+        <span class="home-blob home-blob-purple" />
+      </div>
+
       <div v-show="dataUser && !store.state.isSyncingOffline" class="dashboard-container">
-        <div class="profile-card">
-          <div class="info-row">
-            <div class="icon-wrapper">
-              <ion-icon :icon="person" class="dark-icon" :class="isOnline ? 'color-green' : 'color-red'"></ion-icon>
-              <span class="status-dot" :class="isOnline ? 'online' : 'offline'"></span>
-            </div>
-            <div class="text-content">
-              <h3>{{ dataUser?.userName }}</h3>
-              <div class="text-code-roleName" v-if="dataUser">
-                <p class="mr-code">{{ dataUser.userCode }}</p> -
-                <p class="badge-it ml-roleName">
-                  {{ $t(getRoleData(dataUser.userRoleId).name) }}
-                </p>
+        <Card class="profile-card"
+          :pt="{ body: { class: 'profile-card-body' }, content: { class: 'profile-card-content' } }">
+          <template #content>
+            <div class="info-row">
+              <div class="icon-wrapper">
+                <i class="pi pi-user profile-icon" />
+                <span class="status-dot" :class="isOnline ? 'online' : 'offline'" />
+              </div>
+              <div class="text-content">
+                <h3 class="user-name">{{ dataUser?.userName }}</h3>
+                <div v-if="dataUser" class="text-code-role">
+                  <span class="user-code">{{ dataUser.userCode }}</span>
+                  <Tag :value="$t(getRoleData(dataUser.userRoleId).name)" class="role-tag" />
+                </div>
               </div>
             </div>
-          </div>
 
-          <div class="divider"></div>
+            <Divider class="profile-divider" />
 
-          <div class="info-row">
-            <div class="icon-wrapper">
-              <ion-icon :icon="location" class="dark-icon color-red"></ion-icon>
+            <div class="info-row">
+              <div class="icon-wrapper icon-wrapper-area">
+                <i class="pi pi-map-marker profile-icon area-icon" />
+              </div>
+              <div class="text-content">
+                <h3 class="user-name">{{ dataUser?.userAreaCode }}</h3>
+                <p class="area-name">{{ dataUser?.userAreaName }}</p>
+              </div>
             </div>
-            <div class="text-content">
-              <h3>{{ dataUser?.userAreaCode }}</h3>
-              <p>{{ dataUser?.userAreaName }}</p>
-            </div>
-          </div>
+          </template>
+        </Card>
+
+        <div class="menu-grid">
+          <button v-for="item in allowViews" :key="item.mcId" v-show="item.roleId" type="button" class="menu-tile"
+            @click="handleClickIcon(item.mcId)">
+            <span class="menu-icon-wrap" :class="getAreaData(item.mcId).color">
+              <i :class="['pi', getAreaData(item.mcId).icon, 'menu-icon']" />
+            </span>
+            <span class="menu-label">{{ $t(getAreaData(item.mcId).name) }}</span>
+          </button>
         </div>
-
-        <ion-grid>
-          <ion-row>
-            <ion-col v-for="item in allowViews" :key="item.mcId" size="4" size-md="2">
-              <div :button="true" v-if="item.roleId" class="menu-item" @click="handleClickIcon(item.mcId)">
-                <ion-icon :icon="getAreaData(item.mcId).icon" class="menu-icon" :class="getAreaData(item.mcId).color">
-                </ion-icon>
-                <span class="text-mcName">{{ $t(getAreaData(item.mcId).name) }}</span>
-              </div>
-            </ion-col>
-          </ion-row>
-        </ion-grid>
       </div>
 
       <div v-show="!dataUser && store.state.isSyncingOffline" class="loading-state">
-        <ion-spinner name="crescent"></ion-spinner>
+        <ProgressSpinner stroke-width="4" />
         <p>{{ $t('home.info-areas') }}</p>
       </div>
     </ion-content>
@@ -55,255 +59,315 @@
 
 <script setup lang="ts">
 import router from '@/router';
-import { IonPage, IonContent, IonIcon, IonGrid, IonRow, IonCol, IonSpinner } from '@ionic/vue';
-import {
-  person, location, personCircle, people, barChartOutline, footstepsOutline, alertCircleOutline
-} from 'ionicons/icons';
+import { IonPage, IonContent } from '@ionic/vue';
 import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
+import { Card, Divider, ProgressSpinner, Tag } from '@/plugins/primevue.components';
 
-const isOnline = computed(() => store.state.isOnline);
 const store = useStore();
+const isOnline = computed(() => store.state.isOnline);
 const dataUser = computed(() => store.state.dataUser);
 const allowViews = computed(() => dataUser.value?.allowViews || []);
 
 const listAreas = ref([
-  { mcId: 1, icon: `${personCircle}`, name: 'home.roles', color: 'color-orange', router: '/role' },
-  { mcId: 2, icon: `${people}`, name: 'home.users', color: 'color-slate', router: '/user' },
-  { mcId: 3, icon: `${location}`, name: 'home.areas', color: 'color-red', router: '/area' },
-  { mcId: 4, icon: `${footstepsOutline}`, name: 'home.routes', color: 'color-gold', router: '/route' },
-  { mcId: 5, icon: `${barChartOutline}`, name: 'home.reports', color: 'color-blue', router: '/report' },
-  { mcId: 6, icon: `${alertCircleOutline}`, name: 'home.tutorial', color: 'color-grey', router: '/tutorial' },
-])
-
-const getAreaData = (mcId: number) => {
-  const area = listAreas.value.find(r => r.mcId === mcId);
-  return area ? area : { icon: '', color: '', router: '', name: '' };
-};
+  { mcId: 1, icon: 'pi-id-card', name: 'home.roles', color: 'tone-orange', router: '/role' },
+  { mcId: 2, icon: 'pi-users', name: 'home.users', color: 'tone-slate', router: '/user' },
+  { mcId: 3, icon: 'pi-map-marker', name: 'home.areas', color: 'tone-red', router: '/area' },
+  { mcId: 4, icon: 'pi-map', name: 'home.routes', color: 'tone-gold', router: '/route' },
+  { mcId: 5, icon: 'pi-chart-bar', name: 'home.reports', color: 'tone-blue', router: '/report' },
+  { mcId: 6, icon: 'pi-book', name: 'home.tutorial', color: 'tone-grey', router: '/tutorial' },
+]);
 
 const listRoles = ref([
   { roleId: 1, name: 'home.adm' },
   { roleId: 2, name: 'home.it' },
   { roleId: 3, name: 'home.expat' },
-  { roleId: 4, name: 'home.security' }
+  { roleId: 4, name: 'home.security' },
 ]);
 
+const getAreaData = (mcId: number) => {
+  return listAreas.value.find((r) => r.mcId === mcId) ?? { icon: '', color: '', router: '', name: '' };
+};
+
 const getRoleData = (userRoleId: number) => {
-  const role = listRoles.value.find(r => r.roleId === userRoleId);
-  return role ? role : { name: '' };
+  return listRoles.value.find((r) => r.roleId === userRoleId) ?? { name: '' };
 };
 
 const handleClickIcon = (id: number) => {
-  const role = getAreaData(id);
-  if (role && role.router) {
-    router.replace({ path: role.router });
+  const area = getAreaData(id);
+  if (area?.router) {
+    router.replace({ path: area.router });
   }
 };
 </script>
 
 <style scoped>
-ion-col {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
+.home-content {
+  --background: #d1e5e6;
 }
 
-/* Sửa lại icon-wrapper hiện tại (Chỉ cần thêm position: relative) */
-.icon-wrapper {
-  position: relative;
-  /* <-- Thêm dòng này */
-  background: #f4f6f8;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-right: 12px;
+.home-bg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
 }
 
-/* Thêm các class mới cho chấm trạng thái */
-.status-dot {
+.home-blob {
   position: absolute;
-  bottom: 0px;
-  /* Nằm sát góc dưới */
-  right: 0px;
-  /* Nằm sát góc phải */
-  width: 12px;
-  /* Kích thước chấm */
-  height: 12px;
   border-radius: 50%;
-  border: 2px solid white;
-  /* Tạo viền trắng để tách biệt với nền */
+  filter: blur(72px);
+  -webkit-filter: blur(72px);
+  opacity: 0.9;
 }
 
-/* Màu khi Online (Xanh lá) */
-.status-dot.online {
-  background-color: #10b981;
+.home-blob-green {
+  width: 300px;
+  height: 300px;
+  background: #e3f7ac;
+  top: -10%;
+  right: -50px;
 }
 
-/* Màu khi Offline (Xám) */
-.status-dot.offline {
-  background-color: #fc1a0a;
-}
-
-/* Màu nền tổng thể giống hình */
-.custom-bg {
-  --background: #eef1f6;
+.home-blob-purple {
+  width: 300px;
+  height: 300px;
+  background: #cac2e9;
+  bottom: 1%;
+  left: -100px;
 }
 
 .dashboard-container {
+  position: relative;
+  z-index: 1;
   padding: 16px;
+  max-width: 720px;
+  margin: 0 auto;
 }
 
-/* --- Style cho Profile Card --- */
 .profile-card {
-  background: white;
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
   margin-bottom: 24px;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(90, 120, 125, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.65);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.profile-card :deep(.profile-card-body) {
+  padding: 0;
+}
+
+.profile-card :deep(.profile-card-content) {
+  padding: 16px;
 }
 
 .info-row {
   display: flex;
   align-items: center;
+  gap: 12px;
 }
 
 .icon-wrapper {
-  background: #f4f6f8;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
   display: flex;
-  justify-content: center;
   align-items: center;
-  margin-right: 12px;
+  justify-content: center;
+  background: rgba(209, 229, 230, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.7);
 }
 
-.dark-icon {
-  font-size: 20px;
-  color: #1c2434;
+.icon-wrapper-area {
+  background: rgba(214, 227, 214, 0.55);
+}
+
+.profile-icon {
+  font-size: 1.25rem;
+  color: #334155;
+}
+
+.area-icon {
+  color: #dc2626;
+}
+
+.status-dot {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid #ffffff;
+}
+
+.status-dot.online {
+  background-color: #10b981;
+}
+
+.status-dot.offline {
+  background-color: #ef4444;
 }
 
 .text-content {
   flex: 1;
+  min-width: 0;
 }
 
-.text-content h3 {
+.user-name {
   margin: 0;
-  font-size: 15px;
+  font-size: 1rem;
   font-weight: 600;
-  color: #1c2434;
+  color: #0f172a;
+  line-height: 1.3;
 }
 
-.text-content p {
-  margin: 0;
-  font-size: 13px;
+.area-name {
+  margin: 4px 0 0;
+  font-size: 0.875rem;
   color: #64748b;
 }
 
-.text-code-roleName {
+.text-code-role {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
 }
 
-.mr-code {
-  margin-right: 5px !important;
+.user-code {
+  font-size: 0.8125rem;
+  color: #64748b;
 }
 
-.ml-roleName {
-  margin-left: 5px !important;
-}
-
-.text-mcName {
-  font-size: 14px !important;
-}
-
-.badge-it {
-  background: #f3e8ff;
-  color: #7c3aed;
-  font-size: 12px;
-  font-weight: bold;
-  padding: 4px;
+.role-tag {
+  background: #f3e8ff !important;
+  color: #7c3aed !important;
+  font-size: 0.75rem;
+  font-weight: 600;
   border-radius: 8px;
 }
 
-.divider {
-  height: 1px;
-  background: #f1f5f9;
+.profile-divider {
   margin: 16px 0;
 }
 
-/* --- Style cho Menu Grid --- */
 .menu-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  row-gap: 24px;
-  column-gap: 8px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px 12px;
 }
 
-.menu-item {
+@media (min-width: 768px) {
+  .menu-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+.menu-tile {
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
+  gap: 10px;
+  padding: 12px 8px;
+  border: none;
+  background: transparent;
   cursor: pointer;
+  border-radius: 12px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.menu-tile:hover,
+.menu-tile:focus,
+.menu-tile:focus-visible,
+.menu-tile:active {
+  background: transparent;
+  outline: none;
+  box-shadow: none;
+}
+
+.profile-card:hover,
+.profile-card :deep(.p-card:hover) {
+  box-shadow: 0 4px 20px rgba(90, 120, 125, 0.12);
+}
+
+.menu-icon-wrap {
+  width: 70px;
+  height: 70px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: 0 4px 16px rgba(90, 120, 125, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.menu-icon-wrap:hover {
+  box-shadow: 0 4px 16px rgba(90, 120, 125, 0.1);
+  background: rgba(255, 255, 255, 0.82);
+  border-color: rgba(255, 255, 255, 0.75);
 }
 
 .menu-icon {
-  font-size: 50px;
-  margin-bottom: 8px;
+  font-size: 1.75rem;
 }
 
-.menu-item span {
-  font-size: 12px;
-  color: #1c2434;
-  line-height: 1.2;
+.menu-label {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  color: #334155;
+  line-height: 1.25;
+  text-align: center;
 }
 
-/* Màu sắc của các icon menu */
-.color-orange {
+.tone-orange .menu-icon {
   color: #f97316;
 }
 
-.color-slate {
+.tone-slate .menu-icon {
   color: #475569;
 }
 
-.color-green {
-  color: #10b981;
-}
-
-.color-red {
+.tone-red .menu-icon {
   color: #ef4444;
 }
 
-.color-blue {
+.tone-gold .menu-icon {
+  color: #eab308;
+}
+
+.tone-blue .menu-icon {
   color: #0ea5e9;
 }
 
-.color-gold {
-  color: #FFD230;
+.tone-grey .menu-icon {
+  color: #62748e;
 }
 
-.color-grey {
-  color: #62748E;
-}
-
-/* Thêm vào cuối phần style của bạn */
 .loading-state {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   height: 80%;
-  color: #64748b;
+  color: #5a6b6d;
+  gap: 12px;
 }
 
 .loading-state p {
-  margin-top: 10px;
-  font-size: 14px;
+  margin: 0;
+  font-size: 0.875rem;
 }
 </style>

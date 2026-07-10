@@ -7,6 +7,10 @@ import presentAlert from '@/mixins/presentAlert';
 import ScanCpQrLog from '@/api/ScanCpQrLog';
 import { loadingController } from '@ionic/vue';
 
+export type ProcessQRResult =
+  | { code: 'WRONG_ORDER'; nextPointName: string }
+  | void;
+
 export const scannerService = {
   async requestPermissions() {
     const { camera } = await BarcodeScanner.requestPermissions();
@@ -58,7 +62,13 @@ export const scannerService = {
   },
 
   // 2. Hàm mới: Xử lý chuỗi QR (Bất kể chuỗi đó lấy từ Camera hay từ nút bấm Unitech)
-  async processQRString(store: Store<any>, router: Router, routeId: number, qrCodeString: string, t: any) {
+  async processQRString(
+    store: Store<any>,
+    router: Router,
+    routeId: number,
+    qrCodeString: string,
+    t: any
+  ): Promise<ProcessQRResult> {
     const now = new Date();
     const currentTimeString = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 19);
     const dataListRoute = store.state.dataListRoute;
@@ -183,13 +193,10 @@ export const scannerService = {
 
       handleWrongScanSync();
 
-      await presentAlert.presentAlert(
-        t('messages.scanner.wrong-patrol-order'),
-        nextPointRequired.cpName,
-        t('messages.scanner.next-checkpoint'),
-        'custom-error-alert'
-      );
-      return;
+      return {
+        code: 'WRONG_ORDER',
+        nextPointName: nextPointRequired.cpName,
+      };
     }
 
     // ==========================================
