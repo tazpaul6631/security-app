@@ -54,11 +54,7 @@
                   @click="openCategoryModal = true" />
               </div>
             </transition>
-          </template>
-        </Card>
 
-        <Card v-if="mandatoryPhoto" class="area-card">
-          <template #content>
             <Button :label="$t('areas.report.btn-submit')" icon="pi pi-send" severity="success" class="btn-submit" fluid
               :disabled="isSubmitting" :loading="isSubmitting" size="large" @click="confirmSubmit" />
           </template>
@@ -86,6 +82,9 @@
             </div>
           </template>
         </Card>
+
+        <offline-sync-list :displayItems="displayItems" :paginatedItems="paginatedItems" :loadedCount="loadedCount"
+          :getCheckpointName="getCheckpointName" @delete="deleteItem" @loadMore="loadMoreOfflineItems" />
       </div>
 
       <category-modal :is-open="openCategoryModal" :api-categories="apiCategories" :grouped-notes="groupedNotes"
@@ -105,9 +104,6 @@
             size="large" :disabled="isSubmitting" @click="onConfirmSubmit" />
         </template>
       </Dialog>
-
-      <offline-sync-list :displayItems="displayItems" :paginatedItems="paginatedItems" :loadedCount="loadedCount"
-        :getCheckpointName="getCheckpointName" @delete="deleteItem" @loadMore="loadMoreOfflineItems" />
     </ion-content>
   </ion-page>
 </template>
@@ -115,11 +111,12 @@
 <script setup lang="ts">
 import { computed, reactive, ref, onMounted, watch, markRaw } from 'vue';
 import {
-  IonPage, IonContent, loadingController, onIonViewWillEnter,
+  IonPage, IonContent, onIonViewWillEnter,
   onIonViewDidLeave, useBackButton
 } from '@ionic/vue';
 import { useStore } from 'vuex';
 import { Button, Card, Checkbox, Dialog, Textarea } from '@/plugins/primevue.components';
+import { useAppLoading } from '@/composables/useAppLoading';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 import { ImageService } from '@/services/image.service';
 import router from '@/router';
@@ -143,6 +140,7 @@ import {
 
 // Lấy 3 hàm xịn xò ra xài
 const { takePhoto, pickImagesFromGallery, convertBlobToBase64, showToast } = useCameraHandler();
+const { show: showLoading, hide: hideLoading } = useAppLoading();
 
 // --- Global Timer Composable ---
 const { startTimer, clearTimer, formattedTime, timerColorClass } = useRouteTimer();
@@ -452,14 +450,13 @@ const handleSubmit = async (): Promise<void> => {
     return;
   }
 
-  const loading = await loadingController.create({ message: t('areas.report.message.2') });
-  await loading.present();
+  showLoading(t('areas.report.message.2'));
 
   const blockSubmitWithImageError = async (messageKey: string, resetCheckin = false) => {
     if (resetCheckin) {
       mandatoryPhoto.value = null;
     }
-    await loading.dismiss();
+    hideLoading();
     await showToast(t(messageKey), 'danger');
     isSubmitting.value = false;
   };
@@ -682,17 +679,17 @@ const handleSubmit = async (): Promise<void> => {
       }
 
       await storageService.set('list_route', store.state.dataListRoute);
-      await loading.dismiss();
+      hideLoading();
       await showToast(t('areas.report.message.5'), 'success');
       router.replace('/home');
     } else {
       await storageService.set('list_route', updatedRoutes);
-      await loading.dismiss();
+      hideLoading();
       router.replace('/route');
     }
 
   } catch (error: any) {
-    await loading.dismiss();
+    hideLoading();
     console.error("Lỗi:", error);
     const errMsg = error?.message || '';
     if (errMsg === 'MISSING_CHECKIN_GROUP' || errMsg === 'EMPTY_NOTE_GROUPS') {
@@ -886,10 +883,7 @@ const captureMandatoryPhoto = async () => {
       }
     }
 
-    const loadingGps = await loadingController.create({
-      message: t('areas.report.message.fetching_gps')
-    });
-    await loadingGps.present();
+    showLoading(t('areas.report.message.fetching_gps'));
 
     try {
       const coordinates = await Geolocation.getCurrentPosition({
@@ -912,14 +906,14 @@ const captureMandatoryPhoto = async () => {
         formData.rpLng = fallbackCoords.coords.longitude;
 
       } catch (fallbackError) {
-        await loadingGps.dismiss();
+        hideLoading();
         await showToast(t('areas.report.message.gps_not_available'), 'danger');
         formData.rpLat = 0;
         formData.rpLng = 0;
         // return; // Dừng, không mở camera
       }
     }
-    await loadingGps.dismiss();
+    hideLoading();
   } catch (err) {
     console.error("Lỗi cấp quyền GPS:", err);
     await showToast(t('areas.report.message.gps_error'), 'warning');
@@ -929,8 +923,7 @@ const captureMandatoryPhoto = async () => {
   const photo = await takePhoto(0, 'checkin_');
 
   if (photo) {
-    const loading = await loadingController.create({ message: t('areas.report.message.10') });
-    await loading.present();
+    showLoading(t('areas.report.message.10'));
 
     try {
       const now = new Date();
@@ -970,7 +963,7 @@ const captureMandatoryPhoto = async () => {
         preview: watermarkedBase64
       };
     } finally {
-      await loading.dismiss();
+      hideLoading();
     }
   }
 };
@@ -1190,6 +1183,7 @@ useBackButton(10000, () => { });
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-bottom: 49px;
 }
 
 .area-card {
@@ -1298,6 +1292,10 @@ useBackButton(10000, () => { });
   font-size: 1rem;
   font-weight: 600;
   border-radius: 12px;
+}
+
+.btn-submit {
+  margin-top: 20px;
 }
 
 .checkin-prompt {

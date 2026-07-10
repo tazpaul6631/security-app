@@ -192,7 +192,7 @@ import router from '@/router';
 import {
   IonPage, IonHeader, IonToolbar, IonButtons, IonTitle, IonLabel,
   IonSegment, IonSegmentButton, IonContent, IonIcon, IonGrid, IonRow, IonCol,
-  IonText, IonNote, loadingController, IonItem, IonList,
+  IonText, IonNote, IonItem, IonList,
   onIonViewWillEnter, IonProgressBar, IonSkeletonText, IonInfiniteScroll,
   IonInfiniteScrollContent, IonButton, IonModal, IonBadge, IonSelect, IonSelectOption,
   useBackButton
@@ -204,8 +204,10 @@ import presentAlert from '@/mixins/presentAlert';
 import AreaBU from '@/api/AreaBU';
 import Role from '@/api/Role';
 import { useI18n } from 'vue-i18n';
+import { useAppLoading } from '@/composables/useAppLoading';
 
 const store = useStore();
+const { show: showLoading, hide: hideLoading } = useAppLoading();
 
 // --- STATE QUẢN LÝ UI VÀ PHÂN TRANG ---
 const isReturningFromDetail = ref(false);
@@ -486,8 +488,7 @@ const handleModalSelection = async (item: any) => {
 };
 
 const handleSelectedRow = async (prId: number, event?: any) => {
-  const loading = await loadingController.create({ message: t('areas.index.message.1'), spinner: 'crescent' });
-  await loading.present();
+  showLoading(t('areas.index.message.1'));
 
   try {
     let detailData = null;
@@ -518,7 +519,7 @@ const handleSelectedRow = async (prId: number, event?: any) => {
       : t('areas.index.message.4');
     presentAlert.presentAlert(t('areas.index.message.5'), '', msg);
   } finally {
-    await loading.dismiss();
+    hideLoading();
   }
 };
 ///////////////////////////////////////////////////

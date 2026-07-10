@@ -1,5 +1,12 @@
 <template>
   <ion-app>
+    <div v-if="isAppLoading" class="app-loading-overlay">
+      <div class="app-loading-box">
+        <ProgressSpinner stroke-width="2" />
+        <p v-if="loadingMessage" class="app-loading-message">{{ loadingMessage }}</p>
+      </div>
+    </div>
+
     <div v-if="store.state.isSyncing" class="sync-overlay">
       <div class="sync-box">
         <div class="sync-header">
@@ -24,9 +31,10 @@
 
 <script setup lang="ts">
 import { IonApp, IonRouterOutlet } from '@ionic/vue';
-import { ProgressBar, Toast } from '@/plugins/primevue.components';
+import { ProgressBar, ProgressSpinner, Toast } from '@/plugins/primevue.components';
 import { computed, onMounted, ref } from 'vue';
 import { useSQLite } from '@/composables/useSQLite';
+import { isAppLoading, useAppLoading } from '@/composables/useAppLoading';
 import store from '@/composables/useVuex';
 import { Network } from '@capacitor/network';
 import { useOfflineManager } from '@/composables/useOfflineManager';
@@ -42,6 +50,7 @@ import PatrolShiftView from '@/api/PatrolShiftView';
 import CheckPointScanQr from './api/CheckPointScanQr';
 
 const { syncData, loadPendingItems, pendingItems } = useOfflineManager();
+const { loadingMessage } = useAppLoading();
 const { initDatabase } = useSQLite();
 const isAppReady = ref(false);
 
@@ -277,6 +286,45 @@ onMounted(async () => {
   background: #f4f4f4;
 }
 
+/* --- OVERLAY LOADING TOÀN APP --- */
+.app-loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 100000 !important;
+  cursor: wait;
+}
+
+.app-loading-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  min-width: 150px;
+  max-width: min(88vw, 22rem);
+  padding: 24px 20px;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+}
+
+.app-loading-message {
+  margin: 0;
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #334155;
+  line-height: 1.45;
+}
+
 /* --- OVERLAY ĐỒNG BỘ: MÀU TRẮNG ĐỤC + BLUR --- */
 .sync-overlay {
   position: fixed;
@@ -330,7 +378,7 @@ onMounted(async () => {
 }
 
 .sync-box :deep(.sync-progress-root) {
-  height: 20px !important;
+  height: 7px !important;
   border-radius: 9999px !important;
   background: #e2e8f0 !important;
   overflow: hidden;

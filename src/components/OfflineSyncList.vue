@@ -47,7 +47,6 @@ const formatDate = (ts: any) => new Date(ts).toLocaleTimeString();
 
 <style scoped>
 .offline-sync-card {
-  margin: 0 16px 60px 16px;
   border-radius: 16px;
   overflow: hidden;
   border: 1px solid #e2e8f0;
@@ -62,7 +61,6 @@ const formatDate = (ts: any) => new Date(ts).toLocaleTimeString();
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
 }
 
 .offline-sync-card :deep(.p-card-title) {

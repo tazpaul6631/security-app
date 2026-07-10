@@ -5,7 +5,9 @@ import storageService from '@/services/storage.service';
 import CheckPointScanQr from '@/api/CheckPointScanQr';
 import presentAlert from '@/mixins/presentAlert';
 import ScanCpQrLog from '@/api/ScanCpQrLog';
-import { loadingController } from '@ionic/vue';
+import { useAppLoading } from '@/composables/useAppLoading';
+
+const { show: showLoading, hide: hideLoading } = useAppLoading();
 
 export type ProcessQRResult =
   | { code: 'WRONG_ORDER'; nextPointName: string }
@@ -30,11 +32,7 @@ export const scannerService = {
 
       // 2. NẾU CHƯA CÓ -> Bật Loading báo hiệu và tiến hành tải
       if (!available) {
-        const loading = await loadingController.create({
-          message: 'Đang khởi tạo máy quét (chỉ lần đầu)...',
-          spinner: 'bubbles',
-        });
-        await loading.present();
+        showLoading('Đang khởi tạo máy quét (chỉ lần đầu)...');
 
         try {
           // Yêu cầu Google Play Services tải ngầm module
@@ -44,7 +42,7 @@ export const scannerService = {
           await presentAlert.presentAlert('Lỗi', '', 'Không thể tải module máy quét từ Google. Vui lòng kiểm tra mạng!');
           return null; // Chỉ return null nếu tải THẤT BẠI
         } finally {
-          await loading.dismiss(); // Nhớ tắt loading
+          hideLoading();
         }
       }
 

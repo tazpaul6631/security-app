@@ -99,7 +99,7 @@ defineExpose({ loadOfflineQueue });
 .points-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 7px 10px;
+  gap: 2px 11px;
 }
 
 .grid-item-wrapper {
@@ -171,7 +171,7 @@ defineExpose({ loadOfflineQueue });
 
 .check-badge {
   position: absolute;
-  top: -10px;
+  top: -3px;
   right: -10px;
   width: 1.3rem !important;
   min-width: 1.3rem !important;

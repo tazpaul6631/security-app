@@ -105,10 +105,11 @@ import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
 import {
   IonPage, IonContent, onIonViewWillEnter,
-  loadingController, useBackButton
+  useBackButton
 } from '@ionic/vue';
 import CardRoutePoints from '@/components/CardRoutePoints.vue';
 import { Button, Card, Dialog, ProgressSpinner } from '@/plugins/primevue.components';
+import { useAppLoading } from '@/composables/useAppLoading';
 import { scannerService } from '@/services/scanner.service';
 import storageService from '@/services/storage.service';
 import PatrolShiftView from '@/api/PatrolShiftView';
@@ -163,6 +164,7 @@ const currentHour = ref(new Date().getHours());
 let timer: any = null;
 const lockedRouteId = computed(() => store.state.unfinishedRouteId);
 const { t } = useI18n();
+const { show: showLoading, hide: hideLoading } = useAppLoading();
 const cardRoutePointsRef = ref<any>(null);
 const { pendingItems, loadPendingItems, cleanUpItem, purgeStaleShiftQueue } = useOfflineManager();
 
@@ -311,17 +313,9 @@ watch(() => currentActiveRoute.value, async (newRoute) => {
 const processScannedData = async (qrCodeString: string, routeId: number) => {
   if (!qrCodeString) return;
 
-  // 1. Khởi tạo Loading
-  const loading = await loadingController.create({
-    message: t('routes.verifying-checkpoint'),
-    spinner: 'crescent',
-    cssClass: 'custom-loading' // Nếu muốn style riêng
-  });
-
-  await loading.present();
+  showLoading(t('routes.verifying-checkpoint'));
 
   try {
-    // Gọi logic xử lý nặng (Check lộ trình, API, SQLite)
     const result = await scannerService.processQRString(store, router, routeId, qrCodeString, t);
     if (result?.code === 'WRONG_ORDER') {
       wrongOrderPointName.value = result.nextPointName;
@@ -330,9 +324,7 @@ const processScannedData = async (qrCodeString: string, routeId: number) => {
   } catch (error) {
     console.error("Lỗi xử lý dữ liệu quét:", error);
   } finally {
-    // 3. Quan trọng: Luôn tắt loading dù thành công hay lỗi
-    // Lưu ý: Nếu processQRString chuyển trang thành công, loading vẫn sẽ đóng
-    await loading.dismiss();
+    hideLoading();
   }
 };
 
@@ -770,7 +762,6 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   align-content: flex-start;
-  padding: 16px 0;
 }
 
 .route-card :deep(.p-card-body) {
@@ -836,7 +827,7 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
 
 .route-footer {
   flex-shrink: 0;
-  padding: 0 16px 40px 16px;
+  padding: 0 16px 49px 16px;
   background: #d1e5e6;
   border-top: 1px solid #e2e8f0;
   box-shadow: 0 -2px 10px rgba(15, 23, 42, 0.04);
