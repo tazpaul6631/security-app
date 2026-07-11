@@ -7,54 +7,61 @@
       </button>
     </header>
 
-    <ion-content class="ion-padding">
-      <div v-if="isLoading" class="ion-text-center ion-margin-top">
-        <ion-spinner name="crescent"></ion-spinner>
-        <p>{{ $t('role.load-data') }}</p>
+    <ion-content class="role-content ion-padding">
+      <div class="role-bg" aria-hidden="true">
+        <span class="role-blob role-blob-green" />
+        <span class="role-blob role-blob-purple" />
       </div>
 
-      <ion-card v-for="role in displayedRoles" :key="role.roleId" class="role-card">
-        <ion-card-header>
-          <ion-card-title class="role-title">
-            <div class="role-name-code" style="display: grid;">
-              <ion-label>{{ role.roleName }}</ion-label>
-              <ion-label>{{ role.roleCode }}</ion-label>
-            </div>
-            <div class="role-admin">
-              <ion-badge :color="role.roleIsAdmin ? 'success' : 'primary'" class="ion-float-right">
-                {{ role.roleIsAdmin ? 'Admin' : role.roleHourReport ? 'Hour Report' : '' }}
-              </ion-badge>
-            </div>
-          </ion-card-title>
-        </ion-card-header>
+      <div class="role-body">
+        <div v-if="isLoading" class="ion-text-center ion-margin-top">
+          <ProgressSpinner stroke-width="2" />
+          <p>{{ $t('role.load-data') }}</p>
+        </div>
 
-        <div class="divider"></div>
+        <ion-card v-for="role in displayedRoles" :key="role.roleId" class="role-card">
+          <ion-card-header>
+            <ion-card-title class="role-title">
+              <div class="role-name-code" style="display: grid;">
+                <ion-label>{{ role.roleName }}</ion-label>
+                <ion-label>{{ role.roleCode }}</ion-label>
+              </div>
+              <div class="role-admin">
+                <ion-badge :color="role.roleIsAdmin ? 'success' : 'primary'" class="ion-float-right">
+                  {{ role.roleIsAdmin ? 'Admin' : role.roleHourReport ? 'Hour Report' : '' }}
+                </ion-badge>
+              </div>
+            </ion-card-title>
+          </ion-card-header>
 
-        <ion-card-content>
-          <div class="info-row">
-            <strong>{{ $t('role.role-menu') }}</strong>
-            <div v-for="menu in role.roleMenus">
-              <ion-icon :icon="checkmarkDoneOutline" color="success"></ion-icon> {{ menu.mcName }} - {{
-                menu.mcCode }}
+          <div class="divider"></div>
+
+          <ion-card-content>
+            <div class="info-row">
+              <strong>{{ $t('role.role-menu') }}</strong>
+              <div v-for="menu in role.roleMenus">
+                <ion-icon :icon="checkmarkDoneOutline" color="success"></ion-icon> {{ menu.mcName }} - {{
+                  menu.mcCode }}
+              </div>
             </div>
-          </div>
-          <div class="info-row">
-            <strong>{{ $t('role.created-date') }}</strong> {{ formatDate(role.createdAt) }}
-          </div>
-          <div class="info-row">
-            <strong>{{ $t('role.updated-date') }}</strong> {{ formatDate(role.updatedAt) }}
-          </div>
-        </ion-card-content>
-      </ion-card>
+            <div class="info-row">
+              <strong>{{ $t('role.created-date') }}</strong> {{ formatDate(role.createdAt) }}
+            </div>
+            <div class="info-row">
+              <strong>{{ $t('role.updated-date') }}</strong> {{ formatDate(role.updatedAt) }}
+            </div>
+          </ion-card-content>
+        </ion-card>
 
-      <div v-if="!isLoading && displayedRoles.length === 0" class="ion-text-center ion-margin-top">
-        <p>{{ $t('role.no-role-data') }}</p>
+        <div v-if="!isLoading && displayedRoles.length === 0" class="ion-text-center ion-margin-top">
+          <p>{{ $t('role.no-role-data') }}</p>
+        </div>
+
+        <ion-infinite-scroll @ionInfinite="loadMoreRoles" :disabled="isAllLoaded">
+          <ion-infinite-scroll-content loading-spinner="bubbles" :loading-text="$t('role.loading-more')">
+          </ion-infinite-scroll-content>
+        </ion-infinite-scroll>
       </div>
-
-      <ion-infinite-scroll @ionInfinite="loadMoreRoles" :disabled="isAllLoaded">
-        <ion-infinite-scroll-content loading-spinner="bubbles" :loading-text="$t('role.loading-more')">
-        </ion-infinite-scroll-content>
-      </ion-infinite-scroll>
 
     </ion-content>
   </ion-page>
@@ -64,13 +71,14 @@
 import { ref, onMounted, computed } from 'vue';
 import {
   IonPage, IonContent, IonCard, IonCardHeader, IonCardTitle, IonIcon, IonLabel, useBackButton,
-  IonCardContent, IonBadge, IonSpinner, IonInfiniteScroll, IonInfiniteScrollContent
+  IonCardContent, IonBadge, IonInfiniteScroll, IonInfiniteScrollContent
 } from '@ionic/vue';
 import router from '@/router';
 
 // Import file api của bạn (điều chỉnh đường dẫn cho đúng với project)
 import Role from '@/api/Role';
 import { checkmarkDoneOutline } from 'ionicons/icons';
+import { ProgressSpinner } from '@/plugins/primevue.components';
 
 // --- STATE ---
 const allRoles = ref<any[]>([]); // Lưu toàn bộ data từ API
@@ -206,6 +214,49 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.3;
+}
+
+.role-content {
+  flex: 1;
+  min-height: 0;
+  --background: #d1e5e6;
+}
+
+.role-bg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.role-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(72px);
+  -webkit-filter: blur(72px);
+  opacity: 0.9;
+}
+
+.role-blob-green {
+  width: 250px;
+  height: 250px;
+  background: #e3f7ac;
+  top: 20%;
+  right: -50px;
+}
+
+.role-blob-purple {
+  width: 250px;
+  height: 250px;
+  background: #cac2e9;
+  bottom: 10%;
+  left: -80px;
+}
+
+.role-body {
+  position: relative;
+  z-index: 1;
 }
 
 .role-card {

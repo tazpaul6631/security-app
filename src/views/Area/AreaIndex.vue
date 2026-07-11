@@ -7,7 +7,12 @@
       </button>
     </header>
 
-    <ion-content>
+    <ion-content class="area-content">
+      <div class="area-bg" aria-hidden="true">
+        <span class="area-blob area-blob-green" />
+        <span class="area-blob area-blob-purple" />
+      </div>
+
       <div slot="fixed" style="width: 100%; background: var(--ion-background-color, #fff); z-index: 10;">
         <ion-segment :value="activeSegment" mode="md">
           <ion-segment-button v-for="([parent, children, id]) in datalistNav" :key="parent" :value="parent"
@@ -120,6 +125,7 @@
         </ion-content>
       </ion-modal>
 
+      <div class="area-body">
       <div class="list-container" style="margin-top: 50px;">
         <ion-list v-if="isLoading">
           <ion-item v-for="i in 5" :key="i">
@@ -182,6 +188,7 @@
             loading-spinner="bubbles"></ion-infinite-scroll-content>
         </ion-infinite-scroll>
       </div>
+      </div>
     </ion-content>
   </ion-page>
 </template>
@@ -222,7 +229,7 @@ const currentPage = ref(1);
 const isInfiniteDisabled = ref(false);
 const itemsPerPage = 15;
 
-const navAreas = ref<any[]>([]);
+const areasCache = ref<any[]>([]);
 const listRoles = ref<any[]>([]);
 const filterStatus = ref<string | number>('all');
 const currentActiveAreaId = ref<number | null>(null);
@@ -243,8 +250,8 @@ const isOnline = computed(() => store.state.isOnline);
 
 // --- COMPUTED: DỮ LIỆU ---
 const datalistNav = computed(() => {
-  const rawData = navAreas.value.length > 0 ? navAreas.value : store.state.dataAreaBU;
-  const areas = Array.isArray(rawData) ? rawData : (rawData?.data || []);
+  const rawData = areasCache.value.length > 0 ? areasCache.value : store.state.dataAreaBU;
+  const areas = normalizeAreasList(rawData);
   const result: [string, any[], number][] = [];
 
   for (const item of areas) {
@@ -301,16 +308,34 @@ watch(() => currentOptions.value, (newVal) => {
 //////////////////////////////////////////////
 
 // --- METHODS TẢI DỮ LIỆU ---
-const fetchAllAreasForTabs = async () => {
-  if (!isOnline.value) return;
-  try {
-    const payload = isCurrentUserAdmin.value ? {} : { areaId: userInfo.value.userAreaId };
-    const response = await AreaBU.postAreaBU(payload);
-    if (response?.data) {
-      navAreas.value = Array.isArray(response.data) ? response.data : (response.data.data || []);
+const normalizeAreasList = (raw: any): any[] => {
+  if (!raw) return [];
+  const data = Array.isArray(raw) ? raw : (raw?.data || []);
+  return Array.isArray(data) ? data : [];
+};
+
+const canUseAreasCacheForShifts = (): boolean =>
+  isCurrentUserAdmin.value && filterStatus.value === 'all';
+
+const getShiftsFromCache = (areaId: number): any[] | undefined => {
+  if (!canUseAreasCacheForShifts() || areasCache.value.length === 0) return undefined;
+  const found = areasCache.value.find((item: any) => Number(item.areaId) === Number(areaId));
+  return found ? (found.patrolShifts || []) : [];
+};
+
+const loadAreasCache = async () => {
+  if (isOnline.value) {
+    try {
+      const payload = isCurrentUserAdmin.value ? {} : { areaId: userInfo.value.userAreaId };
+      const response = await AreaBU.postAreaBU(payload);
+      if (response?.data) {
+        areasCache.value = normalizeAreasList(response.data);
+      }
+    } catch (error) {
+      console.error('Lỗi loadAreasCache:', error);
     }
-  } catch (error) {
-    console.error("Lỗi fetchAllAreasForTabs:", error);
+  } else {
+    areasCache.value = normalizeAreasList(store.state.dataAreaBU);
   }
 };
 
@@ -330,6 +355,12 @@ const fetchAreasData = async (areaId: number) => {
   currentActiveAreaId.value = areaId;
 
   try {
+    const cachedShifts = getShiftsFromCache(areaId);
+    if (cachedShifts !== undefined && isOnline.value) {
+      currentOptions.value = cachedShifts;
+      return;
+    }
+
     if (isOnline.value) {
       const payload: any = { areaId };
 
@@ -341,16 +372,14 @@ const fetchAreasData = async (areaId: number) => {
       }
 
       const response = await AreaBU.postAreaBU(payload);
-      const fetchedAreas = Array.isArray(response?.data) ? response.data : (response?.data?.data || []);
-      const foundArea = fetchedAreas.find((item: any) => item.areaId === areaId);
+      const fetchedAreas = normalizeAreasList(response?.data);
+      const foundArea = fetchedAreas.find((item: any) => Number(item.areaId) === Number(areaId));
 
-      // Lấy thẳng data API trả về, không dùng JS lọc nữa
       currentOptions.value = foundArea ? (foundArea.patrolShifts || []) : [];
 
     } else {
       // Xử lý Offline (Lấy từ Vuex)
-      const rawData = store.state.dataAreaBU;
-      const areas = Array.isArray(rawData) ? rawData : (rawData?.data || []);
+      const areas = normalizeAreasList(store.state.dataAreaBU);
       const foundArea = areas.find((item: any) => Number(item.areaId) === Number(areaId));
       let shifts = foundArea ? (foundArea.patrolShifts || []) : [];
 
@@ -405,7 +434,7 @@ onIonViewWillEnter(async () => {
   if (isCurrentUserAdmin.value) {
     await fetchRoles();
   }
-  await fetchAllAreasForTabs();
+  await loadAreasCache();
 
   if (isReturningFromDetail.value) {
     isReturningFromDetail.value = false;
@@ -419,7 +448,7 @@ onIonViewWillEnter(async () => {
   }
 });
 
-const openSelect = async (parent: string, children: any[], id: number) => {
+const openSelect = async (parent: string, _children: any[], id: number) => {
   filterStatus.value = 'all';
   activeSegment.value = parent;
   isModalOpen.value = true;
@@ -615,6 +644,49 @@ useBackButton(10, () => {
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.3;
+}
+
+.area-content {
+  flex: 1;
+  min-height: 0;
+  --background: #d1e5e6;
+}
+
+.area-bg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.area-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(72px);
+  -webkit-filter: blur(72px);
+  opacity: 0.9;
+}
+
+.area-blob-green {
+  width: 250px;
+  height: 250px;
+  background: #e3f7ac;
+  top: 20%;
+  right: -50px;
+}
+
+.area-blob-purple {
+  width: 250px;
+  height: 250px;
+  background: #cac2e9;
+  bottom: 10%;
+  left: -80px;
+}
+
+.area-body {
+  position: relative;
+  z-index: 1;
 }
 
 .pointProblem-danger,

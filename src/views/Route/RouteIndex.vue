@@ -14,7 +14,7 @@
       </div>
 
       <div v-if="isLoading" class="loading-state">
-        <ProgressSpinner stroke-width="4" />
+        <ProgressSpinner stroke-width="2" />
         <p>{{ $t('routes.loading-route') }}</p>
       </div>
 

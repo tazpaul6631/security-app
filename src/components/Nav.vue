@@ -22,7 +22,7 @@
 
       <Dialog v-model:visible="isLogoutModalOpen" modal :header="t('layout.logout_confirm_title')" class="logout-dialog"
         :style="{ width: 'min(92vw, 22rem)' }" :draggable="false" :close-on-escape="!isLoggingOut" :closable="false"
-        :dismissable-mask="!isLoggingOut">
+        :dismissable-mask="!isLoggingOut" @after-hide="onLogoutModalAfterHide">
         <p class="logout-dialog-message">{{ t('layout.logout_confirm_message') }}</p>
         <template #footer>
           <Button :label="t('layout.cancel')" severity="secondary" variant="outlined" :disabled="isLoggingOut"
@@ -59,6 +59,21 @@ const toast = useToast();
 
 const isLogoutModalOpen = ref(false);
 const isLoggingOut = ref(false);
+let resolveLogoutModalClosed: (() => void) | null = null;
+
+const waitForLogoutModalClose = (): Promise<void> => {
+  if (!isLogoutModalOpen.value) return Promise.resolve();
+
+  return new Promise<void>((resolve) => {
+    resolveLogoutModalClosed = resolve;
+    isLogoutModalOpen.value = false;
+  });
+};
+
+const onLogoutModalAfterHide = () => {
+  resolveLogoutModalClosed?.();
+  resolveLogoutModalClosed = null;
+};
 
 const { clearTimer } = useRouteTimer();
 const store = useStore();
@@ -92,7 +107,9 @@ const confirmLogout = async () => {
   try {
     await performLogout();
   } finally {
-    isLoggingOut.value = false;
+    if (isLogoutModalOpen.value) {
+      isLoggingOut.value = false;
+    }
   }
 };
 
@@ -151,7 +168,10 @@ const performLogout = async () => {
     console.log('Tiến hành dọn dẹp state và storage...');
     await clearTimer();
     await store.dispatch('logout');
-    router.replace('/login');
+
+    // 5. Đóng modal, đợi animation xong rồi mới chuyển trang
+    await waitForLogoutModalClose();
+    await router.replace('/login');
 
   } catch (error) {
     console.error("Lỗi hệ thống khi đăng xuất:", error);

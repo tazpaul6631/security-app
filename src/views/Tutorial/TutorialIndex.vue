@@ -7,7 +7,13 @@
       </button>
     </header>
 
-    <ion-content class="ion-padding content-bg">
+    <ion-content class="tutorial-content ion-padding">
+      <div class="tutorial-bg" aria-hidden="true">
+        <span class="tutorial-blob tutorial-blob-green" />
+        <span class="tutorial-blob tutorial-blob-purple" />
+      </div>
+
+      <div class="tutorial-body">
       <div class="tutorial-intro">
         <h2>Cẩm nang Tuần tra</h2>
       </div>
@@ -182,6 +188,7 @@
         </ion-accordion>
 
       </ion-accordion-group>
+      </div>
     </ion-content>
   </ion-page>
 </template>
@@ -258,9 +265,47 @@ useBackButton(10, () => {
   line-height: 1.3;
 }
 
-/* Màu nền tổng thể */
-.content-bg {
-  --background: #f8f9fa;
+.tutorial-content {
+  flex: 1;
+  min-height: 0;
+  --background: #d1e5e6;
+}
+
+.tutorial-bg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.tutorial-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(72px);
+  -webkit-filter: blur(72px);
+  opacity: 0.9;
+}
+
+.tutorial-blob-green {
+  width: 250px;
+  height: 250px;
+  background: #e3f7ac;
+  top: 20%;
+  right: -50px;
+}
+
+.tutorial-blob-purple {
+  width: 250px;
+  height: 250px;
+  background: #cac2e9;
+  bottom: 10%;
+  left: -80px;
+}
+
+.tutorial-body {
+  position: relative;
+  z-index: 1;
 }
 
 /* Định dạng phần giới thiệu */

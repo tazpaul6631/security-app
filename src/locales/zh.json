@@ -68,6 +68,11 @@
     "confirm-cancel": "確認取消",
     "verifying-checkpoint": "正在驗證檢查點..."
   },
+  "reports": {
+    "not-found": "暫無報表",
+    "no-data": "報表功能開發中，或目前尚無資料。",
+    "go-home": "返回首頁"
+  },
   "areas": {
     "index": {
       "selected": "已選擇:",

@@ -68,6 +68,11 @@
     "confirm-cancel": "Đồng ý hủy",
     "verifying-checkpoint": "Đang kiểm tra điểm quét..."
   },
+  "reports": {
+    "not-found": "Chưa có báo cáo",
+    "no-data": "Tính năng báo cáo đang được phát triển hoặc chưa có dữ liệu.",
+    "go-home": "Quay lại trang chủ"
+  },
   "areas": {
     "index": {
       "selected": "Chọn:",

@@ -50,7 +50,7 @@
       </div>
 
       <div v-show="!dataUser && store.state.isSyncingOffline" class="loading-state">
-        <ProgressSpinner stroke-width="4" />
+        <ProgressSpinner stroke-width="2" />
         <p>{{ $t('home.info-areas') }}</p>
       </div>
     </ion-content>

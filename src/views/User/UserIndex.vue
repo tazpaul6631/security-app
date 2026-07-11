@@ -7,47 +7,54 @@
       </button>
     </header>
 
-    <ion-content class="ion-padding">
-      <div v-if="isLoading" class="ion-text-center ion-margin-top">
-        <ion-spinner name="crescent"></ion-spinner>
-        <p>{{ $t('users.loading') }}</p>
+    <ion-content class="user-content ion-padding">
+      <div class="user-bg" aria-hidden="true">
+        <span class="user-blob user-blob-green" />
+        <span class="user-blob user-blob-purple" />
       </div>
 
-      <ion-card v-for="user in displayedUsers" :key="user.userId" class="user-card">
-        <ion-card-header>
-          <div class="info-row">
-            <div class="icon-wrapper" :style="{ backgroundColor: getRoleColor(user.userRoleId).bg }">
-              <ion-icon :icon="person" class="dark-icon"
-                :style="{ color: getRoleColor(user.userRoleId).color }"></ion-icon>
-            </div>
-            <div class="text-content">
-              <ion-card-title class="user-title padding-text">
-                <span>{{ user.userName }}</span>
-              </ion-card-title>
-              <ion-card-title class="user-title padding-text">
-                <span>{{ user.userCode }}</span>
-              </ion-card-title>
-              <ion-card-subtitle class="padding-text text-code-roleName">
-                <p class="badge-it"
-                  :style="{ backgroundColor: getRoleColor(user.userRoleId).bg, color: getRoleColor(user.userRoleId).color }">
-                  {{ user.userRoleName }}
-                </p> - {{ user.userRoleCode }}
-              </ion-card-subtitle>
-              <ion-card-subtitle class="padding-text">{{ user.userAreaName }} - {{ user.userAreaCode
-              }}</ion-card-subtitle>
-            </div>
-          </div>
-        </ion-card-header>
-      </ion-card>
+      <div class="user-body">
+        <div v-if="isLoading" class="ion-text-center ion-margin-top">
+          <ProgressSpinner stroke-width="2" />
+          <p>{{ $t('users.loading') }}</p>
+        </div>
 
-      <div v-if="!isLoading && displayedUsers.length === 0" class="ion-text-center ion-margin-top">
-        <p>{{ $t('users.no-data') }}</p>
+        <ion-card v-for="user in displayedUsers" :key="user.userId" class="user-card">
+          <ion-card-header>
+            <div class="info-row">
+              <div class="icon-wrapper" :style="{ backgroundColor: getRoleColor(user.userRoleId).bg }">
+                <ion-icon :icon="person" class="dark-icon"
+                  :style="{ color: getRoleColor(user.userRoleId).color }"></ion-icon>
+              </div>
+              <div class="text-content">
+                <ion-card-title class="user-title padding-text">
+                  <span>{{ user.userName }}</span>
+                </ion-card-title>
+                <ion-card-title class="user-title padding-text">
+                  <span>{{ user.userCode }}</span>
+                </ion-card-title>
+                <ion-card-subtitle class="padding-text text-code-roleName">
+                  <p class="badge-it"
+                    :style="{ backgroundColor: getRoleColor(user.userRoleId).bg, color: getRoleColor(user.userRoleId).color }">
+                    {{ user.userRoleName }}
+                  </p> - {{ user.userRoleCode }}
+                </ion-card-subtitle>
+                <ion-card-subtitle class="padding-text">{{ user.userAreaName }} - {{ user.userAreaCode
+                }}</ion-card-subtitle>
+              </div>
+            </div>
+          </ion-card-header>
+        </ion-card>
+
+        <div v-if="!isLoading && displayedUsers.length === 0" class="ion-text-center ion-margin-top">
+          <p>{{ $t('users.no-data') }}</p>
+        </div>
+
+        <ion-infinite-scroll @ionInfinite="loadMoreRoles" :disabled="isAllLoaded">
+          <ion-infinite-scroll-content loading-spinner="bubbles" :loading-text="$t('users.loading-more')">
+          </ion-infinite-scroll-content>
+        </ion-infinite-scroll>
       </div>
-
-      <ion-infinite-scroll @ionInfinite="loadMoreRoles" :disabled="isAllLoaded">
-        <ion-infinite-scroll-content loading-spinner="bubbles" :loading-text="$t('users.loading-more')">
-        </ion-infinite-scroll-content>
-      </ion-infinite-scroll>
     </ion-content>
   </ion-page>
 </template>
@@ -57,11 +64,12 @@ import router from '@/router';
 import { ref, onMounted, computed } from 'vue';
 import {
   IonPage, IonContent, IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle,
-  IonIcon, IonSpinner, IonInfiniteScroll, IonInfiniteScrollContent,
+  IonIcon, IonInfiniteScroll, IonInfiniteScrollContent,
   useBackButton
 } from '@ionic/vue';
 import UserView from '@/api/UserView';
 import { person } from 'ionicons/icons';
+import { ProgressSpinner } from '@/plugins/primevue.components';
 
 // --- MẢNG MÀU ĐỊNH SẴN ---
 const colorPalettes = [
@@ -216,6 +224,49 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   line-height: 1.3;
+}
+
+.user-content {
+  flex: 1;
+  min-height: 0;
+  --background: #d1e5e6;
+}
+
+.user-bg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.user-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(72px);
+  -webkit-filter: blur(72px);
+  opacity: 0.9;
+}
+
+.user-blob-green {
+  width: 250px;
+  height: 250px;
+  background: #e3f7ac;
+  top: 20%;
+  right: -50px;
+}
+
+.user-blob-purple {
+  width: 250px;
+  height: 250px;
+  background: #cac2e9;
+  bottom: 10%;
+  left: -80px;
+}
+
+.user-body {
+  position: relative;
+  z-index: 1;
 }
 
 /* --- Style cho Card tổng thể --- */

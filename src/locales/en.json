@@ -68,6 +68,11 @@
     "confirm-cancel": "Confirm Cancel",
     "verifying-checkpoint": "Verifying checkpoint..."
   },
+  "reports": {
+    "not-found": "No reports available",
+    "no-data": "The reports feature is under development or no data is available yet.",
+    "go-home": "Back to Home"
+  },
   "areas": {
     "index": {
       "selected": "Selected:",
