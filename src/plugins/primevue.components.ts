@@ -8,6 +8,7 @@ export { default as Card } from 'primevue/card';
 export { default as Checkbox } from 'primevue/checkbox';
 export { default as Dialog } from 'primevue/dialog';
 export { default as Divider } from 'primevue/divider';
+export { default as FloatLabel } from 'primevue/floatlabel';
 export { default as IconField } from 'primevue/iconfield';
 export { default as InputIcon } from 'primevue/inputicon';
 export { default as InputText } from 'primevue/inputtext';

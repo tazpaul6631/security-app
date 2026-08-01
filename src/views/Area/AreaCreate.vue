@@ -2,6 +2,7 @@
   <ion-page class="area-page">
     <header class="area-header">
       <h1 class="area-title">{{ $t('page.areas.report') }}</h1>
+      <OfflineSyncHeaderButton :count="syncBadgeCount" @click="isOfflineSyncModalOpen = true" />
     </header>
 
     <ion-content class="area-content">
@@ -34,9 +35,10 @@
                 </div>
 
                 <div class="field-block">
-                  <label class="field-label" for="pr-note">{{ $t('areas.report.content') }}</label>
-                  <Textarea id="pr-note" v-model="formData.prNote" rows="4"
-                    :placeholder="$t('areas.report.placeholder-input')" class="note-textarea" />
+                  <FloatLabel variant="on">
+                    <Textarea id="pr-note" v-model="formData.prNote" rows="4" class="note-textarea" />
+                    <label for="pr-note">{{ $t('areas.report.content') }}</label>
+                  </FloatLabel>
                 </div>
               </div>
             </transition>
@@ -82,9 +84,6 @@
             </div>
           </template>
         </Card>
-
-        <offline-sync-list :displayItems="displayItems" :paginatedItems="paginatedItems" :loadedCount="loadedCount"
-          :getCheckpointName="getCheckpointName" @delete="deleteItem" @loadMore="loadMoreOfflineItems" />
       </div>
 
       <category-modal :is-open="openCategoryModal" :api-categories="apiCategories" :grouped-notes="groupedNotes"
@@ -104,6 +103,8 @@
             size="large" :disabled="isSubmitting" @click="onConfirmSubmit" />
         </template>
       </Dialog>
+
+      <OfflineSyncModal v-model:visible="isOfflineSyncModalOpen" :get-checkpoint-name="getCheckpointName" />
     </ion-content>
   </ion-page>
 </template>
@@ -115,9 +116,10 @@ import {
   onIonViewDidLeave, useBackButton
 } from '@ionic/vue';
 import { useStore } from 'vuex';
-import { Button, Card, Checkbox, Dialog, Textarea } from '@/plugins/primevue.components';
+import { Button, Card, Checkbox, Dialog, FloatLabel, Textarea } from '@/plugins/primevue.components';
 import { useAppLoading } from '@/composables/useAppLoading';
 import { useOfflineManager } from '@/composables/useOfflineManager';
+import { useSyncBadgeCount } from '@/composables/useOfflineSyncDisplay';
 import { ImageService } from '@/services/image.service';
 import router from '@/router';
 import storageService from '@/services/storage.service';
@@ -125,7 +127,8 @@ import { useRouteTimer } from '@/composables/useRouteTimer';
 import { useRoute } from 'vue-router';
 import { Geolocation } from '@capacitor/geolocation';
 import CheckpointInfoCard from '@/components/CheckpointInfoCard.vue';
-import OfflineSyncList from '@/components/OfflineSyncList.vue';
+import OfflineSyncModal from '@/components/OfflineSyncModal.vue';
+import OfflineSyncHeaderButton from '@/components/OfflineSyncHeaderButton.vue';
 import NoteInputModal from '@/components/modals/NoteInputModal.vue';
 import IssueDetailModal from '@/components/modals/IssueDetailModal.vue';
 import CategoryModal from '@/components/modals/CategoryModal.vue';
@@ -137,9 +140,10 @@ import {
   installImageDebugConsole,
   shouldSimulateWatermarkFail
 } from '@/utils/imageDebug';
+import { estimateBase64ByteSize, mimeFromPreview, previewToBase64, previewToBlob } from '@/utils/imagePayload';
 
 // Lấy 3 hàm xịn xò ra xài
-const { takePhoto, pickImagesFromGallery, convertBlobToBase64, showToast } = useCameraHandler();
+const { takePhoto, pickImagesFromGallery, showToast } = useCameraHandler();
 const { show: showLoading, hide: hideLoading } = useAppLoading();
 
 // --- Global Timer Composable ---
@@ -157,9 +161,8 @@ interface Route {
   psHourFrom: number; psHourTo: number; planMaxSecond?: number; planMinSecond?: number;
   routeDetails: RouteDetail[]; psId: number;
 }
-interface Photo { fileName: string; preview: string; }
+interface Photo { fileName: string; preview: string; submitBase64?: string; }
 interface GroupedNote { id: string; prGroup: number; priImageNote: string; reportImages: Photo[]; type: 'label' | 'note'; rncId?: string; isAddingPhoto?: boolean; }
-interface QueueItem { id: number | string; data?: any; imageFiles?: string[]; thumb?: string | null; }
 interface ReportNode { rncId: number | string; rncName: string; childs?: ReportNode[]; }
 
 // Ca trực đang active — đọc từ getter tập trung (usePatrolSession)
@@ -196,49 +199,15 @@ const isResetting = ref(false);
 const openCategoryModal = ref(false);
 const openDetailModal = ref(false);
 const openNoteModal = ref(false);
+const isOfflineSyncModalOpen = ref(false);
 
 const pendingNoteId = ref<string | null>(null);
 
 const currentIssues = computed(() => selectedSubCategory.value?.childs || []);
 
 // --- Offline Manager ---
-const { sendData, pendingItems, loadPendingItems, cleanUpItem } = useOfflineManager();
-const displayItems = ref<QueueItem[]>([]);
-
-const filterPendingByCurrentShift = (items: QueueItem[]): QueueItem[] => {
-  const psId = store.state.psId;
-  if (!psId) return items;
-  return items.filter((item) => Number(item.data?.psId) === Number(psId));
-};
-
-const buildDisplayItems = async (items: QueueItem[]) => {
-  const filtered = filterPendingByCurrentShift(items);
-  return Promise.all(filtered.map(async (item: QueueItem) => ({
-    ...item,
-    thumb: item.imageFiles?.[0] ? await ImageService.getDisplayUrl(item.imageFiles[0]) : null
-  })));
-};
-
-// --- TỐI ƯU HIỆU NĂNG BẰNG INFINITE SCROLL ---
-const itemsPerPage = 10;
-const loadedCount = ref(itemsPerPage);
-
-const paginatedItems = computed(() => {
-  return displayItems.value.slice(0, loadedCount.value);
-});
-
-const loadMoreOfflineItems = () => {
-  loadedCount.value += itemsPerPage;
-};
-
-watch(() => pendingItems.value, async (newPendingQueue) => {
-  displayItems.value = await buildDisplayItems(newPendingQueue);
-}, { deep: true });
-
-watch(() => store.state.psId, async () => {
-  displayItems.value = await buildDisplayItems(pendingItems.value);
-});
-///////////////////////////////////////////////////////
+const { sendData, loadPendingItems, pendingItems } = useOfflineManager();
+const { syncBadgeCount } = useSyncBadgeCount();
 
 // --- Functions ---
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -520,12 +489,44 @@ const handleSubmit = async (): Promise<void> => {
 
       for (const item of group.reportImages) {
         try {
+          const photoItem = item as Photo;
           const preview = getDebugSubmitPreview(
-            item.preview,
+            photoItem.preview,
             group.isCheckin ? 'checkin' : 'report'
           );
-          const response = await fetch(preview);
-          const blob = await response.blob();
+          // Debug ghi đè preview → không dùng cache; còn lại ưu tiên submitBase64
+          const useCachedBase64 =
+            !!photoItem.submitBase64 && preview === photoItem.preview;
+
+          if (useCachedBase64) {
+            const approxSize = estimateBase64ByteSize(photoItem.submitBase64!);
+            if (approxSize > MAX_IMAGE_SIZE) {
+              await blockSubmitWithImageError(
+                group.isCheckin ? 'areas.report.message.13' : 'areas.report.message.14',
+                group.isCheckin
+              );
+              return;
+            }
+
+            const mimeType = mimeFromPreview(preview);
+            if (!ALLOWED_MIMES.includes(mimeType)) {
+              await blockSubmitWithImageError(
+                group.isCheckin ? 'areas.report.message.13' : 'areas.report.message.14',
+                group.isCheckin
+              );
+              return;
+            }
+
+            allBase64ForStorage.push(photoItem.submitBase64!);
+            const fileExt = mimeType.includes('/') ? mimeType.split('/')[1] : 'jpg';
+            mappedImages.push({
+              priImage: '',
+              priImageType: fileExt === 'jpeg' ? 'jpg' : fileExt
+            });
+            continue;
+          }
+
+          const blob = await previewToBlob(preview);
           const mimeType = resolveMimeType(blob, preview);
 
           // 1. Kiểm tra định dạng (Mime Type)
@@ -546,8 +547,7 @@ const handleSubmit = async (): Promise<void> => {
             return;
           }
 
-          const base64Full = await convertBlobToBase64(blob);
-          const base64Data = base64Full.split(',')[1];
+          const base64Data = await previewToBase64(preview, photoItem.submitBase64);
 
           allBase64ForStorage.push(base64Data);
 
@@ -625,28 +625,49 @@ const handleSubmit = async (): Promise<void> => {
       noteGroups: finalNoteGroups,
     };
 
-    // --- GỬI QUA OFFLINE MANAGER ---
-    // firstPreview dùng để làm ảnh đại diện thumbnail trong danh sách chờ
+    // --- GỬI NỀN: cập nhật local + navigate trước, API/queue không chặn UI ---
     const firstPreview = mandatoryPhoto.value?.preview ||
       (formData.prHasProblem ? groupedNotes.value[0]?.reportImages[0]?.preview : noProblemImages.value[0]?.preview);
 
-    // sendData sẽ nhận mảng allBase64ForStorage, lưu thành file và dùng buildFormData để gửi IFormFile
-    await sendData(
-      firstPreview || '',
-      formSubmitData,
-      applySaveFileMismatchDebug(allBase64ForStorage)
-    );
+    const imagesForSend = applySaveFileMismatchDebug(allBase64ForStorage);
+    const payloadForSend = { ...formSubmitData };
+    const isDeviceOnline = !!store.state.isOnline;
 
-    // --- RESET VÀ CHUYỂN TRANG ---
+    const reportSendError = async (sendErr: any) => {
+      console.error('[AreaCreate] Gửi thất bại:', sendErr);
+      const msg = sendErr?.message || '';
+      if (msg === 'IMAGE_FILE_MISMATCH') {
+        await showToast(t('areas.report.message.14'), 'danger');
+      } else if (msg === 'MISSING_CHECKIN_GROUP' || msg === 'EMPTY_NOTE_GROUPS') {
+        await showToast(t('areas.report.message.13'), 'danger');
+      } else {
+        await showToast(t('areas.report.message.6'), 'danger');
+      }
+    };
+
+    // Offline: await ghi queue trước khi navigate — để CardRoutePoints thấy badge ngay
+    // Online: gửi nền (FormData RAM + API) để UI mượt
+    if (!isDeviceOnline) {
+      try {
+        await sendData(firstPreview || '', payloadForSend, imagesForSend);
+      } catch (sendErr: any) {
+        await reportSendError(sendErr);
+        hideLoading();
+        isSubmitting.value = false;
+        return;
+      }
+    }
+
     store.commit('UPDATE_POINT_STATUS', { routeId, cpId: currentCpId, status: 1 });
     const updatedRoutes = [...store.state.dataListRoute];
     const rIdx = updatedRoutes.findIndex((r: Route) => Number(r.routeId) === Number(routeId) && Number(r.psId) === Number(finalPsId));
-    const allDone = updatedRoutes[rIdx].routeDetails.every((p: any) => p.rdIsComplete);
+    const allDone = rIdx >= 0
+      ? updatedRoutes[rIdx].routeDetails.every((p: any) => p.rdIsComplete)
+      : false;
 
     isResetting.value = true;
     if (draftKey.value) await storageService.remove(draftKey.value);
 
-    // Clear dữ liệu form
     formData.prHasProblem = false;
     formData.prNote = '';
     groupedNotes.value = [];
@@ -655,6 +676,15 @@ const handleSubmit = async (): Promise<void> => {
     mandatoryPhoto.value = null;
 
     setTimeout(() => { isResetting.value = false; }, 300);
+
+    const finishNavigate = async () => {
+      if (allDone) {
+        await showToast(t('areas.report.message.5'), 'success');
+        router.replace('/home');
+      } else {
+        router.replace('/route');
+      }
+    };
 
     if (allDone) {
       await clearTimer(routeId, finalPsId);
@@ -670,22 +700,33 @@ const handleSubmit = async (): Promise<void> => {
       store.commit('SET_PSID', null);
       store.commit('SET_DATASCANQR', null);
 
-      // Chỉ xóa file ảnh khi hàng chờ offline đã rỗng — tránh phá sync còn kẹt
-      await loadPendingItems();
-      if (pendingItems.value.length === 0) {
-        await ImageService.purgeOfflineImages();
-      } else {
-        console.warn('[AreaCreate] Còn báo cáo chờ sync — giữ file ảnh offline');
-      }
-
-      await storageService.set('list_route', store.state.dataListRoute);
       hideLoading();
-      await showToast(t('areas.report.message.5'), 'success');
-      router.replace('/home');
+      void finishNavigate();
+
+      void (async () => {
+        if (isDeviceOnline) {
+          try {
+            await sendData(firstPreview || '', payloadForSend, imagesForSend);
+          } catch (sendErr: any) {
+            await reportSendError(sendErr);
+          }
+        }
+        await storageService.set('list_route', store.state.dataListRoute);
+        await loadPendingItems({ sanitize: true });
+        if (pendingItems.value.length === 0) {
+          await ImageService.purgeOfflineImages();
+        } else {
+          console.warn('[AreaCreate] Còn báo cáo chờ sync — giữ file ảnh offline');
+        }
+      })();
     } else {
       await storageService.set('list_route', updatedRoutes);
       hideLoading();
-      router.replace('/route');
+      void finishNavigate();
+
+      if (isDeviceOnline) {
+        void sendData(firstPreview || '', payloadForSend, imagesForSend).catch(reportSendError);
+      }
     }
 
   } catch (error: any) {
@@ -695,6 +736,8 @@ const handleSubmit = async (): Promise<void> => {
     if (errMsg === 'MISSING_CHECKIN_GROUP' || errMsg === 'EMPTY_NOTE_GROUPS') {
       mandatoryPhoto.value = null;
       await showToast(t('areas.report.message.13'), 'danger');
+    } else if (errMsg === 'IMAGE_FILE_MISMATCH') {
+      await showToast(t('areas.report.message.14'), 'danger');
     } else {
       await showToast(t('areas.report.message.6'), 'danger');
     }
@@ -722,18 +765,15 @@ const getCheckpointName = (cpId: string) => {
   return cp ? cp.cpName : 'Điểm quét';
 };
 
-const loadPendingItemsWithImages = async () => {
-  await loadPendingItems();
-  displayItems.value = await buildDisplayItems(pendingItems.value);
-};
-
-const deleteItem = async (id: any) => {
-  const queue = (await storageService.get('offline_api_queue')) || [];
-  const item = queue.find((i: any) => i.id === id);
-  if (!item) return;
-
-  await cleanUpItem(item);
-  await loadPendingItemsWithImages();
+/** Encode webPath → submitBase64 ngay lúc chụp để submit không phụ thuộc Capacitor path tạm */
+const withSubmitBase64 = async (photo: Photo): Promise<Photo> => {
+  try {
+    const submitBase64 = await previewToBase64(photo.preview);
+    return { ...photo, submitBase64 };
+  } catch (err) {
+    console.warn('[AreaCreate] Không encode được ảnh lúc chụp, giữ preview gốc:', err);
+    return photo;
+  }
 };
 
 ////////////////////////////////////////////
@@ -747,7 +787,7 @@ const addGroupPhoto = async (idx: number) => {
   const photo = await takePhoto(currentCount, 'err_cam_');
 
   if (photo) {
-    groupedNotes.value[idx].reportImages.push(photo);
+    groupedNotes.value[idx].reportImages.push(await withSubmitBase64(photo));
   }
 
   groupedNotes.value[idx].isAddingPhoto = false;
@@ -760,7 +800,8 @@ const pickGroupImages = async (idx: number) => {
   const photos = await pickImagesFromGallery(currentCount, 'err_lib_');
 
   if (photos.length > 0) {
-    groupedNotes.value[idx].reportImages.push(...photos);
+    const encoded = await Promise.all(photos.map((p) => withSubmitBase64(p)));
+    groupedNotes.value[idx].reportImages.push(...encoded);
   }
 
   groupedNotes.value[idx].isAddingPhoto = false;
@@ -778,7 +819,7 @@ const addNoProblemPhoto = async () => {
   const photo = await takePhoto(currentCount, 'ok_cam_');
 
   if (photo) {
-    noProblemImages.value.push(photo);
+    noProblemImages.value.push(await withSubmitBase64(photo));
   }
 };
 
@@ -794,8 +835,7 @@ const mandatoryPhoto = ref<Photo | null>(null);
 // Hàm vẽ Watermark (ngày giờ) lên ảnh
 const addWatermarkToImage = async (imageSrc: string, text: string, textColor: string = '#FFD700'): Promise<string> => {
   try {
-    const response = await fetch(imageSrc);
-    const blob = await response.blob();
+    const blob = await previewToBlob(imageSrc);
 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
@@ -830,26 +870,34 @@ const addWatermarkToImage = async (imageSrc: string, text: string, textColor: st
       height = img.naturalHeight || img.height;
     }
 
-    canvas.width = width;
-    canvas.height = height;
-    ctx.drawImage(source, 0, 0, width, height);
+    const maxWidth = 1024;
+    let drawW = width;
+    let drawH = height;
+    if (width > maxWidth) {
+      drawW = maxWidth;
+      drawH = Math.round(height * (maxWidth / width));
+    }
+
+    canvas.width = drawW;
+    canvas.height = drawH;
+    ctx.drawImage(source, 0, 0, drawW, drawH);
 
     if (source instanceof ImageBitmap) {
       source.close();
     }
 
-    const baseFontSize = Math.max(Math.floor(height * 0.04), 18);
+    const baseFontSize = Math.max(Math.floor(drawH * 0.04), 18);
     const minFontSize = 14;
     let fontSize = baseFontSize;
     ctx.font = `bold ${fontSize}px sans-serif`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'top';
 
-    const padding = Math.max(Math.floor(width * 0.03), 16);
+    const padding = Math.max(Math.floor(drawW * 0.03), 16);
     const x = padding;
     const y = padding;
 
-    const maxTextWidth = Math.max(width - (padding * 2) - 20, 80);
+    const maxTextWidth = Math.max(drawW - (padding * 2) - 20, 80);
     let metrics = ctx.measureText(text);
     while (metrics.width > maxTextWidth && fontSize > minFontSize) {
       fontSize -= 1;
@@ -871,8 +919,22 @@ const addWatermarkToImage = async (imageSrc: string, text: string, textColor: st
 };
 
 // Hàm chụp ảnh bắt buộc
+const resolveGpsForCheckin = async () => {
+  try {
+    const coordinates = await Geolocation.getCurrentPosition({
+      enableHighAccuracy: false,
+      timeout: 6000,
+      maximumAge: 120000,
+    });
+    formData.rpLat = coordinates.coords.latitude;
+    formData.rpLng = coordinates.coords.longitude;
+  } catch {
+    formData.rpLat = 0;
+    formData.rpLng = 0;
+  }
+};
+
 const captureMandatoryPhoto = async () => {
-  // --- KIỂM TRA VÀ LẤY GPS TRƯỚC ---
   try {
     const permission = await Geolocation.checkPermissions();
     if (permission.location !== 'granted') {
@@ -882,45 +944,16 @@ const captureMandatoryPhoto = async () => {
         return;
       }
     }
-
-    showLoading(t('areas.report.message.fetching_gps'));
-
-    try {
-      const coordinates = await Geolocation.getCurrentPosition({
-        enableHighAccuracy: true,
-        timeout: 15000,
-        maximumAge: 0
-      });
-      formData.rpLat = coordinates.coords.latitude;
-      formData.rpLng = coordinates.coords.longitude;
-    } catch (highAccuracyError) {
-      try {
-        // NẾU THẤT BẠI DO Ở TRONG XƯỞNG TÔN HOẶC TIMEOUT, DÙNG VỊ TRÍ MẠNG
-        const fallbackCoords = await Geolocation.getCurrentPosition({
-          enableHighAccuracy: false,
-          timeout: 10000,
-          maximumAge: 60000 // Chấp nhận xài lại vị trí đã cache trong vòng 1 phút trước đó
-        });
-
-        formData.rpLat = fallbackCoords.coords.latitude;
-        formData.rpLng = fallbackCoords.coords.longitude;
-
-      } catch (fallbackError) {
-        hideLoading();
-        await showToast(t('areas.report.message.gps_not_available'), 'danger');
-        formData.rpLat = 0;
-        formData.rpLng = 0;
-        // return; // Dừng, không mở camera
-      }
-    }
-    hideLoading();
   } catch (err) {
-    console.error("Lỗi cấp quyền GPS:", err);
+    console.error('Lỗi cấp quyền GPS:', err);
     await showToast(t('areas.report.message.gps_error'), 'warning');
     return;
   }
 
-  const photo = await takePhoto(0, 'checkin_');
+  const [, photo] = await Promise.all([
+    resolveGpsForCheckin(),
+    takePhoto(0, 'checkin_'),
+  ]);
 
   if (photo) {
     showLoading(t('areas.report.message.10'));
@@ -932,13 +965,11 @@ const captureMandatoryPhoto = async () => {
         hour: '2-digit', minute: '2-digit', second: '2-digit'
       });
 
-      // LOGIC KIỂM TRA LỐ CA (TRỄ GIỜ)
       let isLate = false;
       const activeRoute = currentActiveRoute.value;
 
       if (activeRoute && activeRoute.psHourFrom !== undefined) {
         const currentHour = now.getHours();
-
         if (currentHour !== activeRoute.psHourFrom) {
           isLate = true;
         }
@@ -958,9 +989,14 @@ const captureMandatoryPhoto = async () => {
         return;
       }
 
+      const submitBase64 = watermarkedBase64.includes(',')
+        ? watermarkedBase64.split(',')[1]
+        : watermarkedBase64;
+
       mandatoryPhoto.value = {
         fileName: photo.fileName,
-        preview: watermarkedBase64
+        preview: watermarkedBase64,
+        submitBase64,
       };
     } finally {
       hideLoading();
@@ -998,7 +1034,12 @@ watch([formData, groupedNotes, selectedValues, noProblemImages, mandatoryPhoto],
         groupedNotes: JSON.parse(JSON.stringify(groupedNotes.value)),
         selectedValues: JSON.parse(JSON.stringify(selectedValues.value)),
         noProblemImages: JSON.parse(JSON.stringify(noProblemImages.value)),
-        mandatoryPhoto: JSON.parse(JSON.stringify(mandatoryPhoto.value))
+        mandatoryPhoto: mandatoryPhoto.value
+          ? {
+            fileName: mandatoryPhoto.value.fileName,
+            submitBase64: mandatoryPhoto.value.submitBase64,
+          }
+          : null,
       };
       await storageService.set(draftKey.value, draftData);
       console.log('Đã lưu nháp bao gồm cả ảnh bắt buộc!');
@@ -1024,7 +1065,22 @@ const loadDraft = async () => {
     groupedNotes.value = draft.groupedNotes || [];
     selectedValues.value = draft.selectedValues || [];
     noProblemImages.value = draft.noProblemImages || [];
-    mandatoryPhoto.value = draft.mandatoryPhoto || null;
+    if (draft.mandatoryPhoto) {
+      const mp = draft.mandatoryPhoto;
+      if (mp.submitBase64) {
+        mandatoryPhoto.value = {
+          fileName: mp.fileName || 'checkin.jpg',
+          preview: `data:image/jpeg;base64,${mp.submitBase64}`,
+          submitBase64: mp.submitBase64,
+        };
+      } else if (mp.preview) {
+        mandatoryPhoto.value = mp;
+      } else {
+        mandatoryPhoto.value = null;
+      }
+    } else {
+      mandatoryPhoto.value = null;
+    }
     console.log('Đã khôi phục toàn bộ bản nháp!');
     return true;
   }
@@ -1043,7 +1099,7 @@ const redirectIfInvalidSession = async (): Promise<boolean> => {
 onIonViewWillEnter(async () => {
   if (!(await redirectIfInvalidSession())) return;
 
-  await loadPendingItemsWithImages();
+  await loadPendingItems();
 
   setTimeout(async () => {
     const hasDraft = await loadDraft();
@@ -1092,7 +1148,7 @@ onMounted(async () => {
 
   if (!(await redirectIfInvalidSession())) return;
 
-  await loadPendingItemsWithImages();
+  await loadPendingItems();
 
   const catData = store.state.dataReportNoteCategory;
   if (catData) {
@@ -1116,16 +1172,20 @@ useBackButton(10000, () => { });
 
 .area-header {
   min-height: 48px;
-  padding: 8px 16px;
+  padding: 8px 8px 8px 16px;
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
   flex-shrink: 0;
   display: flex;
   align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .area-title {
   margin: 0;
+  flex: 1;
+  min-width: 0;
   font-size: 1.0625rem;
   font-weight: 600;
   color: #0f172a;
@@ -1217,16 +1277,11 @@ useBackButton(10000, () => { });
 }
 
 .field-block {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
   margin-bottom: 20px;
 }
 
-.field-label {
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: #475569;
+.field-block :deep(.p-floatlabel) {
+  width: 100%;
 }
 
 .note-textarea {

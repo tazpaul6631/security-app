@@ -66,7 +66,8 @@
     "warning-title": "Cảnh báo!",
     "cancel-confirm-msg": "Bạn có chắc chắn muốn hủy? Toàn bộ dữ liệu đã quét sẽ bị mất.",
     "confirm-cancel": "Đồng ý hủy",
-    "verifying-checkpoint": "Đang kiểm tra điểm quét..."
+    "verifying-checkpoint": "Đang kiểm tra điểm quét...",
+    "offline-checkpoint-fallback": "Điểm quét"
   },
   "reports": {
     "not-found": "Chưa có báo cáo",
@@ -131,6 +132,7 @@
       "btn-confirm": "XÁC NHẬN",
       "detail-note": "Nhập ghi chú chi tiết",
       "pending-sync": "Chờ đồng bộ",
+      "offline-sync-empty": "Không có báo cáo nào đang chờ đồng bộ trong ca hiện tại.",
       "offline": "Offline",
       "loading-more": "Đang tải thêm báo cáo...",
       "content": "Nội dung",

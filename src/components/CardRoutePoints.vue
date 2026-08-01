@@ -33,13 +33,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
 import { onIonViewWillEnter } from '@ionic/vue';
-import storageService from '@/services/storage.service';
 import { useStore } from 'vuex';
+import { useOfflineManager } from '@/composables/useOfflineManager';
 import { Badge, Tag } from '@/plugins/primevue.components';
 
 const store = useStore();
+const { pendingItems, loadPendingItems } = useOfflineManager();
 
 interface RouteDetail {
   rdId: number | string;
@@ -53,22 +54,30 @@ const props = defineProps<{
   details: RouteDetail[];
 }>();
 
-const offlineCounts = ref<Record<string, number>>({});
+const buildCountsFromQueue = (queue: any[]) => {
+  const counts: Record<string, number> = {};
+  const currentPsId = store.state.psId;
+
+  queue.forEach((item: any) => {
+    if (item.data && item.data.cpId && Number(item.data.psId) === Number(currentPsId)) {
+      const cpId = String(item.data.cpId);
+      counts[cpId] = (counts[cpId] || 0) + (item.data.reports?.length || 1);
+    }
+  });
+
+  return counts;
+};
+
+/** Ưu tiên pendingItems (RAM) — cập nhật ngay khi addToQueue xong, kể cả gửi nền */
+const offlineCounts = computed(() => {
+  // Track psId để đếm lại khi đổi ca
+  void store.state.psId;
+  return buildCountsFromQueue(pendingItems.value || []);
+});
 
 const loadOfflineQueue = async () => {
   try {
-    const queue = (await storageService.get('offline_api_queue')) || [];
-    const counts: Record<string, number> = {};
-    const currentPsId = store.state.psId;
-
-    queue.forEach((item: any) => {
-      if (item.data && item.data.cpId && Number(item.data.psId) === Number(currentPsId)) {
-        const cpId = String(item.data.cpId);
-        counts[cpId] = (counts[cpId] || 0) + (item.data.reports?.length || 1);
-      }
-    });
-
-    offlineCounts.value = counts;
+    await loadPendingItems();
   } catch (error) {
     console.error('Lỗi khi tải dữ liệu offline queue:', error);
   }
@@ -100,6 +109,8 @@ defineExpose({ loadOfflineQueue });
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 2px 11px;
+  height: stretch;
+  padding-top: 7px;
 }
 
 .grid-item-wrapper {
@@ -171,7 +182,7 @@ defineExpose({ loadOfflineQueue });
 
 .check-badge {
   position: absolute;
-  top: -3px;
+  top: -10px;
   right: -10px;
   width: 1.3rem !important;
   min-width: 1.3rem !important;

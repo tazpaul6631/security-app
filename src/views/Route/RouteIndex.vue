@@ -5,6 +5,7 @@
         <i class="pi pi-arrow-left route-back-icon" aria-hidden="true" />
         <span class="route-title">{{ $t('page.routes') }}</span>
       </button>
+      <OfflineSyncHeaderButton :count="syncBadgeCount" @click="isOfflineSyncModalOpen = true" />
     </header>
 
     <ion-content class="route-content" :class="{ 'route-content--locked': !isLoading && !!currentActiveRoute }">
@@ -85,6 +86,8 @@
             @click="isWrongOrderOpen = false" />
         </template>
       </Dialog>
+
+      <OfflineSyncModal v-model:visible="isOfflineSyncModalOpen" :get-checkpoint-name="resolveCheckpointName" />
     </ion-content>
 
     <footer v-if="!isLoading && currentActiveRoute" class="route-footer">
@@ -108,6 +111,8 @@ import {
   useBackButton
 } from '@ionic/vue';
 import CardRoutePoints from '@/components/CardRoutePoints.vue';
+import OfflineSyncModal from '@/components/OfflineSyncModal.vue';
+import OfflineSyncHeaderButton from '@/components/OfflineSyncHeaderButton.vue';
 import { Button, Card, Dialog, ProgressSpinner } from '@/plugins/primevue.components';
 import { useAppLoading } from '@/composables/useAppLoading';
 import { scannerService } from '@/services/scanner.service';
@@ -118,6 +123,7 @@ import PatrolShiftView from '@/api/PatrolShiftView';
 import { useRouteTimer } from '@/composables/useRouteTimer';
 import PatrolShift from '@/api/PatrolShift';
 import { useOfflineManager } from '@/composables/useOfflineManager';
+import { useSyncBadgeCount } from '@/composables/useOfflineSyncDisplay';
 import { useI18n } from 'vue-i18n';
 
 // Lấy biến và hàm từ Global Timer ra sử dụng
@@ -153,6 +159,7 @@ const store = useStore();
 const router = useRouter();
 const isCancelAlertOpen = ref(false);
 const isWrongOrderOpen = ref(false);
+const isOfflineSyncModalOpen = ref(false);
 const wrongOrderPointName = ref('');
 const isLoading = ref(true);
 const isScanning = ref(false);
@@ -167,6 +174,7 @@ const { t } = useI18n();
 const { show: showLoading, hide: hideLoading } = useAppLoading();
 const cardRoutePointsRef = ref<any>(null);
 const { pendingItems, loadPendingItems, cleanUpItem, purgeStaleShiftQueue } = useOfflineManager();
+const { syncBadgeCount } = useSyncBadgeCount();
 
 const canCancelRoute = computed(() => {
   const user = store.state.dataUser;
@@ -259,6 +267,13 @@ const currentActiveRoute = computed(() => {
 
   return foundRoute ? { ...foundRoute } : null;
 });
+
+const resolveCheckpointName = (cpId: string) => {
+  const cp = currentActiveRoute.value?.routeDetails?.find(
+    (d: RouteDetail) => String(d.cpId) === String(cpId)
+  );
+  return cp ? cp.cpName : t('routes.offline-checkpoint-fallback');
+};
 
 // ==========================================
 // 2. KHÔI PHỤC TIMER KHI RELOAD & CHUYỂN CA
@@ -408,8 +423,8 @@ const updateSystemTime = async () => {
   const hourNow = now.getHours();
   if (hourNow !== currentHour.value) {
     currentHour.value = hourNow;
-
-    if (!lockedRouteId.value) await loadRouteData();
+    // Luôn refresh list (online) để có ca kế tiếp; ca đang khóa vẫn ưu tiên hiện nhờ unfinishedRouteId
+    await loadRouteData();
   }
 };
 
@@ -421,43 +436,38 @@ const handleAppWakeUp = () => {
 
 const loadRouteData = async () => {
   isLoading.value = true;
+  try {
+    // Offline: chỉ dùng store / SQLite đã tải (~3 ngày lúc login)
+    if (!store.state.isOnline) {
+      if (!Array.isArray(store.state.dataListRoute) || store.state.dataListRoute.length === 0) {
+        await store.dispatch('restoreListRoute');
+      }
+      return;
+    }
 
-  // if (!store.state.isOnline) {
-  //   shiftDataList.value = store.state.dataListRoute || [];
-  // } else {
-  //   try {
-  //     const userData = store.state.dataUser?.data || store.state.dataUser || {};
-  //     const areaId = userData.userAreaId;
+    const userData = store.state.dataUser?.data || store.state.dataUser || {};
+    const areaId = userData.userAreaId;
+    if (!areaId) {
+      console.warn('[RouteIndex] Thiếu areaId — bỏ qua fetch lộ trình');
+      return;
+    }
 
-  //     const now = new Date();
-  //     const currentHour = now.getHours();
-  //     const hoursArray = [];
-  //     for (let i = currentHour; i <= 23; i++) {
-  //       hoursArray.push(i);
-  //     }
-  //     const dateInfo = {
-  //       psDay: now.getDate(),
-  //       psMonth: now.getMonth() + 1,
-  //       psYear: now.getFullYear(),
-  //       userAreaId: areaId,
-  //       psHours: hoursArray
-  //     };
-
-  //     const response: any = await PatrolShiftView.postPatrolShiftView(dateInfo);
-  //     const apiDataRaw = response?.data?.data || response?.data || [];
-
-  //     // Vuex sẽ kiểm tra xem ca bị khóa đã isComplete chưa, nếu có nó sẽ TỰ MỞ KHÓA
-  //     store.commit('SET_DATA_LIST_ROUTE', apiDataRaw);
-
-  //     shiftDataList.value = store.state.dataListRoute;
-  //     await storageService.set('list_route', store.state.dataListRoute);
-
-  //   } catch (error) {
-  //     shiftDataList.value = store.state.dataListRoute || [];
-  //   }
-  // }
-
-  isLoading.value = false;
+    // Online: getOfflineData (~3 ngày do BE) theo area — merge giữ tiến độ ca đang khóa
+    const response: any = await PatrolShiftView.postPatrolShiftView({
+      getOfflineData: true,
+      areaId,
+    });
+    const apiDataRaw = response?.data?.data || response?.data || [];
+    store.commit('SET_DATA_LIST_ROUTE', apiDataRaw);
+    await storageService.set('list_route', store.state.dataListRoute);
+  } catch (error) {
+    console.error('[RouteIndex] loadRouteData lỗi, dùng cache local:', error);
+    if (!Array.isArray(store.state.dataListRoute) || store.state.dataListRoute.length === 0) {
+      await store.dispatch('restoreListRoute');
+    }
+  } finally {
+    isLoading.value = false;
+  }
 };
 
 onIonViewWillEnter(async () => {
@@ -584,10 +594,15 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
   flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .route-back-btn {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
+  width: auto;
   display: inline-flex;
   align-items: center;
   gap: 8px;

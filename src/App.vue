@@ -79,28 +79,10 @@ const getGlobalApiList = (userData: any) => {
     // checkpoints_id: () => PointReport.postPointReportView(),
     area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),
 
-    list_route: () => {
-      const lockedPsId = store.state.psId;
-      // const now = new Date();
-      // const currentHour = now.getHours();
-      // const hoursArray = [];
-      // for (let i = currentHour; i <= 23; i++) {
-      //   hoursArray.push(i);
-      // }
-      // // Tự động build lại ngày tháng hiện tại, ghi đè lên userData cũ
-      // const payload = {
-      //   ...userData,
-      //   psDay: now.getDate(),
-      //   psMonth: now.getMonth() + 1,
-      //   psYear: now.getFullYear(),
-      //   psHours: hoursArray
-      // };
-
-      if (lockedPsId) {
-        return PatrolShiftView.postPatrolShiftView({ getOfflineData: true, psId: lockedPsId, areaId: userData.userAreaId });
-      }
-      return PatrolShiftView.postPatrolShiftView({ getOfflineData: true, areaId: userData.userAreaId });
-    },
+    list_route: () => PatrolShiftView.postPatrolShiftView({
+      getOfflineData: true,
+      areaId: userData.userAreaId,
+    }),
 
     report_note_category: () => ReportNoteCategory.postReportNoteCategory(),
   };
@@ -119,10 +101,27 @@ const safeSync = async (isInitApp = false) => {
   const wrongScanQueue = (await storage.get('offline_wrong_scan_queue')) || [];
   const hasOfflineData = pendingItems.value.length > 0 || deleteQueue.length > 0 || wrongScanQueue.length > 0;
 
-  // LƯỚI LỌC LOGIC THÔNG MINH Ở ĐÂY:
-  // Nếu chỉ là có mạng lại (không phải F5) VÀ không có data offline -> THOÁT LUÔN!
+  const rawUser: any = store.state.dataUser;
+  const userData = rawUser?.data ? rawUser.data : (rawUser || {});
+
+  const lightListRouteApi = () => ({
+    list_route: () => PatrolShiftView.postPatrolShiftView({
+      getOfflineData: true,
+      areaId: userData.userAreaId,
+    }),
+  });
+
+  // Reconnect không có queue kẹt: vẫn refresh list_route (ca mới theo ngày/giờ)
   if (!isInitApp && !hasOfflineData) {
-    console.log("Mạng khôi phục nhưng không có báo cáo kẹt. Bỏ qua đồng bộ.");
+    console.log('Mạng khôi phục — chỉ refresh list_route.');
+    isSafeSyncing = true;
+    try {
+      await store.dispatch('syncAllData', { apiList: lightListRouteApi(), mode: 'silent' });
+    } catch (e) {
+      console.error('Lỗi refresh list_route khi reconnect:', e);
+    } finally {
+      isSafeSyncing = false;
+    }
     return;
   }
 
@@ -148,41 +147,12 @@ const safeSync = async (isInitApp = false) => {
     }
 
     // 2. Nếu là F5/Login (isInitApp = true), TẢI MỚI TOÀN BỘ MASTER DATA
-    // Nếu là ngầm (có mạng lại), BỎ QUA việc tải Master Data để đỡ nặng máy, hoặc chỉ tải lại list_route.
+    // Nếu là ngầm (có mạng lại), chỉ tải lại list_route.
     if (isInitApp) {
       const apiList = getGlobalApiList(store.state.dataUser);
       await store.dispatch('syncAllData', { apiList, mode: mode });
     } else {
-      // (Tùy chọn) Nếu mạng phục hồi, bạn chỉ cần cập nhật lại list_route xem có ca trực mới không, 
-      // không cần tải lại hàng ngàn Checkpoint làm gì cho cực CPU.
-      const rawUser: any = store.state.dataUser;
-      const userData = rawUser?.data ? rawUser.data : (rawUser || {});
-
-      const lightApiList = {
-        list_route: () => {
-          const lockedPsId = store.state.psId;
-          // const now = new Date();
-          // const currentHour = now.getHours();
-          // const hoursArray = [];
-          // for (let i = currentHour; i <= 23; i++) {
-          //   hoursArray.push(i);
-          // }
-
-          // const payload = {
-          //   ...userData,
-          //   psDay: now.getDate(),
-          //   psMonth: now.getMonth() + 1,
-          //   psYear: now.getFullYear(),
-          //   psHours: hoursArray
-          // };
-
-          if (lockedPsId) {
-            return PatrolShiftView.postPatrolShiftView({ getOfflineData: true, psId: lockedPsId, areaId: userData.userAreaId });
-          }
-          return PatrolShiftView.postPatrolShiftView({ getOfflineData: true, areaId: userData.userAreaId });
-        }
-      };
-      await store.dispatch('syncAllData', { apiList: lightApiList, mode: 'silent' });
+      await store.dispatch('syncAllData', { apiList: lightListRouteApi(), mode: 'silent' });
     }
   } catch (e) {
     console.error("Lỗi đồng bộ:", e);

@@ -16,7 +16,7 @@
           <Tag :value="isOnline ? $t('layout.online') : $t('layout.offline')"
             :class="isOnline ? 'status-online' : 'status-offline'" class="status-tag" />
           <Button icon="pi pi-sign-out" severity="secondary" variant="text" rounded class="logout-btn"
-            :aria-label="$t('layout.logout')" size="large" @click="isLogoutModalOpen = true" />
+            :aria-label="$t('layout.logout')" size="large" @click="openLogoutModal" />
         </div>
       </header>
 
@@ -97,6 +97,20 @@ const goBackAndClearHistory = async () => {
   }
   ionRouter.navigate('/home', 'root', 'replace');
 };
+
+const openLogoutModal = () => {
+  if (isRouteUnfinished.value) {
+    toast.add({
+      severity: 'warn',
+      summary: t('messages.nav.unable-to-logout'),
+      detail: t('messages.nav.incomplete-patrol'),
+      life: 8000,
+      closable: false,
+    });
+    return;
+  }
+  isLogoutModalOpen.value = true;
+};
 //////////////////////////////
 
 //////////////////////////////////////////
@@ -107,9 +121,7 @@ const confirmLogout = async () => {
   try {
     await performLogout();
   } finally {
-    if (isLogoutModalOpen.value) {
-      isLoggingOut.value = false;
-    }
+    isLoggingOut.value = false;
   }
 };
 

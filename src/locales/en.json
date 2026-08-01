@@ -66,7 +66,8 @@
     "warning-title": "Warning!",
     "cancel-confirm-msg": "Are you sure you want to cancel? All scanned data will be lost.",
     "confirm-cancel": "Confirm Cancel",
-    "verifying-checkpoint": "Verifying checkpoint..."
+    "verifying-checkpoint": "Verifying checkpoint...",
+    "offline-checkpoint-fallback": "Checkpoint"
   },
   "reports": {
     "not-found": "No reports available",
@@ -131,6 +132,7 @@
       "btn-confirm": "CONFIRM",
       "detail-note": "Enter detailed notes",
       "pending-sync": "Pending sync",
+      "offline-sync-empty": "No reports are waiting to sync for the current shift.",
       "offline": "Offline",
       "loading-more": "Loading more reports...",
       "content": "Content",

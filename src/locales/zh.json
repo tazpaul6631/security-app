@@ -66,7 +66,8 @@
     "warning-title": "警告！",
     "cancel-confirm-msg": "確定要取消嗎？所有已掃描的資料將會遺失。",
     "confirm-cancel": "確認取消",
-    "verifying-checkpoint": "正在驗證檢查點..."
+    "verifying-checkpoint": "正在驗證檢查點...",
+    "offline-checkpoint-fallback": "檢查點"
   },
   "reports": {
     "not-found": "暫無報表",
@@ -131,6 +132,7 @@
       "btn-confirm": "確認",
       "detail-note": "輸入詳細備註",
       "pending-sync": "等待同步",
+      "offline-sync-empty": "目前班次沒有待同步的報告。",
       "offline": "離線",
       "loading-more": "正在載入更多報告...",
       "content": "內容",

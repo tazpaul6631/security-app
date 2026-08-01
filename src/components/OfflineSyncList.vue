@@ -1,11 +1,5 @@
 <template>
   <Card v-if="displayItems.length > 0" class="offline-sync-card">
-    <template #title>
-      <span class="offline-sync-title">
-        {{ $t('areas.report.pending-sync') }} ({{ displayItems.length }})
-      </span>
-    </template>
-
     <template #content>
       <div class="offline-sync-list">
         <div v-for="item in paginatedItems" :key="item.id" class="offline-sync-item">
@@ -57,7 +51,7 @@ const formatDate = (ts: any) => new Date(ts).toLocaleTimeString();
 }
 
 .offline-sync-card :deep(.p-card-body) {
-  padding: 0 14px 14px;
+  padding: 14px;
   display: flex;
   flex-direction: column;
   min-height: 0;

@@ -7,19 +7,29 @@ export const ImageService = {
    * @param base64Data Chuỗi base64 (có hoặc không có prefix data:image/...)
    * @returns Tên file đã lưu
    */
-  async saveImage(base64Data: string): Promise<string> {
+  async saveImage(base64Data: string, retries = 3): Promise<string> {
     // 1. Tách bỏ tiền tố "data:image/jpeg;base64," nếu có
     const rawData: string = base64Data.includes(',') ? base64Data.split(',')[1] : base64Data;
-    
-    const fileName = `offline_img_${Date.now()}.jpg`;
-    
-    await Filesystem.writeFile({
-      path: fileName,
-      data: rawData, // Chỉ gửi phần mã hóa sạch
-      directory: Directory.Data
-    });
-    
-    return fileName;
+
+    let lastError: unknown;
+    for (let attempt = 0; attempt < retries; attempt++) {
+      // Tên file unique — tránh đụng khi lưu nhiều ảnh sát nhau / song song
+      const fileName = `offline_img_${Date.now()}_${attempt}_${Math.random().toString(36).slice(2, 9)}.jpg`;
+      try {
+        await Filesystem.writeFile({
+          path: fileName,
+          data: rawData,
+          directory: Directory.Data,
+        });
+        return fileName;
+      } catch (err) {
+        lastError = err;
+        console.warn(`[ImageService] writeFile attempt ${attempt + 1}/${retries} failed:`, err);
+        await new Promise((r) => setTimeout(r, 120 * (attempt + 1)));
+      }
+    }
+
+    throw lastError instanceof Error ? lastError : new Error('IMAGE_WRITE_FAILED');
   },
 
   /**
