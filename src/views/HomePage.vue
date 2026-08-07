@@ -34,6 +34,8 @@
                 <h3 class="user-name">{{ dataUser?.userAreaCode }}</h3>
                 <p class="area-name">{{ dataUser?.userAreaName }}</p>
               </div>
+
+              <OfflineSyncHeaderButton :count="syncBadgeCount" @click="isOfflineSyncModalOpen = true" />
             </div>
           </template>
         </Card>
@@ -53,18 +55,27 @@
         <ProgressSpinner stroke-width="2" />
         <p>{{ $t('home.info-areas') }}</p>
       </div>
+
+      <OfflineSyncModal v-model:visible="isOfflineSyncModalOpen" :get-checkpoint-name="resolveCheckpointName" />
     </ion-content>
   </ion-page>
 </template>
 
 <script setup lang="ts">
 import router from '@/router';
-import { IonPage, IonContent } from '@ionic/vue';
+import { IonPage, IonContent, onIonViewWillEnter } from '@ionic/vue';
 import { computed, ref } from 'vue';
 import { useStore } from 'vuex';
+import { useI18n } from 'vue-i18n';
 import { Card, Divider, ProgressSpinner, Tag } from '@/plugins/primevue.components';
+import OfflineSyncHeaderButton from '@/components/OfflineSyncHeaderButton.vue';
+import OfflineSyncModal from '@/components/OfflineSyncModal.vue';
+import { useSyncBadgeCount } from '@/composables/useOfflineSyncDisplay';
 
+const isOfflineSyncModalOpen = ref(false);
+const { syncBadgeCount, loadPendingItems } = useSyncBadgeCount();
 const store = useStore();
+const { t } = useI18n();
 const isOnline = computed(() => store.state.isOnline);
 const dataUser = computed(() => store.state.dataUser);
 const allowViews = computed(() => dataUser.value?.allowViews || []);
@@ -99,6 +110,22 @@ const handleClickIcon = (id: number) => {
     router.replace({ path: area.router });
   }
 };
+
+const resolveCheckpointName = (cpId: string) => {
+  const routes = store.state.dataListRoute || [];
+  for (const route of routes) {
+    const cp = route.routeDetails?.find(
+      (d: { cpId: number | string; cpName?: string }) => String(d.cpId) === String(cpId)
+    );
+    if (cp) return cp.cpName;
+  }
+  return t('routes.offline-checkpoint-fallback');
+};
+
+onIonViewWillEnter(() => {
+  void loadPendingItems();
+});
+
 </script>
 
 <style scoped>
@@ -117,8 +144,8 @@ const handleClickIcon = (id: number) => {
 .home-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(72px);
-  -webkit-filter: blur(72px);
+  filter: blur(40px);
+  -webkit-filter: blur(40px);
   opacity: 0.9;
 }
 

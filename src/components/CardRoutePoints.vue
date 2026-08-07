@@ -12,10 +12,8 @@
             <i class="pi pi-check" aria-hidden="true" />
           </Badge>
 
-          <span v-if="getOfflineCount(point.cpId) > 0" class="sync-badge"
-            :title="`${getOfflineCount(point.cpId)} chờ đồng bộ`">
+          <span v-if="getOfflineCount(point.cpId) > 0" class="sync-badge" title="Chờ đồng bộ">
             <i class="pi pi-cloud-upload sync-icon" aria-hidden="true" />
-            <span class="sync-count">{{ getOfflineCount(point.cpId) }}</span>
           </span>
         </div>
 
@@ -75,12 +73,10 @@ const offlineCounts = computed(() => {
   return buildCountsFromQueue(pendingItems.value || []);
 });
 
-const loadOfflineQueue = async () => {
-  try {
-    await loadPendingItems();
-  } catch (error) {
+const loadOfflineQueue = () => {
+  void loadPendingItems().catch((error) => {
     console.error('Lỗi khi tải dữ liệu offline queue:', error);
-  }
+  });
 };
 
 const getOfflineCount = (cpId: number | string): number => {
@@ -108,7 +104,7 @@ defineExpose({ loadOfflineQueue });
 .points-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 2px 11px;
+  gap: 10px;
   height: stretch;
   padding-top: 7px;
 }
@@ -212,31 +208,23 @@ defineExpose({ loadOfflineQueue });
 .sync-badge {
   position: absolute;
   bottom: -9px;
-  left: -12px;
+  left: -6px;
   z-index: 2;
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  min-height: 1.2rem;
-  padding: 0 0.3rem 0 0.22rem;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
   border-radius: 999px;
   border: 2px solid #ffffff;
-  background: linear-gradient(135deg, #f8e538 0%, #e9d30e 100%);
+  background: linear-gradient(135deg, #ebd722 0%, #eddc45 100%);
   color: #ffffff;
   box-shadow: 0 2px 8px rgba(233, 218, 14, 0.35);
 }
 
 .sync-icon {
-  font-size: 0.72rem;
+  font-size: 1rem;
   line-height: 1;
-}
-
-.sync-count {
-  font-size: 0.62rem;
-  font-weight: 700;
-  line-height: 1;
-  min-width: 0.75rem;
-  text-align: center;
 }
 
 .point-number :deep(.p-tag) {

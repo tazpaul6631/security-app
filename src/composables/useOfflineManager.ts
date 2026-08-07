@@ -65,6 +65,21 @@ export function useOfflineManager() {
     return true;
   };
 
+  /** Đọc ảnh 1 lần cho sync — trả null nếu thiếu/lệch số file */
+  const loadItemImagesBase64 = async (item: PendingItem): Promise<string[] | null> => {
+    const expectedImages = countExpectedImages(item.data);
+    if (expectedImages === 0) return null;
+    if (!item.imageFiles?.length || item.imageFiles.length !== expectedImages) return null;
+
+    const images: string[] = [];
+    for (const fileName of item.imageFiles) {
+      const base64 = await ImageService.readImage(fileName);
+      if (!base64) return null;
+      images.push(base64);
+    }
+    return images;
+  };
+
   /** Dọn mục zombie: metadata còn nhưng file ảnh mất hoặc payload không hợp lệ */
   const sanitizeQueue = async (): Promise<number> => {
     const queue: PendingItem[] = (await storage.get('offline_api_queue')) || [];
@@ -486,6 +501,7 @@ export function useOfflineManager() {
           mode: 'overlay'
         });
 
+        // Metadata nhẹ — ảnh đã được sanitize đầu sync; chỉ đọc disk 1 lần bên dưới
         if (!isQueueItemValid(item)) {
           console.error(`[Sync] Item ${item.id} không hợp lệ — dọn khỏi hàng chờ`);
           await cleanUpItem(item);
@@ -493,32 +509,17 @@ export function useOfflineManager() {
           continue;
         }
 
-        const imagesReadable = await hasReadableImageFiles(item);
-        if (!imagesReadable) {
+        const imagesBase64 = await loadItemImagesBase64(item);
+        if (!imagesBase64) {
           console.error(`[Sync] Item ${item.id} thiếu file ảnh — dọn khỏi hàng chờ`);
           await cleanUpItem(item);
           removedInvalidCount++;
           continue;
         }
 
-        // Đọc ảnh từ file vật lý để gán lại vào payload
-        if (item.imageFiles && item.imageFiles.length > 0) {
-          let fileIndex = 0;
-          if (item.data.noteGroups) {
-            for (const group of item.data.noteGroups) {
-              for (const imgObj of group.reportImages) {
-                const base64Clean = await ImageService.readImage(item.imageFiles[fileIndex]);
-                if (base64Clean) {
-                  imgObj.priImage = base64Clean;
-                }
-                fileIndex++;
-              }
-            }
-          }
-        }
-
         try {
-          const bodyFormData = await buildFormData(item);
+          // Ưu tiên 1+3: FormData từ RAM, không gán priImage / không đọc lại disk trong buildFormData
+          const bodyFormData = await buildFormData(item, imagesBase64);
           const result = await PointReport.createPointReport(bodyFormData);
 
           const responseData = result?.data || result;

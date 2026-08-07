@@ -2,8 +2,13 @@
   <Dialog v-model:visible="isOpen" modal :header="dialogHeader" class="offline-sync-dialog"
     :style="{ width: 'min(92vw, 24rem)' }" :draggable="false" :dismissable-mask="true" :closable="false"
     :close-on-escape="false">
-    <OfflineSyncList v-if="displayItems.length > 0" :displayItems="displayItems" :paginatedItems="paginatedItems"
-      :loadedCount="loadedCount" :getCheckpointName="getCheckpointName" @loadMore="loadMoreOfflineItems" />
+    <div v-if="isRefreshing && displayItems.length === 0" class="offline-sync-loading">
+      <ProgressSpinner stroke-width="3" class="offline-sync-spinner" />
+      <p>{{ $t('areas.report.offline-sync-loading') }}</p>
+    </div>
+
+    <OfflineSyncList v-else-if="displayItems.length > 0" :groupedItems="groupedItems"
+      :getCheckpointName="getCheckpointName" />
 
     <p v-else class="offline-sync-empty">{{ $t('areas.report.offline-sync-empty') }}</p>
 
@@ -17,7 +22,7 @@
 <script setup lang="ts">
 import { computed, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { Button, Dialog } from '@/plugins/primevue.components';
+import { Button, Dialog, ProgressSpinner } from '@/plugins/primevue.components';
 import OfflineSyncList from '@/components/OfflineSyncList.vue';
 import { useOfflineSyncDisplay } from '@/composables/useOfflineSyncDisplay';
 
@@ -39,9 +44,8 @@ const isOpen = computed({
 
 const {
   displayItems,
-  paginatedItems,
-  loadedCount,
-  loadMoreOfflineItems,
+  groupedItems,
+  isRefreshing,
   refreshDisplayItems,
   getCheckpointName,
 } = useOfflineSyncDisplay((cpId) => props.getCheckpointName(cpId));
@@ -52,9 +56,9 @@ const dialogHeader = computed(() =>
 
 watch(
   () => props.visible,
-  async (open) => {
+  (open) => {
     if (open) {
-      await refreshDisplayItems();
+      void refreshDisplayItems();
     }
   }
 );
@@ -63,6 +67,26 @@ watch(
 <style scoped>
 .offline-sync-dialog :deep(.p-dialog-content) {
   padding-top: 0;
+}
+
+.offline-sync-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 20px 8px;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+.offline-sync-spinner {
+  width: 2.5rem;
+  height: 2.5rem;
+}
+
+.offline-sync-loading p {
+  margin: 0;
 }
 
 .offline-sync-empty {

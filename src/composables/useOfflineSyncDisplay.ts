@@ -1,5 +1,4 @@
 import { ref, computed, watch } from 'vue';
-import { useStore } from 'vuex';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 import { ImageService } from '@/services/image.service';
 import storageService from '@/services/storage.service';
@@ -11,69 +10,106 @@ export interface OfflineQueueDisplayItem {
   thumb?: string | null;
 }
 
-export function filterPendingByCurrentShift(
-  items: OfflineQueueDisplayItem[],
-  psId: number | null | undefined
-): OfflineQueueDisplayItem[] {
-  if (!psId) return items;
-  return items.filter((item) => Number(item.data?.psId) === Number(psId));
+export interface OfflineQueueGroup {
+  key: string;
+  psId: number | null;
+  items: OfflineQueueDisplayItem[];
 }
 
+const thumbCache = new Map<string, string | null>();
+
 export function useSyncBadgeCount() {
-  const store = useStore();
   const { pendingItems, loadPendingItems } = useOfflineManager();
 
-  const syncBadgeCount = computed(() =>
-    filterPendingByCurrentShift(pendingItems.value, store.state.psId).length
-  );
+  const syncBadgeCount = computed(() => pendingItems.value.length);
 
   return { syncBadgeCount, loadPendingItems, pendingItems };
 }
 
 export function useOfflineSyncDisplay(getCheckpointName: (cpId: string) => string) {
-  const store = useStore();
   const { pendingItems, loadPendingItems, cleanUpItem } = useOfflineManager();
 
   const displayItems = ref<OfflineQueueDisplayItem[]>([]);
-  const itemsPerPage = 10;
-  const loadedCount = ref(itemsPerPage);
+  const isRefreshing = ref(false);
 
-  const buildDisplayItems = async (items: OfflineQueueDisplayItem[]) => {
-    const filtered = filterPendingByCurrentShift(items, store.state.psId);
-    return Promise.all(
-      filtered.map(async (item) => ({
+  const seedItems = (items: OfflineQueueDisplayItem[]): OfflineQueueDisplayItem[] =>
+    items.map((item) => {
+      const file = item.imageFiles?.[0];
+      return {
         ...item,
-        thumb: item.imageFiles?.[0]
-          ? await ImageService.getDisplayUrl(item.imageFiles[0])
-          : null,
-      }))
+        thumb: file ? (thumbCache.get(file) ?? null) : null,
+      };
+    });
+
+  const enrichThumbs = async (items: OfflineQueueDisplayItem[]) => {
+    const snapshotIds = items.map((i) => i.id).join('|');
+    const enriched = await Promise.all(
+      items.map(async (item) => {
+        const file = item.imageFiles?.[0];
+        if (!file) return { ...item, thumb: null };
+        if (thumbCache.has(file)) {
+          return { ...item, thumb: thumbCache.get(file) ?? null };
+        }
+        const url = await ImageService.getDisplayUrl(file);
+        thumbCache.set(file, url);
+        return { ...item, thumb: url };
+      })
     );
+    // Tránh ghi đè nếu queue đã đổi trong lúc lấy URI
+    const currentIds = displayItems.value.map((i) => i.id).join('|');
+    if (currentIds === snapshotIds) {
+      displayItems.value = enriched;
+    }
   };
 
-  const paginatedItems = computed(() => displayItems.value.slice(0, loadedCount.value));
+  const groupedItems = computed<OfflineQueueGroup[]>(() => {
+    const map = new Map<string, OfflineQueueGroup>();
+    for (const item of displayItems.value) {
+      const rawPsId = item.data?.psId;
+      const hasPsId = rawPsId !== null && rawPsId !== undefined && rawPsId !== '';
+      const psId = hasPsId ? Number(rawPsId) : null;
+      const key = hasPsId ? `ps_${psId}` : 'ps_unknown';
+      if (!map.has(key)) {
+        map.set(key, { key, psId, items: [] });
+      }
+      map.get(key)!.items.push(item);
+    }
+    return Array.from(map.values());
+  });
 
-  const loadMoreOfflineItems = () => {
-    loadedCount.value += itemsPerPage;
-  };
-
+  /** Seed list ngay từ RAM → load queue nhanh → thumb nền → sanitize nền */
   const refreshDisplayItems = async () => {
-    await loadPendingItems({ sanitize: true });
-    loadedCount.value = itemsPerPage;
-    displayItems.value = await buildDisplayItems(pendingItems.value);
+    isRefreshing.value = true;
+    try {
+      // 1) Seed tức thì nếu RAM đã có (Home/Route vừa load)
+      if (pendingItems.value.length > 0) {
+        displayItems.value = seedItems(pendingItems.value);
+        isRefreshing.value = false;
+        void enrichThumbs(displayItems.value);
+      }
+
+      // 2) Reload queue không sanitize (nhanh)
+      await loadPendingItems();
+      displayItems.value = seedItems(pendingItems.value);
+      isRefreshing.value = false;
+      void enrichThumbs(displayItems.value);
+
+      // 3) Sanitize nền — cập nhật list nếu có item bị dọn
+      void loadPendingItems({ sanitize: true }).then(() => {
+        displayItems.value = seedItems(pendingItems.value);
+        void enrichThumbs(displayItems.value);
+      });
+    } catch (e) {
+      console.error('[OfflineSyncDisplay] refreshDisplayItems:', e);
+      isRefreshing.value = false;
+    }
   };
 
   watch(
-    () => pendingItems.value,
-    async (newQueue) => {
-      displayItems.value = await buildDisplayItems(newQueue);
-    },
-    { deep: true }
-  );
-
-  watch(
-    () => store.state.psId,
-    async () => {
-      displayItems.value = await buildDisplayItems(pendingItems.value);
+    pendingItems,
+    (newQueue) => {
+      displayItems.value = seedItems(newQueue);
+      void enrichThumbs(newQueue);
     }
   );
 
@@ -88,9 +124,8 @@ export function useOfflineSyncDisplay(getCheckpointName: (cpId: string) => strin
 
   return {
     displayItems,
-    paginatedItems,
-    loadedCount,
-    loadMoreOfflineItems,
+    groupedItems,
+    isRefreshing,
     refreshDisplayItems,
     deleteItem,
     getCheckpointName,

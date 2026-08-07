@@ -1,42 +1,76 @@
 <template>
-  <Card v-if="displayItems.length > 0" class="offline-sync-card">
+  <Card v-if="groupedItems.length > 0" class="offline-sync-card">
     <template #content>
       <div class="offline-sync-list">
-        <div v-for="item in paginatedItems" :key="item.id" class="offline-sync-item">
-          <div class="item-thumb" :class="{ 'item-thumb--icon': !item.thumb }">
-            <img v-if="item.thumb" :src="item.thumb" class="item-thumb-img" alt="" />
-            <i v-else class="pi pi-cloud offline-cloud-icon" aria-hidden="true" />
-          </div>
+        <section v-for="group in groupedItems" :key="group.key" class="offline-group">
+          <h3 class="group-title">
+            {{ formatGroupLabel(group) }}
+          </h3>
 
-          <div class="item-body">
-            <h3 class="item-name">{{ getCheckpointName(item.data?.cpId) }}</h3>
-            <p class="item-meta">
-              <Tag :value="$t('areas.report.offline')" severity="warn" class="offline-tag" />
-              <span class="item-time">{{ formatDate(item.data?.createdAt) }}</span>
-            </p>
+          <div v-for="item in group.items" :key="item.id" class="offline-sync-item">
+            <div class="item-thumb" :class="{ 'item-thumb--icon': !item.thumb }">
+              <img v-if="item.thumb" :src="item.thumb" class="item-thumb-img" alt="" />
+              <i v-else class="pi pi-cloud offline-cloud-icon" aria-hidden="true" />
+            </div>
+
+            <div class="item-body">
+              <h3 class="item-name">{{ getCheckpointName(item.data?.cpId) }}</h3>
+              <p class="item-meta">
+                <Tag :value="$t('areas.report.offline')" severity="warn" class="offline-tag" />
+                <span class="item-time">{{ formatDate(item.data?.createdAt) }}</span>
+              </p>
+            </div>
           </div>
-        </div>
+        </section>
       </div>
-
-      <Button v-if="loadedCount < displayItems.length" :label="$t('areas.report.loading-more')" severity="secondary"
-        variant="outlined" icon="pi pi-angle-down" class="load-more-btn" fluid @click="emit('loadMore')" />
     </template>
   </Card>
 </template>
 
 <script setup lang="ts">
-import { Button, Card, Tag } from '@/plugins/primevue.components';
+import { Card, Tag } from '@/plugins/primevue.components';
+import type { OfflineQueueGroup } from '@/composables/useOfflineSyncDisplay';
+import { useI18n } from 'vue-i18n';
+import { useStore } from 'vuex';
 
 defineProps<{
-  displayItems: any[];
-  paginatedItems: any[];
-  loadedCount: number;
+  groupedItems: OfflineQueueGroup[];
   getCheckpointName: Function;
 }>();
 
-const emit = defineEmits(['delete', 'loadMore']);
+defineEmits(['delete']);
+
+const { t } = useI18n();
+const store = useStore();
 
 const formatDate = (ts: any) => new Date(ts).toLocaleTimeString();
+
+const formatGroupLabel = (group: OfflineQueueGroup) => {
+  const first = group.items[0]?.data || {};
+  const routes = store.state.dataListRoute || [];
+  const matchedRoute = routes.find((r: any) =>
+    Number(r?.psId) === Number(group.psId) &&
+    Number(r?.routeId) === Number(first.routeId)
+  ) || routes.find((r: any) => Number(r?.psId) === Number(group.psId));
+
+  const psHourFrom = matchedRoute?.psHourFrom ?? first.psHourFrom;
+  const psDay = matchedRoute?.psDay ?? first.psDay;
+  const psMonth = matchedRoute?.psMonth ?? first.psMonth;
+  const psYear = matchedRoute?.psYear ?? first.psYear;
+
+  const hasShiftDate =
+    psHourFrom !== null && psHourFrom !== undefined &&
+    psDay !== null && psDay !== undefined &&
+    psMonth !== null && psMonth !== undefined &&
+    psYear !== null && psYear !== undefined;
+
+  if (hasShiftDate) {
+    const datePart = `${psDay}/${psMonth}/${psYear}`;
+    return `${t('routes.shift')} ${psHourFrom}h - ${datePart} (${group.items.length})`;
+  }
+
+  return `${t('routes.shift')} #${group.psId ?? '-'} (${group.items.length})`;
+};
 </script>
 
 <style scoped>
@@ -51,7 +85,7 @@ const formatDate = (ts: any) => new Date(ts).toLocaleTimeString();
 }
 
 .offline-sync-card :deep(.p-card-body) {
-  padding: 14px;
+  padding: 0 14px;
   display: flex;
   flex-direction: column;
   min-height: 0;
@@ -77,6 +111,22 @@ const formatDate = (ts: any) => new Date(ts).toLocaleTimeString();
   -webkit-overflow-scrolling: touch;
   touch-action: pan-y;
   padding-right: 2px;
+}
+
+.offline-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.group-title {
+  margin: 0;
+  padding: 10px 0 0;
+  font-size: 0.9rem;
+  font-weight: bold;
+  color: #eb9617;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .offline-sync-item {
@@ -148,13 +198,5 @@ const formatDate = (ts: any) => new Date(ts).toLocaleTimeString();
 .item-time {
   font-size: 0.85rem;
   color: #64748b;
-}
-
-.load-more-btn {
-  flex-shrink: 0;
-  margin-top: 12px;
-  min-height: 2.5rem;
-  font-weight: 600;
-  border-radius: 10px;
 }
 </style>

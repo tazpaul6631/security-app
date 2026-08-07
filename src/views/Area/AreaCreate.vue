@@ -121,6 +121,7 @@ import { useAppLoading } from '@/composables/useAppLoading';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 import { useSyncBadgeCount } from '@/composables/useOfflineSyncDisplay';
 import { ImageService } from '@/services/image.service';
+import { speakText } from '@/services/ttsService';
 import router from '@/router';
 import storageService from '@/services/storage.service';
 import { useRouteTimer } from '@/composables/useRouteTimer';
@@ -130,7 +131,6 @@ import CheckpointInfoCard from '@/components/CheckpointInfoCard.vue';
 import OfflineSyncModal from '@/components/OfflineSyncModal.vue';
 import OfflineSyncHeaderButton from '@/components/OfflineSyncHeaderButton.vue';
 import NoteInputModal from '@/components/modals/NoteInputModal.vue';
-import IssueDetailModal from '@/components/modals/IssueDetailModal.vue';
 import CategoryModal from '@/components/modals/CategoryModal.vue';
 import { useCameraHandler } from '@/composables/useCameraHandler';
 import { useI18n } from 'vue-i18n';
@@ -174,7 +174,12 @@ watch(() => currentActiveRoute.value, async (newRoute) => {
     store.commit('SET_PSID', newRoute.psId);
   }
 
-  if (newRoute && newRoute.routeId && newRoute.planMaxSecond && newRoute.planMinSecond) {
+  if (
+    newRoute &&
+    newRoute.routeId &&
+    newRoute.planMaxSecond != null &&
+    newRoute.planMinSecond != null
+  ) {
     await storageService.set('unfinished_route_id', newRoute.routeId);
     await startTimer(newRoute.routeId, newRoute.psId, newRoute.planMaxSecond, newRoute.planMinSecond);
   }
@@ -679,6 +684,7 @@ const handleSubmit = async (): Promise<void> => {
 
     const finishNavigate = async () => {
       if (allDone) {
+        void speakText('Bạn đã hoàn thành ca trực, vui lòng đăng xuất để cho bảo vệ tiếp theo bắt đầu ca trực mới');
         await showToast(t('areas.report.message.5'), 'success');
         router.replace('/home');
       } else {
@@ -1099,7 +1105,7 @@ const redirectIfInvalidSession = async (): Promise<boolean> => {
 onIonViewWillEnter(async () => {
   if (!(await redirectIfInvalidSession())) return;
 
-  await loadPendingItems();
+  void loadPendingItems();
 
   setTimeout(async () => {
     const hasDraft = await loadDraft();
@@ -1148,15 +1154,15 @@ onMounted(async () => {
 
   if (!(await redirectIfInvalidSession())) return;
 
-  await loadPendingItems();
-
   const catData = store.state.dataReportNoteCategory;
   if (catData) {
     const rawArray = Array.isArray(catData) ? catData : (catData.data || []);
     apiCategories.value = markRaw(rawArray);
   }
 
+  // Hiện UI ngay — queue offline load nền, không chặn form report
   isReady.value = true;
+  void loadPendingItems();
 });
 
 // Chặn nút back vật lý để không rời màn report ngoài ý muốn.
@@ -1215,8 +1221,8 @@ useBackButton(10000, () => { });
 .area-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(70px);
-  -webkit-filter: blur(70px);
+  filter: blur(40px);
+  -webkit-filter: blur(40px);
   opacity: 0.9;
 }
 

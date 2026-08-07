@@ -124,8 +124,8 @@ useBackButton(10, () => {
 .report-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(72px);
-  -webkit-filter: blur(72px);
+  filter: blur(40px);
+  -webkit-filter: blur(40px);
   opacity: 0.9;
 }
 

@@ -432,20 +432,24 @@ const initDefaultTab = async () => {
 
 onIonViewWillEnter(async () => {
   if (isCurrentUserAdmin.value) {
-    await fetchRoles();
+    void fetchRoles();
   }
-  await loadAreasCache();
 
-  if (isReturningFromDetail.value) {
-    isReturningFromDetail.value = false;
-  } else {
-    selectedItem.value = null;
-    activeSegment.value = '';
-    currentActiveAreaId.value = null;
-    displayedItems.value = [];
+  // Cache/tabs load nền — không chặn frame vào trang
+  void (async () => {
+    await loadAreasCache();
 
-    await initDefaultTab();
-  }
+    if (isReturningFromDetail.value) {
+      isReturningFromDetail.value = false;
+    } else {
+      selectedItem.value = null;
+      activeSegment.value = '';
+      currentActiveAreaId.value = null;
+      displayedItems.value = [];
+
+      await initDefaultTab();
+    }
+  })();
 });
 
 const openSelect = async (parent: string, _children: any[], id: number) => {
@@ -663,8 +667,8 @@ useBackButton(10, () => {
 .area-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(72px);
-  -webkit-filter: blur(72px);
+  filter: blur(40px);
+  -webkit-filter: blur(40px);
   opacity: 0.9;
 }
 

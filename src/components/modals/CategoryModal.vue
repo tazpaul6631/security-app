@@ -27,8 +27,8 @@
             <template #title>
               <div class="note-group-header">
                 <span class="note-group-title">{{ index + 1 }}. {{ group.priImageNote }}</span>
-                <Button icon="pi pi-trash" severity="danger" variant="text" rounded class="btn-delete-group"
-                  size="large" @click="$emit('removeGroup', index)" />
+                <Button icon="pi pi-trash" severity="danger" class="btn-delete-group" size="large"
+                  @click="$emit('removeGroup', index)" />
               </div>
             </template>
 
@@ -273,10 +273,6 @@ useBackButton(10001, () => {
 
 .note-group-card :deep(.p-card-body) {
   padding: 10px;
-}
-
-.note-group-card :deep(.p-card-title) {
-  margin: 0 0 8px;
 }
 
 .note-group-header {

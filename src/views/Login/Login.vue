@@ -40,8 +40,7 @@
               <div class="username-row">
                 <IconField icon-position="left" class="username-input">
                   <InputIcon class="pi pi-user" />
-                  <InputText id="user-code" v-model="loginDetail.userCode" disabled
-                    :placeholder="t('login.scan_qr_hint')" />
+                  <InputText id="user-code" v-model="loginDetail.userCode" :placeholder="t('login.scan_qr_hint')" />
                 </IconField>
                 <Button type="button" icon="pi pi-qrcode" severity="success" variant="outlined" class="scan-btn"
                   size="large" :aria-label="t('login.scan_qr')" @click="handleScanQRLogin" />

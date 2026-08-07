@@ -281,31 +281,30 @@ const resolveCheckpointName = (cpId: string) => {
 watch(() => currentActiveRoute.value, async (newRoute) => {
   if (newRoute && newRoute.psId) {
     store.commit('SET_PSID', newRoute.psId);
-    storageService.set('current_ps_id', newRoute.psId);
-    await purgeStaleShiftQueue(newRoute.psId);
-    await loadPendingItems();
+    void storageService.set('current_ps_id', newRoute.psId);
+    // Queue I/O nền — không chặn restore timer / paint lộ trình
+    void purgeStaleShiftQueue(newRoute.psId);
+    void loadPendingItems();
   }
 
   if (newRoute) {
-    // 1. Kiểm tra xem ca này đã có điểm nào quét chưa (status = 1)
-    const hasStarted = newRoute.routeDetails.some((p: any) => p.rdIsComplete);
+    const isDifferentShift =
+      currentTimerRouteId.value !== null &&
+      (Number(currentTimerRouteId.value) !== Number(newRoute.routeId) ||
+        Number(currentTimerPsId.value) !== Number(newRoute.psId));
 
-    // 2. Hoặc kiểm tra xem nó có đang bị khóa dở dang không
+    // Đổi ca/lộ trình → luôn dọn timer ca cũ trước (tránh đỏ/00:00 dính sang ca mới)
+    if (isDifferentShift) {
+      await clearTimer(currentTimerRouteId.value, currentTimerPsId.value);
+    }
+
+    const hasStarted = newRoute.routeDetails.some((p: any) => p.rdIsComplete);
     const isUnfinished = Number(newRoute.routeId) === Number(lockedRouteId.value);
 
-    // CHỈ KHÔI PHỤC NẾU THỰC SỰ ĐÃ BẮT ĐẦU LÀM
     if (hasStarted || isUnfinished) {
       await restoreTimer(newRoute.routeId, newRoute.psId);
-    } else {
-      // CA MỚI TINH (Chưa làm gì) ---
-      // NẾU đang có timer chạy VÀ (Khác Lộ trình HOẶC Khác Ca trực) -> Thì xóa timer cũ đi
-      if (
-        currentTimerRouteId.value !== null &&
-        (currentTimerRouteId.value !== newRoute.routeId || currentTimerPsId.value !== newRoute.psId)
-      ) {
-        // Xóa timer bằng khóa của ca CŨ
-        await clearTimer(currentTimerRouteId.value, currentTimerPsId.value);
-      }
+    } else if (currentTimerRouteId.value !== null) {
+      await clearTimer(currentTimerRouteId.value, currentTimerPsId.value);
     }
   } else {
     // NẾU KHÔNG CÓ LỘ TRÌNH NÀO HOẠT ĐỘNG
@@ -423,8 +422,8 @@ const updateSystemTime = async () => {
   const hourNow = now.getHours();
   if (hourNow !== currentHour.value) {
     currentHour.value = hourNow;
-    // Luôn refresh list (online) để có ca kế tiếp; ca đang khóa vẫn ưu tiên hiện nhờ unfinishedRouteId
-    await loadRouteData();
+    // Refresh nền — không full-screen loading khi đã có cache ca
+    await loadRouteData({ silent: true });
   }
 };
 
@@ -434,12 +433,20 @@ const handleAppWakeUp = () => {
   }
 };
 
-const loadRouteData = async () => {
-  isLoading.value = true;
+const hasRouteCache = () =>
+  Array.isArray(store.state.dataListRoute) && store.state.dataListRoute.length > 0;
+
+const loadRouteData = async (options: { silent?: boolean } = {}) => {
+  // Cache-first: chỉ hiện spinner khi chưa có list để render
+  const silent = options.silent ?? hasRouteCache();
+  if (!silent) {
+    isLoading.value = true;
+  }
+
   try {
     // Offline: chỉ dùng store / SQLite đã tải (~3 ngày lúc login)
     if (!store.state.isOnline) {
-      if (!Array.isArray(store.state.dataListRoute) || store.state.dataListRoute.length === 0) {
+      if (!hasRouteCache()) {
         await store.dispatch('restoreListRoute');
       }
       return;
@@ -462,7 +469,7 @@ const loadRouteData = async () => {
     await storageService.set('list_route', store.state.dataListRoute);
   } catch (error) {
     console.error('[RouteIndex] loadRouteData lỗi, dùng cache local:', error);
-    if (!Array.isArray(store.state.dataListRoute) || store.state.dataListRoute.length === 0) {
+    if (!hasRouteCache()) {
       await store.dispatch('restoreListRoute');
     }
   } finally {
@@ -481,13 +488,17 @@ onIonViewWillEnter(async () => {
   currentHour.value = now.getHours();
   userRoleIsAdmin.value = store.state.dataUser?.userRoleIsAdmin;
 
-  // Gọi hàm kéo dữ liệu lộ trình
-  await loadRouteData();
-
-  // Bắt thẻ con quét lại SQLite để đếm số ảnh offline mới nhất
-  if (cardRoutePointsRef.value) {
-    cardRoutePointsRef.value.loadOfflineQueue();
+  // Có cache từ login → hiện UI ngay, refresh API + queue nền
+  if (hasRouteCache()) {
+    isLoading.value = false;
+    void loadRouteData().finally(() => {
+      cardRoutePointsRef.value?.loadOfflineQueue();
+    });
+    return;
   }
+
+  await loadRouteData();
+  cardRoutePointsRef.value?.loadOfflineQueue();
 });
 
 onMounted(async () => {
@@ -495,7 +506,8 @@ onMounted(async () => {
   window.addEventListener('visibilitychange', handleAppWakeUp);
   window.addEventListener('focus', updateSystemTime);
 
-  timer = setInterval(updateSystemTime, 5000);
+  // Check đổi giờ — không cần 5s (giảm wake/API thừa)
+  timer = setInterval(updateSystemTime, 15000);
 });
 
 onUnmounted(() => {
@@ -679,8 +691,8 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
 .route-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(72px);
-  -webkit-filter: blur(72px);
+  filter: blur(40px);
+  -webkit-filter: blur(40px);
   opacity: 0.9;
 }
 
@@ -900,7 +912,7 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
   z-index: 1;
   display: flex;
   align-items: center;
-  padding: 24px;
+  padding: 0 24px;
   margin: auto;
 }
 

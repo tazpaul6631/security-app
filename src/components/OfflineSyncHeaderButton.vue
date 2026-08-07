@@ -27,10 +27,10 @@ const emit = defineEmits<{
   height: 2.5rem;
   margin: 0;
   padding: 0;
-  border: none;
+  border: 1px solid #e7b343;
   border-radius: 10px;
-  background: transparent;
-  color: #334155;
+  background: #f3cc78;
+  color: #ffffff;
   cursor: pointer;
   appearance: none;
   -webkit-tap-highlight-color: transparent;
@@ -40,7 +40,6 @@ const emit = defineEmits<{
 .offline-sync-header-btn:focus,
 .offline-sync-header-btn:focus-visible,
 .offline-sync-header-btn:active {
-  background: #f1f5f9;
   outline: none;
 }
 
@@ -50,15 +49,15 @@ const emit = defineEmits<{
 
 .offline-sync-badge {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: -7px;
+  right: -6px;
   min-width: 1.125rem;
   height: 1.125rem;
   padding: 0 4px;
   border-radius: 999px;
   background: #f59e0b;
   color: #ffffff;
-  font-size: 0.625rem;
+  font-size: 0.8rem;
   font-weight: 700;
   line-height: 1.125rem;
   text-align: center;

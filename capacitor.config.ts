@@ -16,7 +16,6 @@ const config: CapacitorConfig = {
     },
   },
   // server: {
-  //   // 10.0.2.2 là địa chỉ IP máy tính host khi nhìn từ Emulator
   //   url: 'http://10.0.149.28:8100',
   //   cleartext: true, // Cho phép chạy HTTP (không cần HTTPS)
   //   allowNavigation: ['10.0.149.28']
