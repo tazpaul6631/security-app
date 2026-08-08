@@ -39,6 +39,10 @@ import store from '@/composables/useVuex';
 import { Network } from '@capacitor/network';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 import storage from '@/services/storage.service';
+import {
+  restoreAwaitingLogoutAfterSync,
+  tryPromptLogoutAfterOfflineSync,
+} from '@/composables/useLogoutPrompt';
 import { useI18n } from 'vue-i18n';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
@@ -122,6 +126,8 @@ const safeSync = async (isInitApp = false) => {
     } finally {
       isSafeSyncing = false;
     }
+    // Queue đã sạch (kể cả sau reload) → hỏi logout nếu đang awaiting
+    void tryPromptLogoutAfterOfflineSync({ speakSuccess: true });
     return;
   }
 
@@ -141,19 +147,34 @@ const safeSync = async (isInitApp = false) => {
       });
     }
 
-    // 1. Chỉ chạy hàm đẩy ảnh offline lên nếu thực sự CÓ data
+    // 1. Đẩy queue offline lên trước
     if (hasOfflineData) {
       await syncData();
     }
 
-    // 2. Nếu là F5/Login (isInitApp = true), TẢI MỚI TOÀN BỘ MASTER DATA
-    // Nếu là ngầm (có mạng lại), chỉ tải lại list_route.
+    // 2. Kiểm tra lại queue — chỉ download khi sạch (tránh đè tiến độ local chưa sync)
+    await loadPendingItems();
+    const deleteAfter = (await storage.get('offline_delete_queue')) || [];
+    const wrongAfter = (await storage.get('offline_wrong_scan_queue')) || [];
+    const queuesClean =
+      pendingItems.value.length === 0 &&
+      deleteAfter.length === 0 &&
+      wrongAfter.length === 0;
+
     if (isInitApp) {
+      // Login/F5: luôn cần master data; list_route đã merge+persist đúng trong syncAllData
       const apiList = getGlobalApiList(store.state.dataUser);
       await store.dispatch('syncAllData', { apiList, mode: mode });
-    } else {
+    } else if (queuesClean) {
       await store.dispatch('syncAllData', { apiList: lightListRouteApi(), mode: 'silent' });
+    } else {
+      console.warn('[safeSync] Còn pending sau upload — bỏ download list_route để giữ tiến độ local');
     }
+
+    // 3. Một chỗ duy nhất hỏi logout (sau overlay download / upload)
+    void tryPromptLogoutAfterOfflineSync({
+      speakSuccess: hasOfflineData && queuesClean,
+    });
   } catch (e) {
     console.error("Lỗi đồng bộ:", e);
     store.commit('SET_SYNC_STATUS', { progress: 0, message: '', isSyncing: false, mode: 'silent' });
@@ -213,8 +234,11 @@ onMounted(async () => {
 
     if (store.state.token) {
       await store.dispatch('initApp');
+      await restoreAwaitingLogoutAfterSync();
       if (status.connected) {
         safeSync(true);
+      } else {
+        // Offline sau reload: giữ cờ SQLite; khi có mạng safeSync sẽ tryPrompt
       }
     }
 

@@ -430,13 +430,14 @@ const store = createStore({
             const data = response?.data;
 
             if (data) {
-              // Chỉ lưu SQLite 1 lần và BẮT BUỘC CÓ AWAIT để máy ghi xong mới đi tiếp
-              await storageService.set(step.key, data);
+              // Commit trước (list_route sẽ merge với local), rồi mới ghi SQLite bản đã merge
+              commit(step.mutation, data);
 
-              // Xóa bỏ các khối if (data) lồng nhau lặp code
-              requestAnimationFrame(() => {
-                commit(step.mutation, data);
-              });
+              if (step.key === 'list_route') {
+                await storageService.set('list_route', state.dataListRoute);
+              } else {
+                await storageService.set(step.key, data);
+              }
             }
           }
         } catch (error) {
@@ -452,10 +453,9 @@ const store = createStore({
         mode: mode
       });
 
-      // Giữ màn hình Hoàn Tất 1.5s trước khi đóng
-      setTimeout(() => {
-        commit('SET_SYNC_STATUS', { progress: 0, message: '', isSyncing: false, mode: 'silent' });
-      }, 1500);
+      // Giữ màn hình Hoàn Tất 1.5s rồi tắt — await để caller biết overlay đã xong
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      commit('SET_SYNC_STATUS', { progress: 0, message: '', isSyncing: false, mode: 'silent' });
     },
 
     // Hàm khôi phục khóa từ Storage

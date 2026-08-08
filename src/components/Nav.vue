@@ -49,6 +49,7 @@ import { useI18n } from 'vue-i18n';
 import router from '@/router';
 import { useStore } from 'vuex';
 import { useOfflineManager } from '@/composables/useOfflineManager';
+import { watchLogoutPrompt, clearAwaitingLogoutAfterSync } from '@/composables/useLogoutPrompt';
 import storageService from '@/services/storage.service';
 import Logout from '@/api/Logout';
 import { useRouteTimer } from '@/composables/useRouteTimer';
@@ -111,6 +112,8 @@ const openLogoutModal = () => {
   }
   isLogoutModalOpen.value = true;
 };
+
+watchLogoutPrompt(openLogoutModal);
 //////////////////////////////
 
 //////////////////////////////////////////
@@ -178,6 +181,7 @@ const performLogout = async () => {
 
     // --- 4. BẮT ĐẦU QUY TRÌNH DỌN DẸP TRIỆT ĐỂ LOCAL ---
     console.log('Tiến hành dọn dẹp state và storage...');
+    clearAwaitingLogoutAfterSync();
     await clearTimer();
     await store.dispatch('logout');
 

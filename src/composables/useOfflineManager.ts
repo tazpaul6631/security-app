@@ -590,52 +590,53 @@ export function useOfflineManager() {
 
       const remainingCount = pendingItems.value.length;
 
-      // Delay nhỏ để UI mượt mà hơn trước khi tắt trạng thái Syncing
+      // Chờ ngắn rồi tắt overlay — await để safeSync không download chồng lên giữa chừng
       if (isProcessing) {
-        setTimeout(async () => {
-          isProcessing = false;
-          storeInstance.commit('SET_SYNC_OFFLINE_STATUS', false);
-          isSyncing.value = false;
+        await new Promise((resolve) => setTimeout(resolve, 400));
 
-          if (remainingCount === 0) {
-            if (removedInvalidCount > 0) {
-              storeInstance.commit('SET_SYNC_STATUS', {
-                progress: 100,
-                message: t('messages.use-offline.removed-invalid', { count: removedInvalidCount }),
-                isSyncing: false,
-                mode: 'silent'
-              });
-              presentToast(
-                t('messages.use-offline.removed-invalid', { count: removedInvalidCount }),
-                'danger'
-              );
-            } else {
-              storeInstance.commit('SET_SYNC_STATUS', {
-                progress: 100,
-                message: t('messages.use-offline.completed'),
-                isSyncing: false,
-                mode: 'silent'
-              });
-            }
-          } else {
+        isProcessing = false;
+        storeInstance.commit('SET_SYNC_OFFLINE_STATUS', false);
+        isSyncing.value = false;
+
+        if (remainingCount === 0) {
+          if (removedInvalidCount > 0) {
             storeInstance.commit('SET_SYNC_STATUS', {
-              progress: 0,
-              message: t('messages.use-offline.incomplete', { count: remainingCount }),
+              progress: 100,
+              message: t('messages.use-offline.removed-invalid', { count: removedInvalidCount }),
               isSyncing: false,
               mode: 'silent'
             });
-            presentToast(t('messages.use-offline.incomplete', { count: remainingCount }), 'warning');
-
-            if (removedInvalidCount > 0) {
-              presentToast(
-                t('messages.use-offline.removed-invalid', { count: removedInvalidCount }),
-                'danger'
-              );
-            }
+            presentToast(
+              t('messages.use-offline.removed-invalid', { count: removedInvalidCount }),
+              'danger'
+            );
+          } else {
+            storeInstance.commit('SET_SYNC_STATUS', {
+              progress: 100,
+              message: t('messages.use-offline.completed'),
+              isSyncing: false,
+              mode: 'silent'
+            });
           }
+          // Logout prompt: để App.safeSync gọi sau khi download xong (tránh overlay đè + speak đôi)
+        } else {
+          storeInstance.commit('SET_SYNC_STATUS', {
+            progress: 0,
+            message: t('messages.use-offline.incomplete', { count: remainingCount }),
+            isSyncing: false,
+            mode: 'silent'
+          });
+          presentToast(t('messages.use-offline.incomplete', { count: remainingCount }), 'warning');
 
-          console.log("--- [END] KẾT THÚC ĐỒNG BỘ ---");
-        }, 800);
+          if (removedInvalidCount > 0) {
+            presentToast(
+              t('messages.use-offline.removed-invalid', { count: removedInvalidCount }),
+              'danger'
+            );
+          }
+        }
+
+        console.log("--- [END] KẾT THÚC ĐỒNG BỘ ---");
       }
     }
   };

@@ -120,6 +120,7 @@ import { Button, Card, Checkbox, Dialog, FloatLabel, Textarea } from '@/plugins/
 import { useAppLoading } from '@/composables/useAppLoading';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 import { useSyncBadgeCount } from '@/composables/useOfflineSyncDisplay';
+import { useLogoutPrompt } from '@/composables/useLogoutPrompt';
 import { ImageService } from '@/services/image.service';
 import { speakText } from '@/services/ttsService';
 import router from '@/router';
@@ -211,8 +212,12 @@ const pendingNoteId = ref<string | null>(null);
 const currentIssues = computed(() => selectedSubCategory.value?.childs || []);
 
 // --- Offline Manager ---
-const { sendData, loadPendingItems, pendingItems } = useOfflineManager();
+const { sendData, loadPendingItems, pendingItems, syncData } = useOfflineManager();
 const { syncBadgeCount } = useSyncBadgeCount();
+const {
+  markAwaitingLogoutAfterSync,
+  tryPromptLogoutAfterOfflineSync,
+} = useLogoutPrompt();
 
 // --- Functions ---
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -684,8 +689,6 @@ const handleSubmit = async (): Promise<void> => {
 
     const finishNavigate = async () => {
       if (allDone) {
-        void speakText('Bạn đã hoàn thành ca trực, vui lòng đăng xuất để cho bảo vệ tiếp theo bắt đầu ca trực mới');
-        await showToast(t('areas.report.message.5'), 'success');
         router.replace('/home');
       } else {
         router.replace('/route');
@@ -710,6 +713,9 @@ const handleSubmit = async (): Promise<void> => {
       void finishNavigate();
 
       void (async () => {
+        // Đánh dấu: xong ca — nếu còn pending sẽ hỏi logout sau khi sync sạch
+        await markAwaitingLogoutAfterSync();
+
         if (isDeviceOnline) {
           try {
             await sendData(firstPreview || '', payloadForSend, imagesForSend);
@@ -719,11 +725,42 @@ const handleSubmit = async (): Promise<void> => {
         }
         await storageService.set('list_route', store.state.dataListRoute);
         await loadPendingItems({ sanitize: true });
+
+        // Online còn queue → thử sync rồi kiểm tra lại trước khi hỏi đăng xuất
+        if (isDeviceOnline && pendingItems.value.length > 0) {
+          try {
+            await syncData();
+          } catch (syncErr) {
+            console.warn('[AreaCreate] Sync sau hoàn thành ca thất bại:', syncErr);
+          }
+          await loadPendingItems({ sanitize: true });
+        }
+
         if (pendingItems.value.length === 0) {
           await ImageService.purgeOfflineImages();
         } else {
           console.warn('[AreaCreate] Còn báo cáo chờ sync — giữ file ảnh offline');
         }
+
+        const deleteQueue = (await storageService.get('offline_delete_queue')) || [];
+        const wrongScanQueue = (await storageService.get('offline_wrong_scan_queue')) || [];
+        const totalUnsynced =
+          pendingItems.value.length + deleteQueue.length + wrongScanQueue.length;
+
+        void speakText(
+          totalUnsynced !== 0
+            ? 'Ca trực đã hoàn thành nhưng còn dữ liệu chờ đồng bộ. Vui lòng giữ máy online đến khi đồng bộ xong rồi đăng xuất.'
+            : 'Ca trực đã hoàn thành, vui lòng đăng xuất để cho bảo vệ tiếp theo bắt đầu ca trực mới'
+        );
+
+        if (totalUnsynced === 0) {
+          // Online sạch ngay / hoặc syncData đã mở modal (awaiting đã clear → no-op)
+          await tryPromptLogoutAfterOfflineSync({
+            pendingCount: 0,
+            speakSuccess: false,
+          });
+        }
+        // Còn pending: giữ awaitingLogoutAfterSync — chip sync + TTS; sync sạch sau sẽ speak + modal
       })();
     } else {
       await storageService.set('list_route', updatedRoutes);
