@@ -194,7 +194,7 @@ const handleLogin = async () => {
 
         const apiList = {
           checkpoints: () => CheckPointScanQr.postCheckPointView(checkpointPayload),
-          area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),
+          // area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),
           list_route: () => PatrolShiftView.postPatrolShiftView({
             getOfflineData: true,
             areaId: userData.userAreaId,

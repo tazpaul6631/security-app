@@ -2,7 +2,7 @@
   <button type="button" class="offline-sync-header-btn" :aria-label="$t('areas.report.pending-sync')"
     @click="emit('click')">
     <i class="pi pi-cloud-upload offline-sync-header-icon" aria-hidden="true" />
-    <span v-if="count > 0" class="offline-sync-badge">{{ count > 99 ? '99+' : count }}</span>
+    <span v-if="count > 0" class="offline-sync-badge">{{ count }}</span>
   </button>
 </template>
 
@@ -49,7 +49,7 @@ const emit = defineEmits<{
 
 .offline-sync-badge {
   position: absolute;
-  top: -7px;
+  top: -6px;
   right: -6px;
   min-width: 1.125rem;
   height: 1.125rem;
@@ -61,5 +61,18 @@ const emit = defineEmits<{
   font-weight: 700;
   line-height: 1.125rem;
   text-align: center;
+  animation: pulse 2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(231, 150, 12, 0.7);
+  }
+
+  50% {
+    box-shadow: 0 0 0 7px rgb(231, 150, 12, 0);
+  }
 }
 </style>

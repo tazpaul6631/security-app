@@ -1,7 +1,8 @@
 <template>
   <ion-page class="area-detail-page">
     <header class="route-header">
-      <button type="button" class="route-back-btn" :aria-label="$t('page.areas.index')" @click="router.replace('/area')">
+      <button type="button" class="route-back-btn" :aria-label="$t('page.areas.index')"
+        @click="router.replace('/area')">
         <i class="pi pi-arrow-left route-back-icon" aria-hidden="true" />
         <span class="route-title">{{ $t('page.areas.detail') }}</span>
       </button>
@@ -34,14 +35,13 @@
         </ion-modal>
 
         <ion-card-header>
-          <div class="status-badge"
-            :class="getPrIdData.prHasProblem && getPrIdData.prStatus === 0 ? 'problem1' : getPrIdData.prHasProblem && getPrIdData.prStatus === 1 ? 'problem2' : 'normal'">
-            {{ getPrIdData.prHasProblem && getPrIdData.prStatus === 0 ? $t('areas.detail.stt-pending') :
-              getPrIdData.prHasProblem &&
-                getPrIdData.prStatus === 1 ? $t('areas.detail.stt-processing') : getPrIdData.prStatus === 2 ?
-                $t('areas.detail.stt-completed') : $t('areas.detail.stt-no-issue') }}
-          </div>
-          <ion-card-title>{{ $t('areas.detail.area') }} {{ getPrIdData.areaName }}</ion-card-title>
+          <ion-card-title>{{ $t('areas.detail.area') }} {{ getPrIdData.areaName }} <div class="status-badge"
+              :class="getPrIdData.prHasProblem && getPrIdData.prStatus === 0 ? 'problem1' : getPrIdData.prHasProblem && getPrIdData.prStatus === 1 ? 'problem2' : 'normal'">
+              {{ getPrIdData.prHasProblem && getPrIdData.prStatus === 0 ? $t('areas.detail.stt-pending') :
+                getPrIdData.prHasProblem &&
+                  getPrIdData.prStatus === 1 ? $t('areas.detail.stt-processing') : getPrIdData.prStatus === 2 ?
+                  $t('areas.detail.stt-completed') : $t('areas.detail.stt-no-issue') }}
+            </div></ion-card-title>
           <ion-card-subtitle>{{ $t('areas.detail.position') }} {{ getPrIdData.cpName }}</ion-card-subtitle>
         </ion-card-header>
 
@@ -127,7 +127,7 @@ import {
   IonCard, IonCardHeader, IonCardTitle,
   IonCardSubtitle, IonCardContent, IonCol, IonGrid, IonRow, IonPage,
   IonContent, IonLabel, IonImg, IonModal,
-  IonList, IonItem, IonIcon, IonButton, useBackButton
+  IonList, IonItem, IonIcon, IonButton, useBackButton, onIonViewWillEnter
 } from '@ionic/vue'
 import { calendarOutline, documentTextOutline } from 'ionicons/icons';
 import { ref, computed, watch } from 'vue';
@@ -135,7 +135,6 @@ import { useStore } from 'vuex';
 import { Swiper, SwiperSlide } from 'swiper/vue';
 import 'swiper/css';
 import '@ionic/vue/css/ionic-swiper.css';
-import { ImageService } from '@/services/image.service';
 
 const store = useStore();
 
@@ -160,43 +159,29 @@ const getPrIdData = computed(() => {
     }
   }
 
+  // Không hỗ trợ xem báo cáo offline mock trên màn detail
+  if (actualData?.isOfflineMock) return null;
+
   return actualData;
 });
 
 /**
- * Xử lý danh sách ảnh (Hỗ trợ Offline File, Online URL và Online Base64)
- * Watch này sẽ chạy mỗi khi getPrIdData thay đổi
+ * Xử lý danh sách ảnh từ API (URL / Base64) — chỉ online
  */
 watch(() => getPrIdData.value, async (data) => {
   if (data && data.noteGroups && Array.isArray(data.noteGroups)) {
-    // Biến đếm để lấy đúng file từ mảng phẳng imageFiles (lưu lúc sendData - dùng cho offline)
-    let totalImgIdx = 0;
-
     const processedGroups = await Promise.all(data.noteGroups.map(async (group: any) => {
       const processedImages = await Promise.all((group.reportImages || []).map(async (img: any) => {
         let imageUrl = '';
 
-        // TRƯỜNG HỢP 1: Dữ liệu Offline Mock (Ảnh lưu trong bộ nhớ máy)
-        if (data.isOfflineMock && data.imageFiles && data.imageFiles[totalImgIdx]) {
-          const fileName = data.imageFiles[totalImgIdx];
-          const localUrl = await ImageService.getDisplayUrl(fileName);
-          imageUrl = localUrl || '';
-          totalImgIdx++; // Tăng index để ảnh tiếp theo lấy file tiếp theo
-        }
-        // TRƯỜNG HỢP 2: Dữ liệu Online từ API
-        else {
-          // Ưu tiên 1: Dùng link trực tiếp từ API (priUrl) nếu có
-          if (img.priUrl) {
-            imageUrl = img.priUrl;
-          }
-          // Ưu tiên 2: Fallback lại logic Base64 (phòng trường hợp data cũ hoặc lưu tạm)
-          else if (img.priImage) {
-            const base64String = img.priImage || '';
-            const mimeType = img.priImageType || 'jpeg';
-            imageUrl = base64String.startsWith('data:image')
-              ? base64String
-              : `data:image/${mimeType};base64,${base64String}`;
-          }
+        if (img.priUrl) {
+          imageUrl = img.priUrl;
+        } else if (img.priImage) {
+          const base64String = img.priImage || '';
+          const mimeType = img.priImageType || 'jpeg';
+          imageUrl = base64String.startsWith('data:image')
+            ? base64String
+            : `data:image/${mimeType};base64,${base64String}`;
         }
 
         return { url: imageUrl, note: group.priImageNote };
@@ -208,12 +193,20 @@ watch(() => getPrIdData.value, async (data) => {
       };
     }));
 
-    // Cập nhật vào ref để giao diện hiển thị
     listGroups.value = processedGroups.filter((g: any) => g.images.length > 0);
   } else {
     listGroups.value = [];
   }
 }, { immediate: true });
+
+onIonViewWillEnter(() => {
+  if (!store.state.isOnline || !getPrIdData.value) {
+    // Không có mạng hoặc không có data API → để empty state / về Areas
+    if (!store.state.isOnline) {
+      router.replace('/area');
+    }
+  }
+});
 
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '';
@@ -265,6 +258,14 @@ useBackButton(10, () => {
 </script>
 
 <style scoped>
+ion-card-content {
+  padding: 0;
+
+  & ion-list {
+    padding: 0;
+  }
+}
+
 .area-detail-page {
   display: flex;
   flex-direction: column;
@@ -349,7 +350,6 @@ useBackButton(10, () => {
   border-radius: 16px;
   font-size: 12px;
   font-weight: bold;
-  margin-bottom: 8px;
   text-transform: uppercase;
 }
 
@@ -412,7 +412,6 @@ h3 {
 
 /* Style cho container chứa các nhóm */
 .groups-container {
-  margin-top: 20px;
   padding: 0 16px;
 }
 

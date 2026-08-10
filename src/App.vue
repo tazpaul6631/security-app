@@ -81,7 +81,7 @@ const getGlobalApiList = (userData: any) => {
   return {
     checkpoints: () => CheckPointScanQr.postCheckPointView(checkpointPayload),
     // checkpoints_id: () => PointReport.postPointReportView(),
-    area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),
+    // area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),
 
     list_route: () => PatrolShiftView.postPatrolShiftView({
       getOfflineData: true,

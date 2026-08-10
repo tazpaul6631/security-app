@@ -71,6 +71,7 @@ import { Card, Divider, ProgressSpinner, Tag } from '@/plugins/primevue.componen
 import OfflineSyncHeaderButton from '@/components/OfflineSyncHeaderButton.vue';
 import OfflineSyncModal from '@/components/OfflineSyncModal.vue';
 import { useSyncBadgeCount } from '@/composables/useOfflineSyncDisplay';
+import presentAlert from '@/mixins/presentAlert';
 
 const isOfflineSyncModalOpen = ref(false);
 const { syncBadgeCount, loadPendingItems } = useSyncBadgeCount();
@@ -104,11 +105,23 @@ const getRoleData = (userRoleId: number) => {
   return listRoles.value.find((r) => r.roleId === userRoleId) ?? { name: '' };
 };
 
+const AREAS_MENU_ID = 3;
+
 const handleClickIcon = (id: number) => {
   const area = getAreaData(id);
-  if (area?.router) {
-    router.replace({ path: area.router });
+  if (!area?.router) return;
+
+  // Khu vực: chỉ cho vào khi online — API gọi 1 lần ở AreaIndex
+  if (id === AREAS_MENU_ID && !isOnline.value) {
+    presentAlert.presentAlert(
+      t('areas.index.message.5'),
+      '',
+      t('areas.index.message.3')
+    );
+    return;
   }
+
+  router.replace({ path: area.router });
 };
 
 const resolveCheckpointName = (cpId: string) => {

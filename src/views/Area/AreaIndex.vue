@@ -126,68 +126,63 @@
       </ion-modal>
 
       <div class="area-body">
-      <div class="list-container" style="margin-top: 50px;">
-        <ion-list v-if="isLoading">
-          <ion-item v-for="i in 5" :key="i">
-            <ion-grid>
-              <ion-row class="ion-align-items-center">
-                <ion-col size="auto">
-                  <ion-skeleton-text animated
-                    style="width: 24px; height: 24px; border-radius: 50%;"></ion-skeleton-text>
-                </ion-col>
-                <ion-col>
-                  <ion-skeleton-text animated style="width: 70%; height: 16px;"></ion-skeleton-text>
-                </ion-col>
-              </ion-row>
-            </ion-grid>
-          </ion-item>
-        </ion-list>
+        <div class="list-container report-list-scroll">
+          <ion-list v-if="isLoading">
+            <ion-item v-for="i in 5" :key="i">
+              <ion-grid>
+                <ion-row class="ion-align-items-center">
+                  <ion-col size="auto">
+                    <ion-skeleton-text animated
+                      style="width: 24px; height: 24px; border-radius: 50%;"></ion-skeleton-text>
+                  </ion-col>
+                  <ion-col>
+                    <ion-skeleton-text animated style="width: 70%; height: 16px;"></ion-skeleton-text>
+                  </ion-col>
+                </ion-row>
+              </ion-grid>
+            </ion-item>
+          </ion-list>
 
-        <div v-else-if="displayedItems.length === 0" class="ion-padding ion-text-center no-route-container">
-          <ion-icon :icon="calendarOutline" style="font-size: 64px; color: #ccc;"></ion-icon>
-          <p>{{ $t('areas.index.emty-data') }}: <strong style="color: red;">
-              {{ $t('areas.index.please-route') }}
-            </strong></p>
-          <ion-button fill="outline" @click="router.replace('/home')" class="ion-margin-top">
-            {{ $t('areas.index.go-home') }}
-          </ion-button>
+          <div v-else-if="dataPR.details.length === 0" class="ion-padding ion-text-center no-route-container">
+            <ion-icon :icon="calendarOutline" style="font-size: 64px; color: #ccc;"></ion-icon>
+            <p>{{ $t('areas.index.emty-data') }}: <strong class="empty-hint">
+                {{ $t('areas.index.please-route') }}
+              </strong></p>
+            <ion-button fill="outline" @click="router.replace('/home')" class="ion-margin-top">
+              {{ $t('areas.index.go-home') }}
+            </ion-button>
+          </div>
+
+          <ion-list v-else>
+            <ion-item v-for="item in dataPR.details" :key="item.prId" :button="true"
+              @click="handleSelectedRow(Number(item.prId), $event)"
+              :class="item.prHasProblem || item.shiftProblem || item.timeProblem ? 'custom-item-false' : 'custom-item-true'">
+              <ion-grid>
+                <ion-row class="ion-align-items-center">
+                  <ion-col>
+                    <ion-label>
+                      <strong>{{ item.cpName }}</strong>
+                      <div style="margin-top: 5px;">
+                        <ion-icon :icon="newspaperOutline" :color="item.prHasProblem ? 'danger' : 'success'"></ion-icon>
+                        <ion-icon class="icon-2" :icon="timeOutline"
+                          :color="item.shiftProblem || item.timeProblem ? 'danger' : 'success'">
+                        </ion-icon>
+                      </div>
+                      <ion-text color="warning" v-if="item.isOfflineMock" style="font-size: 0.8em; display: block;">
+                        <ion-text color="danger">* </ion-text> {{ $t('areas.index.await-sync') }}...
+                      </ion-text>
+                    </ion-label>
+                  </ion-col>
+                  <ion-col size="auto" class="ion-text-end">
+                    <ion-label class="labelItem">{{ item.reportName }}</ion-label>
+                    <ion-note class="labelItem">{{ item.reportAt?.replace('T', ' ').slice(0, 16)
+                    }}</ion-note>
+                  </ion-col>
+                </ion-row>
+              </ion-grid>
+            </ion-item>
+          </ion-list>
         </div>
-
-        <ion-list v-else>
-          <ion-item v-for="item in displayedItems" :key="item.prId" :button="true"
-            @click="handleSelectedRow(Number(item.prId), $event)"
-            :class="item.prHasProblem || item.shiftProblem || item.timeProblem ? 'custom-item-false' : 'custom-item-true'">
-            <ion-grid>
-              <ion-row class="ion-align-items-center">
-                <ion-col>
-                  <ion-label>
-                    <strong>{{ item.cpName }}</strong>
-                    <div style="margin-top: 5px;">
-                      <ion-icon :icon="newspaperOutline" :color="item.prHasProblem ? 'danger' : 'success'"></ion-icon>
-                      <ion-icon class="icon-2" :icon="timeOutline"
-                        :color="item.shiftProblem || item.timeProblem ? 'danger' : 'success'">
-                      </ion-icon>
-                    </div>
-                    <ion-text color="warning" v-if="item.isOfflineMock" style="font-size: 0.8em; display: block;">
-                      <ion-text color="danger">* </ion-text> {{ $t('areas.index.await-sync') }}...
-                    </ion-text>
-                  </ion-label>
-                </ion-col>
-                <ion-col size="auto" class="ion-text-end">
-                  <ion-label class="labelItem">{{ item.reportName }}</ion-label>
-                  <ion-note class="labelItem">{{ item.reportAt?.replace('T', ' ').slice(0, 16)
-                  }}</ion-note>
-                </ion-col>
-              </ion-row>
-            </ion-grid>
-          </ion-item>
-        </ion-list>
-
-        <ion-infinite-scroll ref="infiniteScrollRef" @ionInfinite="loadMoreData($event)" :disabled="isInfiniteDisabled">
-          <ion-infinite-scroll-content :loading-text="$t('areas.index.load-more')"
-            loading-spinner="bubbles"></ion-infinite-scroll-content>
-        </ion-infinite-scroll>
-      </div>
       </div>
     </ion-content>
   </ion-page>
@@ -204,7 +199,7 @@ import {
   IonInfiniteScrollContent, IonButton, IonModal, IonBadge, IonSelect, IonSelectOption,
   useBackButton
 } from '@ionic/vue';
-import { calendarOutline, footstepsOutline, newspaperOutline, timeOutline, funnelOutline, rocketOutline, walkOutline, idCardOutline } from "ionicons/icons";
+import { calendarOutline, newspaperOutline, timeOutline, funnelOutline, rocketOutline, walkOutline, idCardOutline } from "ionicons/icons";
 import { computed, ref, watch } from 'vue';
 import { useStore } from 'vuex';
 import presentAlert from '@/mixins/presentAlert';
@@ -216,18 +211,13 @@ import { useAppLoading } from '@/composables/useAppLoading';
 const store = useStore();
 const { show: showLoading, hide: hideLoading } = useAppLoading();
 
-// --- STATE QUẢN LÝ UI VÀ PHÂN TRANG ---
+// --- STATE QUẢN LÝ UI ---
 const isReturningFromDetail = ref(false);
 const activeSegment = ref<string>('');
 const selectedItem = ref<any>(null);
 const isModalOpen = ref(false);
 const isLoading = ref(false);
 const { t } = useI18n();
-
-const displayedItems = ref<any[]>([]);
-const currentPage = ref(1);
-const isInfiniteDisabled = ref(false);
-const itemsPerPage = 15;
 
 const areasCache = ref<any[]>([]);
 const listRoles = ref<any[]>([]);
@@ -250,8 +240,7 @@ const isOnline = computed(() => store.state.isOnline);
 
 // --- COMPUTED: DỮ LIỆU ---
 const datalistNav = computed(() => {
-  const rawData = areasCache.value.length > 0 ? areasCache.value : store.state.dataAreaBU;
-  const areas = normalizeAreasList(rawData);
+  const areas = normalizeAreasList(areasCache.value);
   const result: [string, any[], number][] = [];
 
   for (const item of areas) {
@@ -290,16 +279,6 @@ const dataPR = computed(() => {
 ////////////////////////////////////////////////////////////
 
 // --- WATCHERS ---
-watch(() => dataPR.value.details, (newVal) => {
-  if (currentPage.value === 1) {
-    displayedItems.value = newVal.slice(0, itemsPerPage);
-  } else {
-    const currentCount = displayedItems.value.length;
-    displayedItems.value = newVal.slice(0, Math.max(currentCount, itemsPerPage));
-  }
-  isInfiniteDisabled.value = displayedItems.value.length >= newVal.length;
-}, { deep: true, immediate: true });
-
 watch(() => currentOptions.value, (newVal) => {
   modalCurrentPage.value = 1;
   modalDisplayedItems.value = newVal.slice(0, modalItemsPerPage);
@@ -314,28 +293,26 @@ const normalizeAreasList = (raw: any): any[] => {
   return Array.isArray(data) ? data : [];
 };
 
-const canUseAreasCacheForShifts = (): boolean =>
-  isCurrentUserAdmin.value && filterStatus.value === 'all';
-
-const getShiftsFromCache = (areaId: number): any[] | undefined => {
-  if (!canUseAreasCacheForShifts() || areasCache.value.length === 0) return undefined;
-  const found = areasCache.value.find((item: any) => Number(item.areaId) === Number(areaId));
-  return found ? (found.patrolShifts || []) : [];
-};
-
 const loadAreasCache = async () => {
-  if (isOnline.value) {
-    try {
-      const payload = isCurrentUserAdmin.value ? {} : { areaId: userInfo.value.userAreaId };
-      const response = await AreaBU.postAreaBU(payload);
-      if (response?.data) {
-        areasCache.value = normalizeAreasList(response.data);
-      }
-    } catch (error) {
-      console.error('Lỗi loadAreasCache:', error);
+  if (!isOnline.value) {
+    areasCache.value = [];
+    return;
+  }
+
+  try {
+    // Admin: {} — list tab + shifts; Non-admin: area của user
+    // Tab đầu dùng luôn shifts từ response này (không gọi API lần 2)
+    const payload = isCurrentUserAdmin.value
+      ? {}
+      : { areaId: userInfo.value.userAreaId, reportBy: currentUserId.value };
+    const response = await AreaBU.postAreaBU(payload);
+    if (response?.data) {
+      areasCache.value = normalizeAreasList(response.data);
+      store.commit('SET_DATA_AREA_BU', response.data);
     }
-  } else {
-    areasCache.value = normalizeAreasList(store.state.dataAreaBU);
+  } catch (error) {
+    console.error('Lỗi loadAreasCache:', error);
+    areasCache.value = [];
   }
 };
 
@@ -355,40 +332,30 @@ const fetchAreasData = async (areaId: number) => {
   currentActiveAreaId.value = areaId;
 
   try {
-    const cachedShifts = getShiftsFromCache(areaId);
-    if (cachedShifts !== undefined && isOnline.value) {
-      currentOptions.value = cachedShifts;
+    if (!isOnline.value) {
+      currentOptions.value = [];
+      presentAlert.presentAlert(
+        t('areas.index.message.5'),
+        '',
+        t('areas.index.message.3')
+      );
       return;
     }
 
-    if (isOnline.value) {
-      const payload: any = { areaId };
+    // Đổi tab khác / filter role: gọi API theo areaId của tab
+    const payload: any = { areaId };
 
-      if (isCurrentUserAdmin.value && filterStatus.value !== 'all' && filterStatus.value !== 'admin') {
-        payload.roleId = Number(filterStatus.value);
-      } else if (!isCurrentUserAdmin.value) {
-        payload.reportBy = currentUserId.value;
-        payload.userId = currentUserId.value;
-      }
-
-      const response = await AreaBU.postAreaBU(payload);
-      const fetchedAreas = normalizeAreasList(response?.data);
-      const foundArea = fetchedAreas.find((item: any) => Number(item.areaId) === Number(areaId));
-
-      currentOptions.value = foundArea ? (foundArea.patrolShifts || []) : [];
-
-    } else {
-      // Xử lý Offline (Lấy từ Vuex)
-      const areas = normalizeAreasList(store.state.dataAreaBU);
-      const foundArea = areas.find((item: any) => Number(item.areaId) === Number(areaId));
-      let shifts = foundArea ? (foundArea.patrolShifts || []) : [];
-
-      // Khi offline, nếu là user thường thì lọc ca của chính mình
-      if (!isCurrentUserAdmin.value) {
-        shifts = shifts.filter((s: any) => String(s.reportBy) === String(currentUserId.value));
-      }
-      currentOptions.value = shifts;
+    if (isCurrentUserAdmin.value && filterStatus.value !== 'all' && filterStatus.value !== 'admin') {
+      payload.roleId = Number(filterStatus.value);
+    } else if (!isCurrentUserAdmin.value) {
+      payload.reportBy = currentUserId.value;
     }
+
+    const response = await AreaBU.postAreaBU(payload);
+    const fetchedAreas = normalizeAreasList(response?.data);
+    const foundArea = fetchedAreas.find((item: any) => Number(item.areaId) === Number(areaId));
+
+    currentOptions.value = foundArea ? (foundArea.patrolShifts || []) : [];
   } catch (error) {
     console.error("Lỗi fetchAreasData:", error);
     currentOptions.value = [];
@@ -419,23 +386,46 @@ const filterRoleOptions = computed(() => {
 //////////////////////////////////////
 
 // --- METHODS TƯƠNG TÁC GIAO DIỆN ---
+const applyTabFromCache = (areaId: number) => {
+  currentActiveAreaId.value = areaId;
+  const found = areasCache.value.find(
+    (item: any) => Number(item.areaId) === Number(areaId)
+  );
+  currentOptions.value = found ? (found.patrolShifts || []) : [];
+};
+
 const initDefaultTab = async () => {
-  if (datalistNav.value.length > 0) {
-    filterStatus.value = 'all';
-    const firstTab = datalistNav.value[0];
-    activeSegment.value = firstTab[0];
-    const firstAreaId = firstTab[2];
-    isModalOpen.value = true;
-    await fetchAreasData(firstAreaId);
-  }
+  if (datalistNav.value.length === 0) return;
+
+  filterStatus.value = 'all';
+  const firstTab = datalistNav.value[0];
+  activeSegment.value = firstTab[0];
+  const firstAreaId = firstTab[2];
+  isModalOpen.value = true;
+
+  // Focus tab đầu — dùng data đã có từ loadAreasCache (không gọi API thêm)
+  applyTabFromCache(firstAreaId);
 };
 
 onIonViewWillEnter(async () => {
+  if (!isOnline.value) {
+    areasCache.value = [];
+    currentOptions.value = [];
+    selectedItem.value = null;
+    store.commit('SET_DATACP', []);
+    presentAlert.presentAlert(
+      t('areas.index.message.5'),
+      '',
+      t('areas.index.message.3')
+    );
+    return;
+  }
+
   if (isCurrentUserAdmin.value) {
     void fetchRoles();
   }
 
-  // Cache/tabs load nền — không chặn frame vào trang
+  // 1 lần API khi vào trang → focus tab đầu từ cache; tab khác mới fetchAreasData
   void (async () => {
     await loadAreasCache();
 
@@ -445,7 +435,6 @@ onIonViewWillEnter(async () => {
       selectedItem.value = null;
       activeSegment.value = '';
       currentActiveAreaId.value = null;
-      displayedItems.value = [];
 
       await initDefaultTab();
     }
@@ -456,8 +445,8 @@ const openSelect = async (parent: string, _children: any[], id: number) => {
   filterStatus.value = 'all';
   activeSegment.value = parent;
   isModalOpen.value = true;
-  displayedItems.value = [];
   currentOptions.value = [];
+  // Đổi tab → luôn gọi API với areaId của tab đó
   await fetchAreasData(id);
 };
 
@@ -470,50 +459,37 @@ const handleFilterChange = async () => {
 
 const handleModalSelection = async (item: any) => {
   isModalOpen.value = false;
-  currentPage.value = 1;
 
   setTimeout(async () => {
     isLoading.value = true;
     selectedItem.value = [item.routeName, item.routeId];
 
     try {
-      let finalReports = [];
-      if (isOnline.value) {
-        try {
-          const responseBU = await PointReport.postBasePointReportView(item.psId);
-          finalReports = Array.isArray(responseBU?.data) ? responseBU.data : (responseBU?.data?.data || []);
-        } catch (e) {
-          console.warn("API lỗi, chuyển sang Offline data.");
-        }
+      if (!isOnline.value) {
+        store.commit('SET_DATACP', []);
+        presentAlert.presentAlert(
+          t('areas.index.message.5'),
+          '',
+          t('areas.index.message.3')
+        );
+        return;
       }
 
-      // if (finalReports.length === 0) {
-      //     const baseReports = Array.isArray(store.state.dataBasePointReportView)
-      //         ? store.state.dataBasePointReportView : (store.state.dataBasePointReportView?.data || []);
-      //     const recentReports = Array.isArray(store.state.dataCheckpointsId)
-      //         ? store.state.dataCheckpointsId : (store.state.dataCheckpointsId?.data || []);
-
-      //     const combined = [...recentReports, ...baseReports];
-
-      //     finalReports = combined.filter((rep: any) => {
-      //         const isRightShift = Number(rep.psId) === Number(item.psId);
-      //         const isRightUser = isCurrentUserAdmin.value || Number(rep.reportBy) === currentUserId.value || Number(rep.userId) === currentUserId.value;
-      //         return isRightShift && isRightUser;
-      //     });
-
-      //     // Lọc trùng cpId
-      //     const uniqueMap = new Map();
-      //     finalReports.forEach(r => {
-      //         if (uniqueMap.has(r.cpId) && !r.isOfflineMock) return;
-      //         uniqueMap.set(r.cpId, r);
-      //     });
-      //     finalReports = Array.from(uniqueMap.values());
-      // }
+      const responseBU = await PointReport.postBasePointReportView(item.psId);
+      const finalReports = Array.isArray(responseBU?.data)
+        ? responseBU.data
+        : (responseBU?.data?.data || []);
 
       finalReports.sort((a: any, b: any) => new Date(b.reportAt).getTime() - new Date(a.reportAt).getTime());
       store.commit('SET_DATACP', [{ data: finalReports }]);
     } catch (error) {
       console.error("Lỗi handleModalSelection:", error);
+      store.commit('SET_DATACP', []);
+      presentAlert.presentAlert(
+        t('areas.index.message.5'),
+        '',
+        t('areas.index.message.4')
+      );
     } finally {
       isLoading.value = false;
     }
@@ -557,20 +533,7 @@ const handleSelectedRow = async (prId: number, event?: any) => {
 };
 ///////////////////////////////////////////////////
 
-// --- METHODS INFINITE SCROLL ---
-const loadMoreData = (event: any) => {
-  setTimeout(() => {
-    const nextStart = currentPage.value * itemsPerPage;
-    const nextBatch = dataPR.value.details.slice(nextStart, nextStart + itemsPerPage);
-    if (nextBatch.length > 0) {
-      displayedItems.value.push(...nextBatch);
-      currentPage.value++;
-    }
-    event.target.complete();
-    isInfiniteDisabled.value = displayedItems.value.length >= dataPR.value.details.length;
-  }, 500);
-};
-
+// --- METHODS INFINITE SCROLL (modal chọn ca) ---
 const loadMoreModalData = (event: any) => {
   setTimeout(() => {
     const nextStart = modalCurrentPage.value * modalItemsPerPage;
@@ -691,6 +654,24 @@ useBackButton(10, () => {
 .area-body {
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.list-container.report-list-scroll {
+  margin-top: 50px;
+  flex: 1;
+  min-height: 0;
+  max-height: calc(100vh - 140px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+.empty-hint {
+  color: #eb445a;
 }
 
 .pointProblem-danger,
