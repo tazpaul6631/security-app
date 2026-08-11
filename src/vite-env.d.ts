@@ -8,3 +8,4 @@ declare module '*.vue' {
 declare module 'swiper/css';
 declare module 'swiper/css/*';
 declare module '@ionic/vue/css/ionic-swiper.css';
+declare module 'primevue/toasteventbus';

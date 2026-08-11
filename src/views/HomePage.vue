@@ -71,7 +71,7 @@ import { Card, Divider, ProgressSpinner, Tag } from '@/plugins/primevue.componen
 import OfflineSyncHeaderButton from '@/components/OfflineSyncHeaderButton.vue';
 import OfflineSyncModal from '@/components/OfflineSyncModal.vue';
 import { useSyncBadgeCount } from '@/composables/useOfflineSyncDisplay';
-import presentAlert from '@/mixins/presentAlert';
+import { presentAlertToast } from '@/services/toast.service';
 
 const isOfflineSyncModalOpen = ref(false);
 const { syncBadgeCount, loadPendingItems } = useSyncBadgeCount();
@@ -113,7 +113,7 @@ const handleClickIcon = (id: number) => {
 
   // Khu vực: chỉ cho vào khi online — API gọi 1 lần ở AreaIndex
   if (id === AREAS_MENU_ID && !isOnline.value) {
-    presentAlert.presentAlert(
+    presentAlertToast(
       t('areas.index.message.5'),
       '',
       t('areas.index.message.3')

@@ -202,7 +202,7 @@ import {
 import { calendarOutline, newspaperOutline, timeOutline, funnelOutline, rocketOutline, walkOutline, idCardOutline } from "ionicons/icons";
 import { computed, ref, watch } from 'vue';
 import { useStore } from 'vuex';
-import presentAlert from '@/mixins/presentAlert';
+import { presentAlertToast } from '@/services/toast.service';
 import AreaBU from '@/api/AreaBU';
 import Role from '@/api/Role';
 import { useI18n } from 'vue-i18n';
@@ -334,7 +334,7 @@ const fetchAreasData = async (areaId: number) => {
   try {
     if (!isOnline.value) {
       currentOptions.value = [];
-      presentAlert.presentAlert(
+      presentAlertToast(
         t('areas.index.message.5'),
         '',
         t('areas.index.message.3')
@@ -413,7 +413,7 @@ onIonViewWillEnter(async () => {
     currentOptions.value = [];
     selectedItem.value = null;
     store.commit('SET_DATACP', []);
-    presentAlert.presentAlert(
+    presentAlertToast(
       t('areas.index.message.5'),
       '',
       t('areas.index.message.3')
@@ -467,7 +467,7 @@ const handleModalSelection = async (item: any) => {
     try {
       if (!isOnline.value) {
         store.commit('SET_DATACP', []);
-        presentAlert.presentAlert(
+        presentAlertToast(
           t('areas.index.message.5'),
           '',
           t('areas.index.message.3')
@@ -485,7 +485,7 @@ const handleModalSelection = async (item: any) => {
     } catch (error) {
       console.error("Lỗi handleModalSelection:", error);
       store.commit('SET_DATACP', []);
-      presentAlert.presentAlert(
+      presentAlertToast(
         t('areas.index.message.5'),
         '',
         t('areas.index.message.4')
@@ -526,7 +526,7 @@ const handleSelectedRow = async (prId: number, event?: any) => {
     const msg = error.message === t('areas.index.message.2')
       ? t('areas.index.message.3')
       : t('areas.index.message.4');
-    presentAlert.presentAlert(t('areas.index.message.5'), '', msg);
+    presentAlertToast(t('areas.index.message.5'), '', msg);
   } finally {
     hideLoading();
   }

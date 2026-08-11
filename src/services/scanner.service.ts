@@ -3,7 +3,7 @@ import { Store } from 'vuex';
 import { Router } from 'vue-router';
 import storageService from '@/services/storage.service';
 import CheckPointScanQr from '@/api/CheckPointScanQr';
-import presentAlert from '@/mixins/presentAlert';
+import { presentAlertToast } from '@/services/toast.service';
 import ScanCpQrLog from '@/api/ScanCpQrLog';
 import { useAppLoading } from '@/composables/useAppLoading';
 
@@ -22,7 +22,7 @@ export const scannerService = {
   async startScanning(store: Store<any>, router: Router, routeId: number, t: any): Promise<string | null> {
     const granted = await this.requestPermissions();
     if (!granted) {
-      await presentAlert.presentAlert(t('messages.scanner.notification'), '', t('messages.scanner.grant-camera-permission'));
+      presentAlertToast(t('messages.scanner.notification'), '', t('messages.scanner.grant-camera-permission'));
       return null;
     }
 
@@ -39,7 +39,7 @@ export const scannerService = {
           await BarcodeScanner.installGoogleBarcodeScannerModule();
         } catch (installError) {
           console.error("Lỗi cài đặt module quét:", installError);
-          await presentAlert.presentAlert('Lỗi', '', 'Không thể tải module máy quét từ Google. Vui lòng kiểm tra mạng!');
+          presentAlertToast('Lỗi', '', 'Không thể tải module máy quét từ Google. Vui lòng kiểm tra mạng!');
           return null; // Chỉ return null nếu tải THẤT BẠI
         } finally {
           hideLoading();
@@ -124,7 +124,7 @@ export const scannerService = {
     }
 
     if (!currentRoute) {
-      await presentAlert.presentAlert(t('messages.scanner.notification'), '', t('messages.scanner.route-not-found'));
+      presentAlertToast(t('messages.scanner.notification'), '', t('messages.scanner.route-not-found'));
       return;
     }
 
@@ -137,7 +137,7 @@ export const scannerService = {
         listScanQr.cpwId = segments[3];
         listScanQr.cpwCode = segments[4];
       } catch (e) {
-        await presentAlert.presentAlert(t('messages.scanner.notification'), '', t('messages.scanner.invalid-qr-code'));
+        presentAlertToast(t('messages.scanner.notification'), '', t('messages.scanner.invalid-qr-code'));
         return;
       }
     } else {
@@ -147,7 +147,7 @@ export const scannerService = {
     const nextPointRequired = currentRoute.routeDetails.find((point: any) => point.status !== 1);
 
     if (!nextPointRequired) {
-      await presentAlert.presentAlert(t('messages.scanner.notification'), '', t('messages.scanner.route-completed'));
+      presentAlertToast(t('messages.scanner.notification'), '', t('messages.scanner.route-completed'));
       return;
     }
 
@@ -247,10 +247,10 @@ export const scannerService = {
           query: { routeId: routeId, psId: currentRoute.psId, t: Date.now() }
         });
       } else {
-        await presentAlert.presentAlert(t('messages.scanner.notification'), '', t('messages.scanner.checkpoint-not-found'));
+        presentAlertToast(t('messages.scanner.notification'), '', t('messages.scanner.checkpoint-not-found'));
       }
     } catch (error) {
-      await presentAlert.presentAlert(t('messages.scanner.notification'), '', t('messages.scanner.unable-to-process'));
+      presentAlertToast(t('messages.scanner.notification'), '', t('messages.scanner.unable-to-process'));
     }
   }
 };
