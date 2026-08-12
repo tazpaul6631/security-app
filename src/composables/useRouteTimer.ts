@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue';
 import storageService from '@/services/storage.service';
-import { speakText } from '@/services/ttsService';
+import { speakImportantText } from '@/services/ttsService';
 
 // SINGLETON STATE
 const remainingSeconds = ref(0);
@@ -20,8 +20,8 @@ const maybeSpeakMinWarning = (secondsLeft: number) => {
   if (secondsLeft > minThreshold.value) return;
 
   hasSpokenMinWarning = true;
-  // const minutes = Math.floor(minThreshold.value / 60);
-  void speakText(`Vui lòng hoàn tất ca trực trước giờ quy định để bắt đầu ca trực mới`);
+  // const minutes = Math.floor(secondsLeft / 60);
+  void speakImportantText(`Thời gian quy định ca trực của bạn gần hết`);
 };
 
 /** Ẩn UI timer trong RAM — không đụng storage */

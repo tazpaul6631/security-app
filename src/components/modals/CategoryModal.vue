@@ -68,6 +68,7 @@ import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCameraHandler } from '@/composables/useCameraHandler';
 import { Button, Card, Checkbox, Dialog, ProgressSpinner, Tag } from '@/plugins/primevue.components';
+import { speakImportantText } from '@/services/ttsService';
 
 const { showToast } = useCameraHandler();
 const { t } = useI18n();
@@ -113,6 +114,7 @@ const checkCanDismiss = async () => {
   const isMissingImage = props.groupedNotes.some((group: any) => group.reportImages.length === 0);
 
   if (isMissingImage) {
+    void speakImportantText(t('areas.report.img-status'));
     await showToast(t('areas.report.img-status'), 'warning');
     return false;
   }

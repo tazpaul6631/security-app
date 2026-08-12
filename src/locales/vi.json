@@ -145,7 +145,7 @@
       "msg_capture_before_report": "Chụp điểm tuần tra trước khi báo cáo.",
       "btn_take_checkin": "Chụp ảnh Check-in",
       "status_photo_confirmed": "Đã chụp ảnh xác nhận",
-      "img-status": "Vui lòng chụp ảnh cho tình trạng",
+      "img-status": "Vui lòng chụp ảnh cho sự cố",
       "message": {
         "1": "Lỗi: Không tìm thấy dữ liệu Checkpoint",
         "2": "Đang lưu dữ liệu...",

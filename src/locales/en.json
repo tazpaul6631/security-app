@@ -145,7 +145,7 @@
       "msg_capture_before_report": "Take a photo of the patrol point before reporting.",
       "btn_take_checkin": "Take Check-in Photo",
       "status_photo_confirmed": "Confirmation photo taken",
-      "img-status": "Please take a photo for the status.",
+      "img-status": "Please take a photo for the incident.",
       "message": {
         "1": "Error: Checkpoint data not found",
         "2": "Saving data...",

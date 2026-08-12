@@ -55,6 +55,7 @@ import Logout from '@/api/Logout';
 import { useRouteTimer } from '@/composables/useRouteTimer';
 import { useToast } from 'primevue/usetoast';
 import { Button, Dialog, Tag } from '@/plugins/primevue.components';
+import { speakImportantText } from '@/services/ttsService';
 
 const toast = useToast();
 
@@ -101,6 +102,7 @@ const goBackAndClearHistory = async () => {
 
 const openLogoutModal = () => {
   if (isRouteUnfinished.value) {
+    void speakImportantText(t('messages.nav.incomplete-patrol'));
     toast.add({
       severity: 'warn',
       summary: t('messages.nav.unable-to-logout'),
@@ -155,6 +157,7 @@ const performLogout = async () => {
     // Nếu có bất kỳ data nào kẹt lại -> Hiện cảnh báo và CHẶN đăng xuất
     if (totalUnsynced > 0) {
       isLogoutModalOpen.value = false;
+      void speakImportantText(t('messages.nav.msg-logout-sync-offline', { totalUnsynced }));
       toast.add({
         severity: 'warn',
         summary: t('messages.nav.data-loss'),

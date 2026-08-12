@@ -43,6 +43,7 @@ import {
   restoreAwaitingLogoutAfterSync,
   tryPromptLogoutAfterOfflineSync,
 } from '@/composables/useLogoutPrompt';
+import { startShiftEndWarningWatcher } from '@/composables/useShiftEndWarning';
 import { useI18n } from 'vue-i18n';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
@@ -191,6 +192,12 @@ const syncMessage = computed(
 const syncProgressLabel = computed(() => `${store.state.syncProgress}%`);
 
 onMounted(async () => {
+  // Global: cảnh báo 10 phút cuối trước psHourTo — mọi màn hình khi còn ca unfinished
+  if (!(window as any).HAS_SHIFT_END_WARNING) {
+    startShiftEndWarningWatcher();
+    (window as any).HAS_SHIFT_END_WARNING = true;
+  }
+
   if (Capacitor.isNativePlatform()) {
     try {
       // Style.Light có nghĩa là "Nền sáng" -> Hệ điều hành sẽ tự đổi chữ/icon thành MÀU ĐEN

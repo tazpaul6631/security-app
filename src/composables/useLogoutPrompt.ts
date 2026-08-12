@@ -1,7 +1,7 @@
 import { ref, watch } from 'vue';
 import store from '@/composables/useVuex';
 import storageService from '@/services/storage.service';
-import { speakText } from '@/services/ttsService';
+import { speakImportantText } from '@/services/ttsService';
 
 const AWAITING_LOGOUT_KEY = 'awaiting_logout_after_sync';
 
@@ -100,7 +100,7 @@ export async function tryPromptLogoutAfterOfflineSync(options?: {
     if (store.getters.isRouteUnfinished) return false;
 
     if (options?.speakSuccess) {
-      void speakText('Đã gửi dữ liệu offline thành công. Vui lòng đăng xuất');
+      void speakImportantText('Đã gửi dữ liệu offline thành công. Vui lòng đăng xuất');
     }
 
     clearAwaitingLogoutAfterSync();

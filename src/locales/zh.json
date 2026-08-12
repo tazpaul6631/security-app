@@ -145,7 +145,7 @@
       "msg_capture_before_report": "報告前請先拍攝巡邏點照片。",
       "btn_take_checkin": "拍入點打卡照",
       "status_photo_confirmed": "已拍攝確認照片",
-      "img-status": "請拍攝狀態照片",
+      "img-status": "請拍攝異常照片",
       "message": {
         "1": "錯誤：找不到檢查點資料",
         "2": "正在儲存資料...",

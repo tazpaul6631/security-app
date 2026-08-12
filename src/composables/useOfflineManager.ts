@@ -14,6 +14,10 @@ import router from '@/router';
 const pendingItems = ref<PendingItem[]>([]);
 const isSyncing = ref(false);
 let isProcessing = false; // Khóa ngăn chặn gọi syncData song song
+const HIGH_QUEUE_THRESHOLD = 30;
+const AVG_IMAGE_SIZE_MB = 0.35;
+const HIGH_QUEUE_ESTIMATED_MB = 120;
+let hasShownHighQueueWarning = false;
 
 interface PendingItem {
   id: string | number;
@@ -63,21 +67,6 @@ export function useOfflineManager() {
       if (!base64) return false;
     }
     return true;
-  };
-
-  /** Đọc ảnh 1 lần cho sync — trả null nếu thiếu/lệch số file */
-  const loadItemImagesBase64 = async (item: PendingItem): Promise<string[] | null> => {
-    const expectedImages = countExpectedImages(item.data);
-    if (expectedImages === 0) return null;
-    if (!item.imageFiles?.length || item.imageFiles.length !== expectedImages) return null;
-
-    const images: string[] = [];
-    for (const fileName of item.imageFiles) {
-      const base64 = await ImageService.readImage(fileName);
-      if (!base64) return null;
-      images.push(base64);
-    }
-    return images;
   };
 
   /** Dọn mục zombie: metadata còn nhưng file ảnh mất hoặc payload không hợp lệ */
@@ -257,14 +246,36 @@ export function useOfflineManager() {
     });
   };
 
+  const maybeWarnLargeQueue = (count: number) => {
+    const totalImages = pendingItems.value.reduce(
+      (sum, item) => sum + (item.imageFiles?.length || 0),
+      0
+    );
+    const estimatedMb = totalImages * AVG_IMAGE_SIZE_MB;
+    const shouldWarn = count >= HIGH_QUEUE_THRESHOLD || estimatedMb >= HIGH_QUEUE_ESTIMATED_MB;
+
+    if (shouldWarn) {
+      if (hasShownHighQueueWarning) return;
+      hasShownHighQueueWarning = true;
+      presentToast(
+        `Thiết bị đang có ${count} báo cáo chờ đồng bộ (ước tính ~${estimatedMb.toFixed(1)}MB ảnh). Vui lòng đồng bộ sớm để tránh máy chậm.`,
+        'warning'
+      );
+      return;
+    }
+    hasShownHighQueueWarning = false;
+  };
+
   const reloadQueueFromStorage = async (): Promise<void> => {
     const queue: PendingItem[] = (await storage.get('offline_api_queue')) || [];
     pendingItems.value = queue;
+    maybeWarnLargeQueue(queue.length);
   };
 
   const loadPendingItems = async (options: { sanitize?: boolean } = {}): Promise<void> => {
     if (options.sanitize) {
       await sanitizeQueue();
+      maybeWarnLargeQueue(pendingItems.value.length);
     } else {
       await reloadQueueFromStorage();
     }
@@ -412,6 +423,8 @@ export function useOfflineManager() {
       mode: 'overlay'
     });
 
+    const queueSnapshot: PendingItem[] = (await storage.get('offline_api_queue')) || [];
+    const watchdogMs = Math.min(300000, 30000 + (queueSnapshot.length * 15000));
     const watchdogTimer = setTimeout(() => {
       if (isProcessing) {
         console.warn("Hết thời gian chờ đồng bộ (Timeout). Buộc tắt Overlay!");
@@ -432,7 +445,7 @@ export function useOfflineManager() {
         // Báo lỗi cho user biết
         presentToast('Kết nối mạng không ổn định, vui lòng thử lại sau.', 'danger');
       }
-    }, 30000);
+    }, watchdogMs);
 
     console.log("--- [START] BẮT ĐẦU ĐỒNG BỘ ---");
 
@@ -509,17 +522,9 @@ export function useOfflineManager() {
           continue;
         }
 
-        const imagesBase64 = await loadItemImagesBase64(item);
-        if (!imagesBase64) {
-          console.error(`[Sync] Item ${item.id} thiếu file ảnh — dọn khỏi hàng chờ`);
-          await cleanUpItem(item);
-          removedInvalidCount++;
-          continue;
-        }
-
         try {
-          // Ưu tiên 1+3: FormData từ RAM, không gán priImage / không đọc lại disk trong buildFormData
-          const bodyFormData = await buildFormData(item, imagesBase64);
+          // Đọc file ảnh trực tiếp theo từng ảnh trong buildFormData để giảm peak RAM trên máy yếu
+          const bodyFormData = await buildFormData(item);
           const result = await PointReport.createPointReport(bodyFormData);
 
           const responseData = result?.data || result;
@@ -580,6 +585,9 @@ export function useOfflineManager() {
             break;
           }
         }
+
+        // Nhường event-loop sau mỗi item để UI mượt hơn trên máy yếu
+        await new Promise((resolve) => setTimeout(resolve, 0));
       }
     } catch (e) {
       console.error("Lỗi tổng quát Sync:", e);

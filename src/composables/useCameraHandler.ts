@@ -74,6 +74,7 @@ export function useCameraHandler() {
     try {
       const result = await Camera.pickImages({
         quality: 60,
+        width: 1024,
         limit: slotsLeft
       });
 

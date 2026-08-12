@@ -122,7 +122,7 @@ import { useOfflineManager } from '@/composables/useOfflineManager';
 import { useSyncBadgeCount } from '@/composables/useOfflineSyncDisplay';
 import { useLogoutPrompt } from '@/composables/useLogoutPrompt';
 import { ImageService } from '@/services/image.service';
-import { speakText } from '@/services/ttsService';
+import { speakImportantText } from '@/services/ttsService';
 import router from '@/router';
 import storageService from '@/services/storage.service';
 import { useRouteTimer } from '@/composables/useRouteTimer';
@@ -162,7 +162,7 @@ interface Route {
   psHourFrom: number; psHourTo: number; planMaxSecond?: number; planMinSecond?: number;
   routeDetails: RouteDetail[]; psId: number;
 }
-interface Photo { fileName: string; preview: string; submitBase64?: string; }
+interface Photo { fileName: string; preview: string; submitBase64?: string; draftFileName?: string; }
 interface GroupedNote { id: string; prGroup: number; priImageNote: string; reportImages: Photo[]; type: 'label' | 'note'; rncId?: string; isAddingPhoto?: boolean; }
 interface ReportNode { rncId: number | string; rncName: string; childs?: ReportNode[]; }
 
@@ -386,10 +386,12 @@ const confirmSubmit = async () => {
   }
 
   if (formData.prHasProblem && groupedNotes.value.length === 0) {
+    void speakImportantText(t('areas.report.select-status'));
     return showToast(t('areas.report.select-status'), 'warning');
   }
 
   if (formData.prHasProblem && groupedNotes.value.some(g => g.reportImages.length === 0)) {
+    void speakImportantText(t('areas.report.img-status'));
     return showToast(t('areas.report.img-status'), 'warning');
   }
 
@@ -676,7 +678,9 @@ const handleSubmit = async (): Promise<void> => {
       : false;
 
     isResetting.value = true;
+    const draftFileToRemove = mandatoryPhoto.value?.draftFileName;
     if (draftKey.value) await storageService.remove(draftKey.value);
+    await deleteMandatoryDraftFile(draftFileToRemove);
 
     formData.prHasProblem = false;
     formData.prNote = '';
@@ -747,7 +751,7 @@ const handleSubmit = async (): Promise<void> => {
         const totalUnsynced =
           pendingItems.value.length + deleteQueue.length + wrongScanQueue.length;
 
-        void speakText(
+        void speakImportantText(
           totalUnsynced !== 0
             ? 'Ca trực đã hoàn thành nhưng còn dữ liệu chờ đồng bộ. Vui lòng giữ máy online đến khi đồng bộ xong rồi đăng xuất.'
             : 'Ca trực đã hoàn thành, vui lòng đăng xuất để cho bảo vệ tiếp theo bắt đầu ca trực mới'
@@ -808,17 +812,6 @@ const getCheckpointName = (cpId: string) => {
   return cp ? cp.cpName : 'Điểm quét';
 };
 
-/** Encode webPath → submitBase64 ngay lúc chụp để submit không phụ thuộc Capacitor path tạm */
-const withSubmitBase64 = async (photo: Photo): Promise<Photo> => {
-  try {
-    const submitBase64 = await previewToBase64(photo.preview);
-    return { ...photo, submitBase64 };
-  } catch (err) {
-    console.warn('[AreaCreate] Không encode được ảnh lúc chụp, giữ preview gốc:', err);
-    return photo;
-  }
-};
-
 ////////////////////////////////////////////
 // ==========================================
 // XỬ LÝ ẢNH CHO: CÓ PHÁT HIỆN SỰ CỐ (GROUP)
@@ -830,7 +823,7 @@ const addGroupPhoto = async (idx: number) => {
   const photo = await takePhoto(currentCount, 'err_cam_');
 
   if (photo) {
-    groupedNotes.value[idx].reportImages.push(await withSubmitBase64(photo));
+    groupedNotes.value[idx].reportImages.push(photo);
   }
 
   groupedNotes.value[idx].isAddingPhoto = false;
@@ -843,8 +836,7 @@ const pickGroupImages = async (idx: number) => {
   const photos = await pickImagesFromGallery(currentCount, 'err_lib_');
 
   if (photos.length > 0) {
-    const encoded = await Promise.all(photos.map((p) => withSubmitBase64(p)));
-    groupedNotes.value[idx].reportImages.push(...encoded);
+    groupedNotes.value[idx].reportImages.push(...photos);
   }
 
   groupedNotes.value[idx].isAddingPhoto = false;
@@ -862,7 +854,7 @@ const addNoProblemPhoto = async () => {
   const photo = await takePhoto(currentCount, 'ok_cam_');
 
   if (photo) {
-    noProblemImages.value.push(await withSubmitBase64(photo));
+    noProblemImages.value.push(photo);
   }
 };
 
@@ -875,14 +867,28 @@ const removeNoProblemPhoto = (idx: number) => {
 // Biến lưu ảnh bắt buộc
 const mandatoryPhoto = ref<Photo | null>(null);
 
+/** Xóa file draft check-in cũ (chỉ file offline_img_*) — không ảnh hưởng queue sync */
+const deleteMandatoryDraftFile = async (fileName?: string | null) => {
+  if (!fileName || !fileName.startsWith('offline_img_')) return;
+  await ImageService.deleteImage(fileName).catch(() => { });
+};
+
+const blobToDataUrl = (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = reject;
+    reader.onload = () => resolve(reader.result as string);
+    reader.readAsDataURL(blob);
+  });
+
 // Hàm vẽ Watermark (ngày giờ) lên ảnh
-const addWatermarkToImage = async (imageSrc: string, text: string, textColor: string = '#FFD700'): Promise<string> => {
+const addWatermarkToImage = async (imageSrc: string, text: string, textColor: string = '#FFD700'): Promise<Blob | null> => {
   try {
     const blob = await previewToBlob(imageSrc);
 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    if (!ctx) return imageSrc;
+    if (!ctx) return null;
 
     let source: CanvasImageSource;
     let width = 0;
@@ -954,10 +960,12 @@ const addWatermarkToImage = async (imageSrc: string, text: string, textColor: st
     ctx.fillStyle = textColor;
     ctx.fillText(text, x, y);
 
-    return canvas.toDataURL('image/jpeg', 0.8);
+    return await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob((output) => resolve(output), 'image/jpeg', 0.8);
+    });
   } catch (error) {
     console.error('Watermark generation error:', error);
-    return imageSrc;
+    return null;
   }
 };
 
@@ -1002,6 +1010,8 @@ const captureMandatoryPhoto = async () => {
     showLoading(t('areas.report.message.10'));
 
     try {
+      await deleteMandatoryDraftFile(mandatoryPhoto.value?.draftFileName);
+
       const now = new Date();
       const timeString = now.toLocaleString('vi-VN', {
         hour12: false, year: 'numeric', month: '2-digit', day: '2-digit',
@@ -1025,22 +1035,35 @@ const captureMandatoryPhoto = async () => {
         return;
       }
 
-      const watermarkedBase64 = await addWatermarkToImage(photo.preview, timeString, watermarkColor);
-
-      if (!watermarkedBase64.startsWith('data:image')) {
+      const watermarkedBlob = await addWatermarkToImage(photo.preview, timeString, watermarkColor);
+      if (!watermarkedBlob) {
         await showToast(t('areas.report.message.12'), 'danger');
         return;
       }
 
-      const submitBase64 = watermarkedBase64.includes(',')
-        ? watermarkedBase64.split(',')[1]
-        : watermarkedBase64;
+      const watermarkedDataUrl = await blobToDataUrl(watermarkedBlob);
+      if (!watermarkedDataUrl.startsWith('data:image')) {
+        await showToast(t('areas.report.message.12'), 'danger');
+        return;
+      }
+
+      const submitBase64 = watermarkedDataUrl.includes(',')
+        ? watermarkedDataUrl.split(',')[1]
+        : watermarkedDataUrl;
 
       mandatoryPhoto.value = {
         fileName: photo.fileName,
-        preview: watermarkedBase64,
+        preview: watermarkedDataUrl,
         submitBase64,
       };
+
+      // Lưu thêm file local cho draft để giảm payload SQLite (tránh nhét base64 lớn vào settings)
+      try {
+        const draftFileName = await ImageService.saveImage(submitBase64);
+        mandatoryPhoto.value.draftFileName = draftFileName;
+      } catch (saveErr) {
+        console.warn('[AreaCreate] Không lưu được ảnh check-in draft file:', saveErr);
+      }
     } finally {
       hideLoading();
     }
@@ -1080,7 +1103,7 @@ watch([formData, groupedNotes, selectedValues, noProblemImages, mandatoryPhoto],
         mandatoryPhoto: mandatoryPhoto.value
           ? {
             fileName: mandatoryPhoto.value.fileName,
-            submitBase64: mandatoryPhoto.value.submitBase64,
+            draftFileName: mandatoryPhoto.value.draftFileName || null,
           }
           : null,
       };
@@ -1110,7 +1133,19 @@ const loadDraft = async () => {
     noProblemImages.value = draft.noProblemImages || [];
     if (draft.mandatoryPhoto) {
       const mp = draft.mandatoryPhoto;
-      if (mp.submitBase64) {
+      if (mp.draftFileName) {
+        const restoredBase64 = await ImageService.readImage(mp.draftFileName);
+        if (restoredBase64) {
+          mandatoryPhoto.value = {
+            fileName: mp.fileName || 'checkin.jpg',
+            preview: `data:image/jpeg;base64,${restoredBase64}`,
+            submitBase64: restoredBase64,
+            draftFileName: mp.draftFileName,
+          };
+        } else {
+          mandatoryPhoto.value = null;
+        }
+      } else if (mp.submitBase64) {
         mandatoryPhoto.value = {
           fileName: mp.fileName || 'checkin.jpg',
           preview: `data:image/jpeg;base64,${mp.submitBase64}`,

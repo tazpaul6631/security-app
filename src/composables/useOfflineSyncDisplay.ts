@@ -2,6 +2,7 @@ import { ref, computed, watch } from 'vue';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 import { ImageService } from '@/services/image.service';
 import storageService from '@/services/storage.service';
+import { base64ToBlob } from '@/utils/imagePayload';
 
 export interface OfflineQueueDisplayItem {
   id: number | string;
@@ -17,6 +18,36 @@ export interface OfflineQueueGroup {
 }
 
 const thumbCache = new Map<string, string | null>();
+let isSanitizingInBackground = false;
+let lastBackgroundSanitizeAt = 0;
+const SANITIZE_COOLDOWN_MS = 60000;
+const THUMB_MAX_SIDE = 160;
+const THUMB_QUALITY = 0.7;
+
+const buildThumbDataUrl = async (base64: string): Promise<string | null> => {
+  try {
+    const blob = base64ToBlob(base64, 'image/jpeg');
+    const bitmap = await createImageBitmap(blob);
+    const ratio = Math.min(1, THUMB_MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+    const width = Math.max(1, Math.round(bitmap.width * ratio));
+    const height = Math.max(1, Math.round(bitmap.height * ratio));
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      bitmap.close();
+      return null;
+    }
+
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    bitmap.close();
+    return canvas.toDataURL('image/jpeg', THUMB_QUALITY);
+  } catch {
+    return null;
+  }
+};
 
 export function useSyncBadgeCount() {
   const { pendingItems, loadPendingItems } = useOfflineManager();
@@ -50,7 +81,14 @@ export function useOfflineSyncDisplay(getCheckpointName: (cpId: string) => strin
         if (thumbCache.has(file)) {
           return { ...item, thumb: thumbCache.get(file) ?? null };
         }
-        const url = await ImageService.getDisplayUrl(file);
+        let url: string | null = null;
+        const base64 = await ImageService.readImage(file);
+        if (base64) {
+          url = await buildThumbDataUrl(base64);
+        }
+        if (!url) {
+          url = await ImageService.getDisplayUrl(file);
+        }
         thumbCache.set(file, url);
         return { ...item, thumb: url };
       })
@@ -95,10 +133,17 @@ export function useOfflineSyncDisplay(getCheckpointName: (cpId: string) => strin
       void enrichThumbs(displayItems.value);
 
       // 3) Sanitize nền — cập nhật list nếu có item bị dọn
-      void loadPendingItems({ sanitize: true }).then(() => {
-        displayItems.value = seedItems(pendingItems.value);
-        void enrichThumbs(displayItems.value);
-      });
+      const now = Date.now();
+      if (!isSanitizingInBackground && now - lastBackgroundSanitizeAt >= SANITIZE_COOLDOWN_MS) {
+        isSanitizingInBackground = true;
+        lastBackgroundSanitizeAt = now;
+        void loadPendingItems({ sanitize: true }).then(() => {
+          displayItems.value = seedItems(pendingItems.value);
+          void enrichThumbs(displayItems.value);
+        }).finally(() => {
+          isSanitizingInBackground = false;
+        });
+      }
     } catch (e) {
       console.error('[OfflineSyncDisplay] refreshDisplayItems:', e);
       isRefreshing.value = false;
