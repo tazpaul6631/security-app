@@ -80,6 +80,7 @@ const onLogoutModalAfterHide = () => {
 const { clearTimer } = useRouteTimer();
 const store = useStore();
 const { t } = useI18n();
+const { pendingItems, loadPendingItems, isOnline } = useOfflineManager();
 
 ///////////////////////////////
 // Khởi tạo router riêng của Ionic
@@ -100,7 +101,7 @@ const goBackAndClearHistory = async () => {
   ionRouter.navigate('/home', 'root', 'replace');
 };
 
-const openLogoutModal = () => {
+const openLogoutModal = async () => {
   if (isRouteUnfinished.value) {
     void speakImportantText(t('messages.nav.incomplete-patrol'));
     toast.add({
@@ -112,6 +113,24 @@ const openLogoutModal = () => {
     });
     return;
   }
+
+  await loadPendingItems();
+  const deleteQueue = (await storageService.get('offline_delete_queue')) || [];
+  const wrongScanQueue = (await storageService.get('offline_wrong_scan_queue')) || [];
+  const totalUnsynced = pendingItems.value.length + deleteQueue.length + wrongScanQueue.length;
+
+  if (totalUnsynced > 0) {
+    void speakImportantText(t('messages.nav.msg-logout-sync-offline', { totalUnsynced }));
+    toast.add({
+      severity: 'warn',
+      summary: t('messages.nav.data-loss'),
+      detail: t('messages.nav.msg-logout-sync-offline', { totalUnsynced }),
+      life: 8000,
+      closable: false,
+    });
+    return;
+  }
+
   isLogoutModalOpen.value = true;
 };
 
@@ -119,7 +138,6 @@ watchLogoutPrompt(openLogoutModal);
 //////////////////////////////
 
 //////////////////////////////////////////
-const { pendingItems, loadPendingItems, isOnline } = useOfflineManager();
 
 const confirmLogout = async () => {
   isLoggingOut.value = true;
