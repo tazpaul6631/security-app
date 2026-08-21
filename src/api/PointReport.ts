@@ -10,7 +10,11 @@ export default {
   getPointReportId(id: any) {
     return request.get(`/PointReportView/getone/${id}`);
   },
-  createPointReport(formData: FormData) {
-    return request.post(`/PointReport/create`, formData);
+  createPointReport(formData: FormData, timeoutMs?: number) {
+    return request.post(
+      `/PointReport/create`,
+      formData,
+      timeoutMs ? { timeoutMs } : undefined
+    );
   }
 };

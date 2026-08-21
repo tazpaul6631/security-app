@@ -131,6 +131,7 @@
       "other-note": "Other (Enter note)...",
       "btn-confirm": "CONFIRM",
       "detail-note": "Enter detailed notes",
+      "sync": "Sync",
       "pending-sync": "Pending sync for total reports",
       "offline-sync-empty": "No reports are waiting to sync for the current shift.",
       "offline-sync-loading": "Loading pending sync list...",
@@ -190,7 +191,8 @@
       "incomplete-patrol": "You are currently on patrol and have not completed the route. Please complete the route before logging out!",
       "data-loss": "Data loss warning!",
       "pending-reports": "You have {pendingItems.value.length} unsynchronized reports. Please connect to the network to synchronize before logging out!",
-      "msg-logout-sync-offline": "The system has {totalUnsynced} process(es) pending synchronization due to a weak or missing internet connection. Logging out now will result in data loss. Please wait for a stable connection!"
+      "msg-logout-sync-offline": "The system has {totalUnsynced} process(es) pending synchronization due to a weak or missing internet connection. Logging out now will result in data loss. Please wait for a stable connection!",
+      "send-in-progress": "A checkpoint report is still being sent. Please wait until it finishes before logging out."
     },
     "use-camera": {
       "max-images": "Maximum 10 images allowed!",

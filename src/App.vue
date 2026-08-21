@@ -70,7 +70,6 @@ const getDynamicAreaIds = (userAreaId: number) => {
 // --- CHỐT CHẶN BẰNG WINDOW ĐỂ CHỐNG RE-MOUNT ---
 const getGlobalApiList = (userData: any) => {
   if (!userData) {
-    console.warn("Chưa có userData khi gọi getGlobalApiList");
     return {};
   }
 
@@ -118,7 +117,6 @@ const safeSync = async (isInitApp = false) => {
 
   // Reconnect không có queue kẹt: vẫn refresh list_route (ca mới theo ngày/giờ)
   if (!isInitApp && !hasOfflineData) {
-    console.log('Mạng khôi phục — chỉ refresh list_route.');
     isSafeSyncing = true;
     try {
       await store.dispatch('syncAllData', { apiList: lightListRouteApi(), mode: 'silent' });
@@ -133,7 +131,6 @@ const safeSync = async (isInitApp = false) => {
   }
 
   isSafeSyncing = true;
-  console.log("Luồng đồng bộ an toàn đang chạy...");
 
   try {
     // Nếu là F5 hoặc Login -> Ép bật Overlay chặn màn hình
@@ -148,10 +145,12 @@ const safeSync = async (isInitApp = false) => {
       });
     }
 
+    // Tắt sync offline
     // 1. Đẩy queue offline lên trước
     if (hasOfflineData) {
       await syncData();
     }
+    //
 
     // 2. Kiểm tra lại queue — chỉ download khi sạch (tránh đè tiến độ local chưa sync)
     await loadPendingItems();
@@ -168,8 +167,6 @@ const safeSync = async (isInitApp = false) => {
       await store.dispatch('syncAllData', { apiList, mode: mode });
     } else if (queuesClean) {
       await store.dispatch('syncAllData', { apiList: lightListRouteApi(), mode: 'silent' });
-    } else {
-      console.warn('[safeSync] Còn pending sau upload — bỏ download list_route để giữ tiến độ local');
     }
 
     // 3. Một chỗ duy nhất hỏi logout (sau overlay download / upload)
@@ -214,7 +211,6 @@ onMounted(async () => {
 
   // 1. Kiểm tra khóa ngay lập tức
   if ((window as any).APP_INITIALIZING || (window as any).APP_READY_LOCK) {
-    console.log("Hệ thống đang khởi tạo hoặc đã sẵn sàng. Chặn luồng trùng lặp.");
     isAppReady.value = true;
     return;
   }
@@ -242,11 +238,11 @@ onMounted(async () => {
     if (store.state.token) {
       await store.dispatch('initApp');
       await restoreAwaitingLogoutAfterSync();
+      // Tắt sync offline
       if (status.connected) {
         safeSync(true);
-      } else {
-        // Offline sau reload: giữ cờ SQLite; khi có mạng safeSync sẽ tryPrompt
       }
+      //
     }
 
     // 3. Đăng ký Listener và khóa nó lại
@@ -256,10 +252,12 @@ onMounted(async () => {
         const wasOffline = store.state.isOnline === false;
         const isNowOnline = status.connected === true;
         store.commit('SET_NETWORK_STATUS', status.connected);
+        // Tắt sync offline
         if (wasOffline && isNowOnline) {
           // LÚC MẠNG CHẬP CHỜN CÓ LẠI -> TRUYỀN FALSE
           setTimeout(() => safeSync(false), 1500);
         }
+        //
       });
       (window as any).HAS_NETWORK_LISTENER = true;
     }

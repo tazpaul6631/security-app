@@ -637,7 +637,7 @@ const handleSubmit = async (): Promise<void> => {
       noteGroups: finalNoteGroups,
     };
 
-    // --- GỬI NỀN: cập nhật local + navigate trước, API/queue không chặn UI ---
+    // --- Gửi API / ghi queue TRƯỚC khi đánh dấu xong (online & offline) ---
     const firstPreview = mandatoryPhoto.value?.preview ||
       (formData.prHasProblem ? groupedNotes.value[0]?.reportImages[0]?.preview : noProblemImages.value[0]?.preview);
 
@@ -657,17 +657,13 @@ const handleSubmit = async (): Promise<void> => {
       }
     };
 
-    // Offline: await ghi queue trước khi navigate — để CardRoutePoints thấy badge ngay
-    // Online: gửi nền (FormData RAM + API) để UI mượt
-    if (!isDeviceOnline) {
-      try {
-        await sendData(firstPreview || '', payloadForSend, imagesForSend);
-      } catch (sendErr: any) {
-        await reportSendError(sendErr);
-        hideLoading();
-        isSubmitting.value = false;
-        return;
-      }
+    try {
+      await sendData(firstPreview || '', payloadForSend, imagesForSend);
+    } catch (sendErr: any) {
+      await reportSendError(sendErr);
+      hideLoading();
+      isSubmitting.value = false;
+      return;
     }
 
     store.commit('UPDATE_POINT_STATUS', { routeId, cpId: currentCpId, status: 1 });
@@ -720,13 +716,6 @@ const handleSubmit = async (): Promise<void> => {
         // Đánh dấu: xong ca — nếu còn pending sẽ hỏi logout sau khi sync sạch
         await markAwaitingLogoutAfterSync();
 
-        if (isDeviceOnline) {
-          try {
-            await sendData(firstPreview || '', payloadForSend, imagesForSend);
-          } catch (sendErr: any) {
-            await reportSendError(sendErr);
-          }
-        }
         await storageService.set('list_route', store.state.dataListRoute);
         await loadPendingItems({ sanitize: true });
 
@@ -770,10 +759,6 @@ const handleSubmit = async (): Promise<void> => {
       await storageService.set('list_route', updatedRoutes);
       hideLoading();
       void finishNavigate();
-
-      if (isDeviceOnline) {
-        void sendData(firstPreview || '', payloadForSend, imagesForSend).catch(reportSendError);
-      }
     }
 
   } catch (error: any) {
@@ -1108,7 +1093,6 @@ watch([formData, groupedNotes, selectedValues, noProblemImages, mandatoryPhoto],
           : null,
       };
       await storageService.set(draftKey.value, draftData);
-      console.log('Đã lưu nháp bao gồm cả ảnh bắt buộc!');
     }
   }, 500);
 }, { deep: true });
@@ -1159,7 +1143,6 @@ const loadDraft = async () => {
     } else {
       mandatoryPhoto.value = null;
     }
-    console.log('Đã khôi phục toàn bộ bản nháp!');
     return true;
   }
   return false;
@@ -1167,7 +1150,6 @@ const loadDraft = async () => {
 
 const redirectIfInvalidSession = async (): Promise<boolean> => {
   if (store.getters.isPatrolSessionValid) return true;
-  console.warn('[AreaCreate] Session tuần tra không hợp lệ. Quay về Route.');
   await showToast(t('areas.report.message.1'), 'warning');
   router.replace('/route');
   return false;

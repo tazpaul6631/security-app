@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core'
 import { TextToSpeech } from '@capacitor-community/text-to-speech'
 import { SystemVolume } from '@/plugins/systemVolume.plugin'
 
-const IMPORTANT_TTS_MIN_VOLUME = 0.6
+const IMPORTANT_TTS_MIN_VOLUME = 0.5
 
 /** TTS quan trọng: tăng volume tạm nếu quá nhỏ, đọc xong restore (nếu user không chỉnh tay). */
 export async function speakImportantText(text: string, lang = 'vi-VN'): Promise<void> {

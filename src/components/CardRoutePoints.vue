@@ -31,14 +31,13 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
-import { onIonViewWillEnter } from '@ionic/vue';
+import { computed } from 'vue';
 import { useStore } from 'vuex';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 import { Badge, Tag } from '@/plugins/primevue.components';
 
 const store = useStore();
-const { pendingItems, loadPendingItems } = useOfflineManager();
+const { pendingItems } = useOfflineManager();
 
 interface RouteDetail {
   rdId: number | string;
@@ -73,12 +72,6 @@ const offlineCounts = computed(() => {
   return buildCountsFromQueue(pendingItems.value || []);
 });
 
-const loadOfflineQueue = () => {
-  void loadPendingItems().catch((error) => {
-    console.error('Lỗi khi tải dữ liệu offline queue:', error);
-  });
-};
-
 const getOfflineCount = (cpId: number | string): number => {
   return offlineCounts.value[String(cpId)] || 0;
 };
@@ -88,16 +81,6 @@ const isCurrentStep = (index: number): boolean => {
   const firstIncomplete = props.details.findIndex((p: RouteDetail) => p.status !== 1);
   return index === firstIncomplete;
 };
-
-onMounted(() => {
-  loadOfflineQueue();
-});
-
-onIonViewWillEnter(() => {
-  loadOfflineQueue();
-});
-
-defineExpose({ loadOfflineQueue });
 </script>
 
 <style scoped>

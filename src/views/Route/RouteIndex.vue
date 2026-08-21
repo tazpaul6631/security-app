@@ -351,7 +351,6 @@ const handleContinueScanning = async (routeId: number) => {
   const failSafeTimer = setTimeout(() => {
     if (isScanning.value) {
       isScanning.value = false;
-      console.warn("Cảnh báo: Phản hồi mở Camera quá chậm, tự động nhả khóa!");
     }
   }, 5000);
 
@@ -455,7 +454,6 @@ const loadRouteData = async (options: { silent?: boolean } = {}) => {
     const userData = store.state.dataUser?.data || store.state.dataUser || {};
     const areaId = userData.userAreaId;
     if (!areaId) {
-      console.warn('[RouteIndex] Thiếu areaId — bỏ qua fetch lộ trình');
       return;
     }
 

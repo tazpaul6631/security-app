@@ -3,21 +3,23 @@
     <div class="login-page">
       <div class="login-shell">
         <header class="login-topbar">
-          <Select v-model="locale" :options="langOptions" option-label="short" option-value="value" class="lang-pill"
-            panel-class="lang-select-panel" :aria-label="t('login.lang_select')" @update:model-value="onLangChange">
-            <template #value="slotProps">
-              <div v-if="slotProps.value" class="lang-value">
-                <img :src="getLangFlag(slotProps.value)" :alt="getLangShort(slotProps.value)" class="lang-flag" />
-                <span>{{ getLangShort(slotProps.value) }}</span>
-              </div>
-            </template>
-            <template #option="slotProps">
-              <div class="lang-option">
-                <img :src="slotProps.option.flag" :alt="slotProps.option.label" class="lang-flag" />
-                <span>{{ slotProps.option.label }}</span>
-              </div>
-            </template>
-          </Select>
+          <div class="lang-select-wrap">
+            <Select v-model="locale" :options="langOptions" option-label="short" option-value="value"
+              panel-class="lang-select-panel" :aria-label="t('login.lang_select')" @update:model-value="onLangChange">
+              <template #value="slotProps">
+                <div v-if="slotProps.value" class="lang-value">
+                  <img :src="getLangFlag(slotProps.value)" :alt="getLangShort(slotProps.value)" class="lang-flag" />
+                  <span class="lang-short">{{ getLangShort(slotProps.value) }}</span>
+                </div>
+              </template>
+              <template #option="slotProps">
+                <div class="lang-option">
+                  <img :src="slotProps.option.flag" :alt="slotProps.option.label" class="lang-flag" />
+                  <span>{{ slotProps.option.label }}</span>
+                </div>
+              </template>
+            </Select>
+          </div>
         </header>
 
         <section class="login-panel">
@@ -182,10 +184,11 @@ const handleLogin = async () => {
         const deleteQueue = (await storageService.get('offline_delete_queue')) || [];
         const wrongScanQueue = (await storageService.get('offline_wrong_scan_queue')) || [];
 
+        // Tắt sync offline
         if (pendingItems.value.length > 0 || deleteQueue.length > 0 || wrongScanQueue.length > 0) {
-          console.log("Phát hiện có data kẹt trước đó, đang tiến hành đẩy lên Server...");
           await syncData();
         }
+        //
 
         const checkpointPayload = {
           areaIds: getDynamicAreaIds(userData.userAreaId),
@@ -317,47 +320,59 @@ onMounted(async () => {
   margin-bottom: 12px;
 }
 
-.lang-pill {
-  width: 7.5rem;
-  border-radius: 999px !important;
-  background: rgba(255, 255, 255, 0.95) !important;
-  border: 1px solid #e2e8f0 !important;
-  color: #334155 !important;
+.lang-select-wrap {
+  width: 8.25rem;
+}
+
+.lang-select-wrap :deep(.p-select) {
+  width: 100%;
   min-height: 2.5rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid #e2e8f0;
+  color: #334155;
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
 }
 
-.lang-pill:hover,
-.lang-pill.p-focus,
-.lang-pill:not(.p-disabled):hover {
-  background: #ffffff !important;
-  border-color: #22c55e !important;
-  color: #334155 !important;
+.lang-select-wrap :deep(.p-select:not(.p-disabled):hover),
+.lang-select-wrap :deep(.p-select.p-focus),
+.lang-select-wrap :deep(.p-select.p-select-open) {
+  background: #ffffff;
+  border-color: #22c55e;
 }
 
-.lang-pill :deep(.p-select-label) {
-  color: #334155 !important;
-  padding-block: 0.5rem;
+.lang-select-wrap :deep(.p-select-label) {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding: 0.5rem 0 0.5rem 0.875rem;
+  color: #334155;
 }
 
-.lang-pill:hover :deep(.p-select-label),
-.lang-pill.p-focus :deep(.p-select-label) {
-  color: #334155 !important;
+.lang-select-wrap :deep(.p-select-dropdown) {
+  width: 2rem;
+  flex-shrink: 0;
+  color: #64748b;
 }
 
-.lang-pill :deep(.p-select-dropdown) {
-  color: #64748b !important;
-}
-
-.lang-pill :deep(.p-select-dropdown-icon) {
-  color: #64748b !important;
+.lang-select-wrap :deep(.p-select-dropdown-icon) {
+  color: #64748b;
 }
 
 .lang-value {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  color: #334155 !important;
+  min-width: 0;
+  width: 100%;
+  color: #334155;
+}
+
+.lang-short {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .lang-flag {
@@ -374,6 +389,7 @@ onMounted(async () => {
   align-items: center;
   gap: 0.625rem;
   color: #0f172a;
+  padding: 0.5rem 0;
 }
 
 .login-panel {
@@ -558,11 +574,35 @@ onMounted(async () => {
   background: #ffffff !important;
   border: 1px solid #e2e8f0 !important;
   color: #0f172a !important;
+  border-radius: 12px !important;
+  overflow: hidden;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14) !important;
+}
+
+.lang-select-panel .p-select-list {
+  padding: 0.25rem;
 }
 
 .lang-select-panel .p-select-option {
   color: #0f172a !important;
   background: #ffffff !important;
+  border-radius: 8px;
+}
+
+.lang-select-panel .lang-option {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+}
+
+.lang-select-panel .lang-flag {
+  width: 1.35rem;
+  height: 0.9rem;
+  object-fit: cover;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.12);
+  flex-shrink: 0;
 }
 
 .lang-select-panel .p-select-option:not(.p-disabled).p-focus,

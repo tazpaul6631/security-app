@@ -6,8 +6,12 @@ const baseURL: string = baseURLMixin.url;
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
+export interface RequestConfig {
+  timeoutMs?: number;
+}
+
 const request = {
-  async send(method: HttpMethod, url: string, data: any = null): Promise<any> {
+  async send(method: HttpMethod, url: string, data: any = null, config?: RequestConfig): Promise<any> {
     const token = await storageService.get('user_token');
     const headers: HeadersInit = {};
 
@@ -19,9 +23,17 @@ const request = {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
+    const controller = new AbortController();
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+    if (config?.timeoutMs && config.timeoutMs > 0) {
+      timeoutId = setTimeout(() => controller.abort(), config.timeoutMs);
+    }
+
     const options: RequestInit = {
       method: method,
       headers: headers,
+      signal: controller.signal,
     };
 
     if (data && method !== 'GET') {
@@ -44,8 +56,6 @@ const request = {
 
       // 2. Xử lý lỗi 401 (Token hết hạn)
       if (response.status === 401) {
-        console.warn("Token hết hạn, đang đăng xuất...");
-
         store.commit('SET_TOKEN', null);
         await storageService.remove('user_token');
 
@@ -55,7 +65,6 @@ const request = {
 
       // 3. NẾU SERVER BÁO LỖI HỆ THỐNG (500, 502, 503, 504) -> ÉP VỀ OFFLINE
       if (response.status >= 500) {
-        console.warn(`Server báo lỗi ${response.status}. Chuyển ép sang Offline Mode!`);
         store.commit('SET_NETWORK_STATUS', false);
         throw response; // Vẫn throw để UI bên ngoài bắt được lỗi và nhảy vào khối catch hiển thị cảnh báo (nếu có)
       }
@@ -74,15 +83,23 @@ const request = {
       };
 
     } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        throw {
+          isCustom: true,
+          code: 'REQUEST_TIMEOUT',
+          message: 'Request timed out',
+        };
+      }
+
       // 4. BẮT LỖI SẬP MẠNG HOÀN TOÀN (Server sập hẳn, mất kết nối mạng, CORS)
       // fetch API sẽ ném ra TypeError với message 'Failed to fetch' khi không thể chạm tới máy chủ
       if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
-        console.warn("Không thể kết nối tới Server (Network Error). Chuyển ép sang Offline Mode!");
         store.commit('SET_NETWORK_STATUS', false);
       }
 
-      console.error(`[Network/Fetch Error] ${method} ${url}:`, error);
       throw error;
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
     }
   },
 
@@ -90,8 +107,8 @@ const request = {
     return this.send('GET', url);
   },
 
-  post(url: string, data?: any) {
-    return this.send('POST', url, data);
+  post(url: string, data?: any, config?: RequestConfig) {
+    return this.send('POST', url, data, config);
   },
 
   put(url: string, data?: any) {
