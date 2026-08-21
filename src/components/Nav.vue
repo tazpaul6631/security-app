@@ -80,12 +80,23 @@ const onLogoutModalAfterHide = () => {
 const { clearTimer } = useRouteTimer();
 const store = useStore();
 const { t } = useI18n();
-const { pendingItems, loadPendingItems, isOnline } = useOfflineManager();
+const { pendingItems, loadPendingItems, isOnline, isSendDataBusy, waitForSendDataIdle } = useOfflineManager();
 
 ///////////////////////////////
 // Khởi tạo router riêng của Ionic
 const ionRouter = useIonRouter();
 const isRouteUnfinished = computed(() => store.getters.isRouteUnfinished);
+
+const warnSendInProgress = () => {
+  void speakImportantText(t('messages.nav.send-in-progress'));
+  toast.add({
+    severity: 'warn',
+    summary: t('messages.nav.unable-to-logout'),
+    detail: t('messages.nav.send-in-progress'),
+    life: 8000,
+    closable: false,
+  });
+};
 
 const goBackAndClearHistory = async () => {
   if (isRouteUnfinished.value) {
@@ -111,6 +122,11 @@ const openLogoutModal = async () => {
       life: 8000,
       closable: false,
     });
+    return;
+  }
+
+  if (isSendDataBusy.value) {
+    warnSendInProgress();
     return;
   }
 
@@ -150,8 +166,6 @@ const confirmLogout = async () => {
 
 const performLogout = async () => {
   try {
-    console.log('Bắt đầu kiểm tra trước khi đăng xuất...');
-
     // 1. Chặn nếu chưa hoàn thành lộ trình
     if (isRouteUnfinished.value) {
       isLogoutModalOpen.value = false;
@@ -162,6 +176,14 @@ const performLogout = async () => {
         life: 8000,
         closable: false,
       });
+      return;
+    }
+
+    // 1b. Chờ sendData/enqueue xong — tránh clear queue khi ghi chưa hoàn tất
+    const sendIdle = await waitForSendDataIdle(90000);
+    if (!sendIdle || isSendDataBusy.value) {
+      isLogoutModalOpen.value = false;
+      warnSendInProgress();
       return;
     }
 
@@ -190,7 +212,6 @@ const performLogout = async () => {
     // Chỉ gọi khi có mạng và có thông tin user
     if (store.state.isOnline && store.state.dataUser?.userId) {
       try {
-        console.log('Đang gọi API đăng xuất...');
         await Logout.postLogout({
           userId: store.state.dataUser.userId
         });
@@ -201,7 +222,6 @@ const performLogout = async () => {
     }
 
     // --- 4. BẮT ĐẦU QUY TRÌNH DỌN DẸP TRIỆT ĐỂ LOCAL ---
-    console.log('Tiến hành dọn dẹp state và storage...');
     clearAwaitingLogoutAfterSync();
     await clearTimer();
     await store.dispatch('logout');
@@ -210,9 +230,14 @@ const performLogout = async () => {
     await waitForLogoutModalClose();
     await router.replace('/login');
 
-  } catch (error) {
+  } catch (error: any) {
     console.error("Lỗi hệ thống khi đăng xuất:", error);
     isLogoutModalOpen.value = false;
+
+    if (error?.message === 'SEND_DATA_IN_FLIGHT') {
+      warnSendInProgress();
+      return;
+    }
 
     // CHỐT CHẶN CUỐI CÙNG: Nếu SQLite bị khóa hoặc code gãy
     const alert = await alertController.create({

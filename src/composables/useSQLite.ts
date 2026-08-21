@@ -37,7 +37,6 @@ export function useSQLite() {
     // 3. Nếu chưa có ai làm, ta bắt đầu làm và đánh dấu cho người sau biết
     initializationPromise = (async () => {
       try {
-        console.log('--- SQLite: Bắt đầu khởi tạo ---');
         await sqliteConnection.checkConnectionsConsistency();
         const isConn = await sqliteConnection.isConnection(DB_NAME, false);
 
@@ -57,10 +56,8 @@ export function useSQLite() {
         await db.execute(schema);
         dbInstance.value = db;
         isReady.value = true;
-        console.log('--- SQLite: Sẵn sàng ---');
 
       } catch (err: any) {
-        console.warn('--- SQLite: Xung đột, xử lý dọn dẹp kết nối lỗi ---');
         try {
           // Xử lý lỗi "No available connection" bằng cách đóng kết nối bị treo
           await sqliteConnection.closeConnection(DB_NAME, false);
@@ -125,8 +122,6 @@ export function useSQLite() {
 
       // 3. Xóa cả hàng chờ đồng bộ (sync_queue) để tránh gửi nhầm dữ liệu của người cũ
       await dbInstance.value.execute(`DELETE FROM sync_queue;`);
-
-      console.log('SQLite: Đã dọn dẹp sạch sẽ toàn bộ dữ liệu local.');
     } catch (err) {
       console.error('Lỗi logout SQLite:', err);
     }

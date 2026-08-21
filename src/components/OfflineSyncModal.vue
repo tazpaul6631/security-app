@@ -15,6 +15,8 @@
     <template #footer>
       <Button :label="$t('areas.report.close')" severity="secondary" variant="outlined" size="large"
         @click="isOpen = false" />
+      <Button :label="$t('areas.report.sync')" severity="primary" variant="outlined" size="large"
+        :loading="isSyncing" :disabled="!canSync" @click="handleSync" />
     </template>
   </Dialog>
 </template>
@@ -25,6 +27,7 @@ import { useI18n } from 'vue-i18n';
 import { Button, Dialog, ProgressSpinner } from '@/plugins/primevue.components';
 import OfflineSyncList from '@/components/OfflineSyncList.vue';
 import { useOfflineSyncDisplay } from '@/composables/useOfflineSyncDisplay';
+import { useOfflineManager } from '@/composables/useOfflineManager';
 
 const props = defineProps<{
   visible: boolean;
@@ -49,6 +52,18 @@ const {
   refreshDisplayItems,
   getCheckpointName,
 } = useOfflineSyncDisplay((cpId) => props.getCheckpointName(cpId));
+
+const { syncData, isSyncing } = useOfflineManager();
+
+const canSync = computed(
+  () => !isSyncing.value && displayItems.value.length > 0
+);
+
+const handleSync = async () => {
+  if (!canSync.value) return;
+  await syncData();
+  await refreshDisplayItems();
+};
 
 const dialogHeader = computed(() =>
   `${t('areas.report.pending-sync')} (${displayItems.value.length})`

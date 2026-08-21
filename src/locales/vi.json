@@ -131,6 +131,7 @@
       "other-note": "Khác (Nhập ghi chú)...",
       "btn-confirm": "XÁC NHẬN",
       "detail-note": "Nhập ghi chú chi tiết",
+      "sync": "Đồng bộ",
       "pending-sync": "Chờ đồng bộ tổng hợp",
       "offline-sync-empty": "Không có báo cáo nào đang chờ đồng bộ trong ca hiện tại.",
       "offline-sync-loading": "Đang tải danh sách chờ đồng bộ...",
@@ -255,7 +256,8 @@
       "incomplete-patrol": "Bạn đang đi tuần tra và chưa hoàn thành. Vui lòng kết thúc lộ trình trước khi đăng xuất!",
       "data-loss": "Cảnh báo mất dữ liệu!",
       "pending-reports": "Bạn đang có {pendingItems.value.length} báo cáo chưa được đồng bộ. Vui lòng kết nối mạng để đồng bộ trước khi đăng xuất!",
-      "msg-logout-sync-offline": "Hệ thống đang có {totalUnsynced} tiến trình chờ đồng bộ do mạng yếu hoặc không có mạng. Đăng xuất lúc này sẽ gây mất dữ liệu. Vui lòng chờ mạng ổn định!"
+      "msg-logout-sync-offline": "Hệ thống đang có {totalUnsynced} tiến trình chờ đồng bộ do mạng yếu hoặc không có mạng. Đăng xuất lúc này sẽ gây mất dữ liệu. Vui lòng chờ mạng ổn định!",
+      "send-in-progress": "Đang gửi báo cáo điểm quét. Vui lòng chờ hoàn tất trước khi đăng xuất."
     },
     "use-camera": {
       "max-images": "Chỉ được phép đính kèm tối đa 10 ảnh!",

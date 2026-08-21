@@ -131,6 +131,7 @@
       "other-note": "其他 (輸入備註)...",
       "btn-confirm": "確認",
       "detail-note": "輸入詳細備註",
+      "sync": "同步",
       "pending-sync": "等待同步的總計報告",
       "offline-sync-empty": "目前班次沒有待同步的報告。",
       "offline-sync-loading": "正在載入待同步清單...",
@@ -190,7 +191,8 @@
       "incomplete-patrol": "您目前正在巡邏且尚未完成路線。請在登出前完成路線！",
       "data-loss": "資料遺失警告！",
       "pending-reports": "您有 {pendingItems.value.length} 份尚未同步的報告。請在登出前連線網路進行同步！",
-      "msg-logout-sync-offline": "由於網路連線不穩定或斷線，目前尚有 {totalUnsynced} 項程序等待同步。此時登出將導致資料遺失，請務必等待網路恢復穩定！"
+      "msg-logout-sync-offline": "由於網路連線不穩定或斷線，目前尚有 {totalUnsynced} 項程序等待同步。此時登出將導致資料遺失，請務必等待網路恢復穩定！",
+      "send-in-progress": "正在傳送巡邏點報告，請等待完成後再登出。"
     },
     "use-camera": {
       "max-images": "最多只能附加 10 張圖片！",

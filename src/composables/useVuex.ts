@@ -4,6 +4,7 @@ import { markRaw } from 'vue';
 import i18n from '@/i18n';
 import { findActiveRoute, isPatrolSessionValid, isRouteUnfinished } from '@/composables/usePatrolSession';
 import { ImageService } from '@/services/image.service';
+import { isSendDataInFlight, waitForSendDataIdle } from '@/composables/useOfflineManager';
 const { t } = (i18n.global as any);
 
 const store = createStore({
@@ -142,8 +143,6 @@ const store = createStore({
 
         // NẾU: Ca đó đã được đánh dấu xong (isComplete = true) HOẶC không tìm thấy -> GỠ KHÓA AN TOÀN
         if (!lockedRouteInList || lockedRouteInList.isComplete) {
-          console.log("Ca trực đã hoàn thành (hoặc hết hạn). Tiến hành gỡ khóa!");
-
           // Chỉ xóa khóa, KHÔNG xóa dữ liệu khỏi mảng dataListRoute
           state.unfinishedRouteId = null;
           state.routeId = null;
@@ -351,7 +350,6 @@ const store = createStore({
       });
 
       storageService.set('list_route', state.dataListRoute);
-      console.log("Store: Đã reset ca trực về 0");
     },
 
     // Dùng để dọn sạch bộ nhớ RAM khi người dùng bấm Đăng Xuất
@@ -471,7 +469,6 @@ const store = createStore({
     },
 
     async initApp({ dispatch, commit }) {
-      console.log('--- [START] Khởi tạo ứng dụng ---');
       try {
         await Promise.all([
           dispatch('restoreToken'),
@@ -499,7 +496,6 @@ const store = createStore({
         console.error("Lỗi khi khởi tạo Store:", e);
       } finally {
         commit('SET_HYDRATED', true);
-        console.log('--- [END] Khởi tạo ứng dụng hoàn tất ---');
       }
     },
 
@@ -542,8 +538,6 @@ const store = createStore({
     //   if (!state.dataCheckpointsId || state.dataCheckpointsId.length === 0) {
     //     let response = await storageService.get('checkpoints_id');
 
-    //     console.log(response);
-
     //     if (typeof response === 'string') {
     //       try { response = JSON.parse(response); } catch (e) { }
     //     }
@@ -552,7 +546,6 @@ const store = createStore({
 
     //     if (actualData) {
     //       commit('SET_DATA_CHECKPOINTS_ID', actualData);
-    //       console.log('ĐÃ BƠM CHECKPOINTS_ID VÀO VUEX:', actualData);
     //     }
     //   }
     // },
@@ -703,11 +696,7 @@ const store = createStore({
         const pendingQueue = (await storageService.get('offline_api_queue')) || [];
         if (pendingQueue.length === 0) {
           await ImageService.purgeOfflineImages();
-        } else {
-          console.warn('[resetCurrentRoute] Còn báo cáo chờ sync — giữ file ảnh offline');
         }
-
-        console.log('Đã xóa lộ trình và reset trạng thái thành công');
       } catch (error) {
         console.error('Lỗi khi reset lộ trình:', error);
       }
@@ -719,7 +708,10 @@ const store = createStore({
     },
 
     async logout({ commit, state }) {
-      console.log('--- [LOGOUT] Đang dọn dẹp dữ liệu ---');
+      const sendIdle = await waitForSendDataIdle(5000);
+      if (!sendIdle || isSendDataInFlight()) {
+        throw new Error('SEND_DATA_IN_FLIGHT');
+      }
 
       // 1. BẢO LƯU DANH SÁCH TÀI KHOẢN OFFLINE TRƯỚC KHI XÓA
       let offlineUsers = null;
@@ -748,10 +740,7 @@ const store = createStore({
       // 4. PHỤC HỒI LẠI DANH SÁCH TÀI KHOẢN OFFLINE
       if (offlineUsers && Object.keys(offlineUsers).length > 0) {
         await storageService.set('offline_users_dict', offlineUsers);
-        console.log('Đã phục hồi danh sách tài khoản Offline an toàn.');
       }
-
-      console.log('Đã dọn dẹp xong RAM và SQLite.');
     }
   }
 })

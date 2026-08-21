@@ -14,6 +14,25 @@ import router from '@/router';
 const pendingItems = ref<PendingItem[]>([]);
 const isSyncing = ref(false);
 let isProcessing = false; // Khóa ngăn chặn gọi syncData song song
+/** Số lượng sendData/enqueue đang chạy — dùng chặn logout & clear queue sớm */
+const activeSendDataCount = ref(0);
+
+export function isSendDataInFlight(): boolean {
+  return activeSendDataCount.value > 0;
+}
+
+export const isSendDataBusy = computed(() => activeSendDataCount.value > 0);
+
+export async function waitForSendDataIdle(maxMs = 60000): Promise<boolean> {
+  const start = Date.now();
+  while (activeSendDataCount.value > 0 && Date.now() - start < maxMs) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  return activeSendDataCount.value === 0;
+}
+/** Timeout gửi 1 điểm online — quá hạn thì lưu queue (tránh kẹt loading / mất data) */
+const SUBMIT_TIMEOUT_MS = 30_000;
+
 const HIGH_QUEUE_THRESHOLD = 30;
 const AVG_IMAGE_SIZE_MB = 0.35;
 const HIGH_QUEUE_ESTIMATED_MB = 120;
@@ -78,7 +97,6 @@ export function useOfflineManager() {
     for (const item of queue) {
       const readable = await hasReadableImageFiles(item);
       if (!isQueueItemValid(item) || !readable) {
-        console.warn(`[Offline] Item ${item.id} không hợp lệ hoặc thiếu ảnh — xóa khỏi hàng chờ`);
         for (const fileName of item.imageFiles || []) {
           await ImageService.deleteImage(fileName).catch(() => { });
         }
@@ -113,7 +131,6 @@ export function useOfflineManager() {
 
       const readable = await hasReadableImageFiles(item);
       if (!readable || !isQueueItemValid(item)) {
-        console.warn(`[Offline] Dọn mục ca cũ ${item.id} (psId ${item.data?.psId}) — thiếu ảnh hoặc không hợp lệ`);
         for (const fileName of item.imageFiles || []) {
           await ImageService.deleteImage(fileName).catch(() => { });
         }
@@ -133,41 +150,42 @@ export function useOfflineManager() {
 
   const buildFormData = async (
     item: PendingItem,
-    imagesBase64?: string[]
+    imagesBase64?: string[],
+    listKey?: string,
+    itemIndex = 0
   ): Promise<FormData> => {
     const fb = new FormData();
+    const prefix = listKey ? `${listKey}[${itemIndex}].` : '';
     const expectedImages = countExpectedImages(item.data);
     let attachedImages = 0;
     const useMemory = Array.isArray(imagesBase64) && imagesBase64.length > 0;
 
-    // 1. Append các trường phẳng (Primitive)
-    fb.append('psId', item.data.psId.toString());
-    fb.append('routeId', item.data.routeId.toString());
-    fb.append('rdId', item.data.rdId.toString());
-    fb.append('prHasProblem', item.data.prHasProblem ? 'true' : 'false');
-    fb.append('prNote', item.data.prNote || '');
-    fb.append('createdAt', item.data.createdAt);
-    fb.append('createdBy', item.data.createdBy);
-    fb.append('scanAt', item.data.scanAt || item.data.createdAt);
+    fb.append(`${prefix}psId`, item.data.psId.toString());
+    fb.append(`${prefix}routeId`, item.data.routeId.toString());
+    fb.append(`${prefix}rdId`, item.data.rdId.toString());
+    fb.append(`${prefix}prHasProblem`, item.data.prHasProblem ? 'true' : 'false');
+    fb.append(`${prefix}prNote`, item.data.prNote || '');
+    fb.append(`${prefix}createdAt`, item.data.createdAt);
+    fb.append(`${prefix}createdBy`, item.data.createdBy);
+    fb.append(`${prefix}scanAt`, item.data.scanAt || item.data.createdAt);
 
     if (item.data.rpLat !== null && item.data.rpLat !== undefined) {
-      fb.append('rpLat', item.data.rpLat.toString());
+      fb.append(`${prefix}rpLat`, item.data.rpLat.toString());
     }
     if (item.data.rpLng !== null && item.data.rpLng !== undefined) {
-      fb.append('rpLng', item.data.rpLng.toString());
+      fb.append(`${prefix}rpLng`, item.data.rpLng.toString());
     }
 
-    // 2. Xử lý noteGroups theo chuẩn Index lồng nhau
     if (item.data.noteGroups && Array.isArray(item.data.noteGroups)) {
       let globalImageIndex = 0;
 
       for (let i = 0; i < item.data.noteGroups.length; i++) {
         const group = item.data.noteGroups[i];
 
-        fb.append(`noteGroups[${i}].prGroup`, group.prGroup.toString());
-        fb.append(`noteGroups[${i}].priImageNote`, group.priImageNote || '');
+        fb.append(`${prefix}noteGroups[${i}].prGroup`, group.prGroup.toString());
+        fb.append(`${prefix}noteGroups[${i}].priImageNote`, group.priImageNote || '');
         if (group.rncId !== null && group.rncId !== undefined && group.rncId !== '' && Number(group.rncId) > 0) {
-          fb.append(`noteGroups[${i}].rncId`, group.rncId.toString());
+          fb.append(`${prefix}noteGroups[${i}].rncId`, group.rncId.toString());
         }
 
         if (group.reportImages && group.reportImages.length > 0) {
@@ -184,20 +202,16 @@ export function useOfflineManager() {
               const fileName = item.imageFiles[globalImageIndex];
               if (fileName) {
                 base64 = await ImageService.readImage(fileName);
-              } else {
-                console.error(`Thiếu file ảnh tại index ${globalImageIndex}`);
               }
             }
 
             if (base64) {
               const blob = base64ToBlob(base64, mimeType);
-              fb.append(`noteGroups[${i}].reportImages`, blob, `group${i}_img${j}.${ext}`);
+              fb.append(`${prefix}noteGroups[${i}].reportImages`, blob, `group${i}_img${j}.${ext}`);
               if (imgMeta?.priImageType) {
-                fb.append(`noteGroups[${i}].reportImages[${j}].priImageType`, imgMeta.priImageType);
+                fb.append(`${prefix}noteGroups[${i}].reportImages[${j}].priImageType`, imgMeta.priImageType);
               }
               attachedImages++;
-            } else {
-              console.error(`Không lấy được ảnh tại index ${globalImageIndex}`);
             }
             globalImageIndex++;
           }
@@ -210,6 +224,81 @@ export function useOfflineManager() {
     }
 
     return fb;
+  };
+
+  const isUnauthorizedPayload = (payload: any): boolean => {
+    const msg = (payload?.message || '').toLowerCase();
+    return payload?.statusCode === 401 || payload?.code === 401 || msg.includes('unauthorized') || msg.includes('token');
+  };
+
+  const isDuplicatePayload = (payload: any): boolean =>
+    (payload?.message || '').toLowerCase().includes('đã tồn tại');
+
+  const pickCreatedReport = (entry: any): any | null => {
+    if (!entry || entry === false) return null;
+    const nested = entry.data;
+    if (nested && typeof nested === 'object' && !Array.isArray(nested) && (nested.prId || nested.cpId || nested.psId)) {
+      return nested;
+    }
+    if (entry.prId || entry.cpId || entry.psId) return entry;
+    return null;
+  };
+
+  type PointReportEvalStatus = 'success' | 'duplicate' | 'unauthorized' | 'failed';
+
+  /** Chỉ coi thành công khi success === true (hoặc trùng "đã tồn tại") */
+  const evaluatePointReportResponse = (payload: any): {
+    status: PointReportEvalStatus;
+    message?: string;
+    report?: any;
+  } => {
+    if (!payload || typeof payload !== 'object') {
+      return { status: 'failed', message: 'Phản hồi server không hợp lệ' };
+    }
+
+    if (isUnauthorizedPayload(payload)) {
+      return { status: 'unauthorized', message: payload.message };
+    }
+
+    if (isDuplicatePayload(payload)) {
+      return { status: 'duplicate', message: payload.message };
+    }
+
+    if (payload.success === true) {
+      const report = pickCreatedReport(payload);
+      return {
+        status: 'success',
+        message: payload.message,
+        report: report ?? (payload.data !== undefined ? payload.data : null),
+      };
+    }
+
+    return {
+      status: 'failed',
+      message: payload.message || 'Server từ chối lưu báo cáo',
+    };
+  };
+
+  const applySuccessfulPointReport = (evalResult: { report?: any }) => {
+    const report = evalResult.report;
+    if (report && report !== true && report !== false) {
+      storeInstance.commit('ADD_OFFLINE_REPORT', report);
+    }
+  };
+
+  const listifyPointReportResults = (envelope: any): any[] => {
+    if (!envelope) return [];
+    const inner = envelope.data !== undefined ? envelope.data : envelope;
+    if (Array.isArray(inner)) return inner;
+    if (inner && Array.isArray(inner.results)) return inner.results;
+    if (inner === false || inner == null) return [];
+    return [inner];
+  };
+
+  const forceLogoutOnExpiredToken = async () => {
+    storeInstance.commit('SET_TOKEN', null);
+    await storage.remove('user_token');
+    router.replace('/login');
   };
 
   const persistImagesToDisk = async (imagesBase64: string[]): Promise<string[]> => {
@@ -345,66 +434,74 @@ export function useOfflineManager() {
   };
 
   const sendData = async (url: string, data: any, imagesBase64: string[] = []): Promise<void> => {
-    const id = Date.now().toString() + '_' + Math.random().toString(36).substring(2, 9);
-    const expectedImageCount = countExpectedImages(data);
+    activeSendDataCount.value++;
+    try {
+      const id = Date.now().toString() + '_' + Math.random().toString(36).substring(2, 9);
+      const expectedImageCount = countExpectedImages(data);
 
-    if (!Array.isArray(data?.noteGroups) || data.noteGroups.length === 0 || expectedImageCount === 0) {
-      console.error('[sendData] noteGroups rỗng hoặc không có ảnh — từ chối gửi');
-      throw new Error('EMPTY_NOTE_GROUPS');
-    }
+      if (!Array.isArray(data?.noteGroups) || data.noteGroups.length === 0 || expectedImageCount === 0) {
+        throw new Error('EMPTY_NOTE_GROUPS');
+      }
 
-    if (!hasValidCheckinNoteGroup(data)) {
-      console.error('[sendData] thiếu nhóm check-in prGroup: 1 — từ chối gửi');
-      throw new Error('MISSING_CHECKIN_GROUP');
-    }
+      if (!hasValidCheckinNoteGroup(data)) {
+        throw new Error('MISSING_CHECKIN_GROUP');
+      }
 
-    if (expectedImageCount > 0 && imagesBase64.length !== expectedImageCount) {
-      console.error(`Số base64 (${imagesBase64.length}) không khớp metadata (${expectedImageCount})`);
-      throw new Error('IMAGE_FILE_MISMATCH');
-    }
+      if (expectedImageCount > 0 && imagesBase64.length !== expectedImageCount) {
+        throw new Error('IMAGE_FILE_MISMATCH');
+      }
 
-    const enqueueWithImages = async () => {
-      const imageFiles = await persistImagesToDisk(imagesBase64);
-      await addToQueue({ id, url, data, imageFiles });
-    };
+      const enqueueWithImages = async () => {
+        const imageFiles = await persistImagesToDisk(imagesBase64);
+        await addToQueue({ id, url, data, imageFiles });
+      };
 
-    // Online: FormData từ RAM → API; chỉ ghi disk khi fallback queue
-    if (storeInstance.state.isOnline) {
-      try {
-        const memoryItem: PendingItem = { id, url, data, imageFiles: [] };
-        const bodyFormData = await buildFormData(memoryItem, imagesBase64);
+      // Online: FormData từ RAM → API; chỉ ghi disk khi fallback queue
+      if (storeInstance.state.isOnline) {
+        try {
+          const memoryItem: PendingItem = { id, url, data, imageFiles: [] };
+          const bodyFormData = await buildFormData(memoryItem, imagesBase64);
 
-        const result = await PointReport.createPointReport(bodyFormData);
-        const responseData = result?.data || result;
+          const result = await PointReport.createPointReport(bodyFormData, SUBMIT_TIMEOUT_MS);
+          const responseData = result?.data || result;
+          const evalResult = evaluatePointReportResponse(responseData);
 
-        if (responseData && responseData.success === false) {
-          const msg = (responseData.message || '').toLowerCase();
+          if (evalResult.status === 'unauthorized') {
+            await forceLogoutOnExpiredToken();
+            throw new Error('UNAUTHORIZED');
+          }
 
-          if (responseData.statusCode === 401 || responseData.code === 401 || msg.includes('unauthorized') || msg.includes('token')) {
-            storeInstance.commit('SET_TOKEN', null);
-            await storage.remove('user_token');
-            router.replace('/login');
+          if (evalResult.status === 'duplicate') {
             return;
           }
 
-          if (msg.includes('đã tồn tại')) {
-            console.warn(`[Send] Báo cáo ${data.cpId} đã tồn tại trên Server.`);
+          if (evalResult.status === 'success') {
+            applySuccessfulPointReport(evalResult);
             return;
           }
 
-          throw { isCustom: true, status: 500, message: responseData.message };
+          throw {
+            isCustom: true,
+            status: 500,
+            message: evalResult.message,
+            code: 'POINT_REPORT_NOT_SUCCESS',
+          };
+        } catch (error: any) {
+          if (error?.code === 'POINT_REPORT_NOT_SUCCESS' || error?.message === 'UNAUTHORIZED') {
+            throw error;
+          }
+          const reason =
+            error?.code === 'REQUEST_TIMEOUT'
+              ? `timeout ${SUBMIT_TIMEOUT_MS / 1000}s`
+              : 'lỗi mạng/server';
+          console.warn(`Gửi trực tiếp thất bại (${reason}), chuyển vào hàng chờ...`, error);
+          await enqueueWithImages();
         }
-
-        const realReport = responseData?.data || responseData;
-        if (realReport && realReport !== false) {
-          storeInstance.commit('ADD_OFFLINE_REPORT', realReport);
-        }
-      } catch (error) {
-        console.warn('Gửi trực tiếp thất bại, chuyển vào hàng chờ...', error);
+      } else {
         await enqueueWithImages();
       }
-    } else {
-      await enqueueWithImages();
+    } finally {
+      activeSendDataCount.value--;
     }
   };
 
@@ -427,8 +524,6 @@ export function useOfflineManager() {
     const watchdogMs = Math.min(300000, 30000 + (queueSnapshot.length * 15000));
     const watchdogTimer = setTimeout(() => {
       if (isProcessing) {
-        console.warn("Hết thời gian chờ đồng bộ (Timeout). Buộc tắt Overlay!");
-
         // Ép reset các cờ trạng thái
         isProcessing = false;
         storeInstance.commit('SET_SYNC_OFFLINE_STATUS', false);
@@ -447,9 +542,8 @@ export function useOfflineManager() {
       }
     }, watchdogMs);
 
-    console.log("--- [START] BẮT ĐẦU ĐỒNG BỘ ---");
-
     let removedInvalidCount = 0;
+    let hasShownServerErrorToast = false;
 
     try {
       // 1. Xử lý hàng chờ xóa
@@ -487,7 +581,6 @@ export function useOfflineManager() {
 
           // Thành công thì dọn dẹp hàng chờ
           await storage.remove('offline_wrong_scan_queue');
-          console.log("Đã đồng bộ và dọn dẹp Log quét sai thành công!");
         }
       } catch (err) {
         console.error("Lỗi đồng bộ mảng Log quét sai (Sẽ thử lại lần sau):", err);
@@ -503,8 +596,6 @@ export function useOfflineManager() {
       if (queue.length === 0) return;
 
       for (const item of queue) {
-        if (!storeInstance.state.isOnline) break;
-
         processedItems++;
         const percent = Math.round((processedItems / totalItems) * 100);
         storeInstance.commit('SET_SYNC_STATUS', {
@@ -516,58 +607,48 @@ export function useOfflineManager() {
 
         // Metadata nhẹ — ảnh đã được sanitize đầu sync; chỉ đọc disk 1 lần bên dưới
         if (!isQueueItemValid(item)) {
-          console.error(`[Sync] Item ${item.id} không hợp lệ — dọn khỏi hàng chờ`);
           await cleanUpItem(item);
           removedInvalidCount++;
           continue;
         }
 
         try {
-          // Đọc file ảnh trực tiếp theo từng ảnh trong buildFormData để giảm peak RAM trên máy yếu
-          const bodyFormData = await buildFormData(item);
-          const result = await PointReport.createPointReport(bodyFormData);
+          const bodyFormData = await buildFormData(item, undefined, 'lstPr', 0);
+          const result = await Sync.syncPointReport(bodyFormData);
 
-          const responseData = result?.data || result;
+          const envelope = result?.data || result;
+          const firstResult = listifyPointReportResults(envelope)[0] ?? envelope;
+          const evalResult = evaluatePointReportResponse(
+            firstResult?.success !== undefined ? firstResult : envelope
+          );
 
-          // === BẮT LỖI SOFT ERROR TỪ BACKEND ===
-          if (responseData && responseData.success === false) {
-
-            const msg = (responseData.message || '').toLowerCase();
-
-            if (responseData.statusCode === 401 || responseData.code === 401 || msg.includes('unauthorized') || msg.includes('token')) {
-              console.warn("Phát hiện Token hết hạn trong Soft Error. Ép văng ra Login!");
-
-              storeInstance.commit('SET_TOKEN', null);
-              await storage.remove('user_token');
-              router.replace('/login');
-              return;
-            }
-
-            if (msg.includes('đã tồn tại')) {
-              console.warn(`[Sync] Báo cáo ${item.data.cpId} đã tồn tại trên Server. Xóa khỏi hàng chờ.`);
-              await cleanUpItem(item);
-              continue;
-            }
-            else {
-              // Ném các lỗi khác xuống catch để dừng Sync và báo Toast
-              throw { isCustom: true, status: 500, message: responseData.message };
-            }
+          if (evalResult.status === 'unauthorized') {
+            await forceLogoutOnExpiredToken();
+            return;
           }
-          // ==========================================
 
-          const realReport = responseData?.data || responseData;
-
-          await cleanUpItem(item);
-
-          if (realReport && realReport !== false) {
-            storeInstance.commit('ADD_OFFLINE_REPORT', realReport);
+          if (evalResult.status === 'duplicate') {
+            await cleanUpItem(item);
+            continue;
           }
+
+          if (evalResult.status === 'success') {
+            await cleanUpItem(item);
+            applySuccessfulPointReport(evalResult);
+            continue;
+          }
+
+          throw {
+            isCustom: true,
+            status: 500,
+            message: evalResult.message || firstResult?.message || envelope?.message,
+            code: 'POINT_REPORT_NOT_SUCCESS',
+          };
 
         } catch (error: any) {
           const errMsg = error?.message || '';
 
           if (errMsg === 'FORM_DATA_IMAGE_MISMATCH') {
-            console.error(`[Sync] Item ${item.id} thiếu file ảnh — dọn khỏi hàng chờ`);
             await cleanUpItem(item);
             removedInvalidCount++;
             continue;
@@ -575,15 +656,27 @@ export function useOfflineManager() {
 
           const statusCode = error.isCustom ? error.status : (error.response?.status || error.status);
 
+          if (statusCode === 401 || isUnauthorizedPayload(error)) {
+            await forceLogoutOnExpiredToken();
+            return;
+          }
+
           if ([400, 409, 422].includes(statusCode)) {
             await cleanUpItem(item);
-          } else {
-            console.error("Lỗi mạng/Server, dừng tiến trình Sync.");
-            if (statusCode >= 500) {
-              presentToast(t('messages.use-offline.maintenance'), 'danger');
-            }
-            break;
+            continue;
           }
+
+          // Giữ item trong queue — gửi nốt các điểm còn lại
+          if (statusCode >= 500 && !hasShownServerErrorToast) {
+            hasShownServerErrorToast = true;
+            presentToast(t('messages.use-offline.maintenance'), 'danger');
+          }
+
+          const isNetworkFail =
+            error?.name === 'TypeError' ||
+            (typeof errMsg === 'string' && errMsg.includes('Failed to fetch'));
+          if (isNetworkFail) break;
+          continue;
         }
 
         // Nhường event-loop sau mỗi item để UI mượt hơn trên máy yếu
@@ -643,8 +736,6 @@ export function useOfflineManager() {
             );
           }
         }
-
-        console.log("--- [END] KẾT THÚC ĐỒNG BỘ ---");
       }
     }
   };
@@ -652,6 +743,8 @@ export function useOfflineManager() {
   return {
     isOnline: computed(() => storeInstance.state.isOnline),
     isSyncing: computed(() => storeInstance.state.isSyncingOffline || isSyncing.value),
+    isSendDataBusy,
+    waitForSendDataIdle,
     pendingItems,
     sendData,
     loadPendingItems,
