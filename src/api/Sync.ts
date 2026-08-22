@@ -6,5 +6,8 @@ export default {
     },
     syncPointReport(formData: FormData) {
         return request.post('/Sync/syncpointreport', formData);
+    },
+    syncPatrolLog(data: any) {
+        return request.post('/Sync/syncpatrollog', data);
     }
 };

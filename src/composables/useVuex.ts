@@ -713,10 +713,12 @@ const store = createStore({
         throw new Error('SEND_DATA_IN_FLIGHT');
       }
 
-      // 1. BẢO LƯU DANH SÁCH TÀI KHOẢN OFFLINE TRƯỚC KHI XÓA
+      // 1. BẢO LƯU DANH SÁCH TÀI KHOẢN OFFLINE + PATROL SHIFT LOGS TRƯỚC KHI XÓA
       let offlineUsers = null;
+      let patrolShiftLogs = null;
       try {
         offlineUsers = await storageService.get('offline_users_dict');
+        patrolShiftLogs = await storageService.get('patrol_shift_logs');
         const currentUser: any = state.dataUser;
 
         if (offlineUsers && currentUser?.userCode) {
@@ -725,7 +727,7 @@ const store = createStore({
           }
         }
       } catch (e) {
-        console.error("Không lấy được danh sách offline trước khi xóa", e);
+        console.error("Không lấy được dữ liệu cần giữ trước khi xóa", e);
       }
 
       // 2. Xóa sạch RAM
@@ -740,6 +742,11 @@ const store = createStore({
       // 4. PHỤC HỒI LẠI DANH SÁCH TÀI KHOẢN OFFLINE
       if (offlineUsers && Object.keys(offlineUsers).length > 0) {
         await storageService.set('offline_users_dict', offlineUsers);
+      }
+
+      // 5. Giữ patrol_shift_logs — chỉ xóa khi syncPatrolLog success:true
+      if (Array.isArray(patrolShiftLogs) && patrolShiftLogs.length > 0) {
+        await storageService.set('patrol_shift_logs', patrolShiftLogs);
       }
     }
   }

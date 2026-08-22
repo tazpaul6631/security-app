@@ -613,7 +613,7 @@ export function useOfflineManager() {
         }
 
         try {
-          const bodyFormData = await buildFormData(item, undefined, 'lstPr', 0);
+          const bodyFormData = await buildFormData(item, undefined, 'dto', 0);
           const result = await Sync.syncPointReport(bodyFormData);
 
           const envelope = result?.data || result;

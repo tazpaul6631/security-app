@@ -32,6 +32,7 @@
     "routes": "路線",
     "reports": "報表",
     "tutorial": "教學",
+    "logs": "日誌",
     "adm": "管理員",
     "it": "資訊人員",
     "expat": "外派人員",
@@ -48,7 +49,8 @@
     },
     "routes": "路線",
     "reports": "報表",
-    "tutorial": "教學"
+    "tutorial": "教學",
+    "logs": "日誌"
   },
   "routes": {
     "cancel": "取消",
@@ -73,6 +75,21 @@
     "not-found": "暫無報表",
     "no-data": "報表功能開發中，或目前尚無資料。",
     "go-home": "返回首頁"
+  },
+  "logs": {
+    "not-found": "沒有待同步的班次日誌。",
+    "go-home": "返回首頁",
+    "filter-date": "依班次日期與時間篩選",
+    "filter-date-placeholder": "選擇日期與時間（24小時制）",
+    "retry-sync": "重新同步",
+    "attempts": "嘗試次數",
+    "status-draft": "進行中",
+    "status-ready": "待傳送",
+    "status-failed": "傳送失敗",
+    "status-invalid": "無效",
+    "delete-all-logs": "刪除所有日誌",
+    "delete-confirm-title": "確認刪除",
+    "delete-confirm-msg": "確定要刪除此裝置上的全部班次日誌嗎？此操作無法復原。"
   },
   "areas": {
     "index": {

@@ -41,7 +41,7 @@
             </template>
             <template #content>
               <div class="route-points-scroll">
-                <card-route-points ref="cardRoutePointsRef" :details="currentActiveRoute.routeDetails" />
+                <card-route-points :details="currentActiveRoute.routeDetails" />
               </div>
             </template>
           </Card>
@@ -172,7 +172,6 @@ let timer: any = null;
 const lockedRouteId = computed(() => store.state.unfinishedRouteId);
 const { t } = useI18n();
 const { show: showLoading, hide: hideLoading } = useAppLoading();
-const cardRoutePointsRef = ref<any>(null);
 const { pendingItems, loadPendingItems, cleanUpItem, purgeStaleShiftQueue } = useOfflineManager();
 const { syncBadgeCount } = useSyncBadgeCount();
 
@@ -490,13 +489,13 @@ onIonViewWillEnter(async () => {
   if (hasRouteCache()) {
     isLoading.value = false;
     void loadRouteData().finally(() => {
-      cardRoutePointsRef.value?.loadOfflineQueue();
+      void loadPendingItems();
     });
     return;
   }
 
   await loadRouteData();
-  cardRoutePointsRef.value?.loadOfflineQueue();
+  void loadPendingItems();
 });
 
 onMounted(async () => {
@@ -585,8 +584,8 @@ useBackButton(10, () => {
 
 watch(() => store.state.isSyncing, (isSyncingNow) => {
   // Khi isSyncing chuyển từ true -> false (nghĩa là vừa đồng bộ xong)
-  if (!isSyncingNow && cardRoutePointsRef.value) {
-    cardRoutePointsRef.value.loadOfflineQueue(); // Bắt đếm lại liền!
+  if (!isSyncingNow) {
+    void loadPendingItems(); // pendingItems reactive → CardRoutePoints tự đếm lại
   }
 });
 </script>

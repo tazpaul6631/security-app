@@ -15,6 +15,7 @@ import RoleIndex from '@/views/Role/RoleIndex.vue';
 import ReportIndex from '@/views/Report/ReportIndex.vue';
 import RouteIndex from '@/views/Route/RouteIndex.vue';
 import TutorialIndex from '@/views/Tutorial/TutorialIndex.vue';
+import LogsIndex from '@/views/Logs/LogsIndex.vue';
 
 const routes: Array<RouteRecordRaw> = [
   {
@@ -64,6 +65,11 @@ const routes: Array<RouteRecordRaw> = [
         path: 'report',
         name: 'report',
         component: ReportIndex,
+      },
+      {
+        path: 'log',
+        name: 'log',
+        component: LogsIndex,
       },
       {
         path: 'tutorial',

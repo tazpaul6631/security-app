@@ -99,6 +99,7 @@ import CheckPointScanQr from '@/api/CheckPointScanQr';
 import AreaBU from '@/api/AreaBU';
 import ReportNoteCategory from '@/api/ReportNoteCategory';
 import PatrolShiftView from '@/api/PatrolShiftView';
+import { syncPatrolShiftLogs } from '@/services/patrolShiftLog.service';
 
 interface LangOption {
   label: string;
@@ -206,6 +207,14 @@ const handleLogin = async () => {
         };
 
         await store.dispatch('syncAllData', { apiList: apiList, mode: 'overlay' });
+
+        // Sync tóm tắt ca đã hoàn thành (giữ nếu fail — không chặn vào Home)
+        try {
+          await syncPatrolShiftLogs();
+        } catch (patrolLogErr) {
+          console.warn('[Login] syncPatrolShiftLogs thất bại (giữ SQLite):', patrolLogErr);
+        }
+
         router.replace('/home');
 
       } else {

@@ -125,6 +125,10 @@ import { ImageService } from '@/services/image.service';
 import { speakImportantText } from '@/services/ttsService';
 import router from '@/router';
 import storageService from '@/services/storage.service';
+import {
+  upsertPointInPatrolShiftLog,
+  finalizePatrolShiftLog,
+} from '@/services/patrolShiftLog.service';
 import { useRouteTimer } from '@/composables/useRouteTimer';
 import { useRoute } from 'vue-router';
 import { Geolocation } from '@capacitor/geolocation';
@@ -218,6 +222,37 @@ const {
   markAwaitingLogoutAfterSync,
   tryPromptLogoutAfterOfflineSync,
 } = useLogoutPrompt();
+
+const buildPatrolLogInput = (
+  activeRoute: any,
+  completed: { cpId: number | string; cpCode: string; cpName: string },
+  source: 'online' | 'offline'
+) => {
+  const user = store.state.dataUser;
+  const userData = user?.data ? user.data : user;
+  const scan = dataScanQr.value;
+
+  return {
+    psId: Number(activeRoute.psId),
+    routeId: Number(activeRoute.routeId),
+    psDay: Number(activeRoute.psDay ?? new Date().getDate()),
+    psMonth: Number(activeRoute.psMonth ?? new Date().getMonth() + 1),
+    psYear: Number(activeRoute.psYear ?? new Date().getFullYear()),
+    psHourFrom: Number(activeRoute.psHourFrom ?? 0),
+    routeName: String(activeRoute.routeName || ''),
+    areaName: String(scan?.areaName || userData?.userAreaName || ''),
+    reportBy: String(userData?.userId || ''),
+    reportName: String(userData?.fullName || userData?.userName || userData?.userCode || ''),
+    source,
+    allPoints: (activeRoute.routeDetails || []).map((p: any) => ({
+      cpId: p.cpId,
+      cpCode: p.cpCode,
+      cpName: p.cpName,
+      rdIsComplete: !!(p.rdIsComplete || p.status === 1),
+    })),
+    completedPoint: completed,
+  };
+};
 
 // --- Functions ---
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -666,6 +701,26 @@ const handleSubmit = async (): Promise<void> => {
       return;
     }
 
+    // Ghi snapshot ca vào patrol_shift_logs (chỉ sau sendData OK)
+    if (activeRoute) {
+      const scan = dataScanQr.value;
+      const pointMeta = {
+        cpId: currentCpId,
+        cpCode: String(scan?.cpCode || currentCpId),
+        cpName: String(scan?.cpName || ''),
+      };
+      const logInput = buildPatrolLogInput(
+        activeRoute,
+        pointMeta,
+        isDeviceOnline ? 'online' : 'offline'
+      );
+      try {
+        await upsertPointInPatrolShiftLog(logInput);
+      } catch (logErr) {
+        console.warn('[AreaCreate] Ghi patrol_shift_logs thất bại:', logErr);
+      }
+    }
+
     store.commit('UPDATE_POINT_STATUS', { routeId, cpId: currentCpId, status: 1 });
     const updatedRoutes = [...store.state.dataListRoute];
     const rIdx = updatedRoutes.findIndex((r: Route) => Number(r.routeId) === Number(routeId) && Number(r.psId) === Number(finalPsId));
@@ -697,6 +752,28 @@ const handleSubmit = async (): Promise<void> => {
 
     if (allDone) {
       await clearTimer(routeId, finalPsId);
+
+      // Snapshot đủ điểm lộ trình trước khi clear session
+      if (activeRoute) {
+        const scan = dataScanQr.value;
+        const doneRoute = updatedRoutes[rIdx] || activeRoute;
+        try {
+          await finalizePatrolShiftLog(
+            buildPatrolLogInput(
+              doneRoute,
+              {
+                cpId: currentCpId,
+                cpCode: String(scan?.cpCode || currentCpId),
+                cpName: String(scan?.cpName || ''),
+              },
+              isDeviceOnline ? 'online' : 'offline'
+            )
+          );
+        } catch (logErr) {
+          console.warn('[AreaCreate] finalize patrol_shift_logs thất bại:', logErr);
+        }
+      }
+
       await Promise.all([
         storageService.remove('unfinished_route_id'),
         storageService.remove('current_route_id'),

@@ -20,3 +20,4 @@ export { default as Select } from 'primevue/select';
 export { default as Tag } from 'primevue/tag';
 export { default as Textarea } from 'primevue/textarea';
 export { default as Toast } from 'primevue/toast';
+export { default as DatePicker } from 'primevue/datepicker';

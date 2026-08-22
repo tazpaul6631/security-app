@@ -48,6 +48,13 @@
             </span>
             <span class="menu-label">{{ $t(getAreaData(item.mcId).name) }}</span>
           </button>
+
+          <button v-if="canShowLogMenu" type="button" class="menu-tile" @click="router.replace('/log')">
+            <span class="menu-icon-wrap tone-slate">
+              <i class="pi pi-list menu-icon" />
+            </span>
+            <span class="menu-label">{{ $t('home.logs') }}</span>
+          </button>
         </div>
       </div>
 
@@ -80,6 +87,14 @@ const { t } = useI18n();
 const isOnline = computed(() => store.state.isOnline);
 const dataUser = computed(() => store.state.dataUser);
 const allowViews = computed(() => dataUser.value?.allowViews || []);
+
+const HIDDEN_MENU_USER_CODES = ['R39557', 'R39558', 'R39559'] as const;
+
+const canShowLogMenu = computed(() => {
+  const user = dataUser.value;
+  const userCode = user?.userCode || user?.data?.userCode;
+  return !!userCode && (HIDDEN_MENU_USER_CODES as readonly string[]).includes(userCode);
+});
 
 const listAreas = ref([
   { mcId: 1, icon: 'pi-id-card', name: 'home.roles', color: 'tone-orange', router: '/role' },

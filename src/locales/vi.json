@@ -32,6 +32,7 @@
     "routes": "Lộ Trình",
     "reports": "Báo Cáo",
     "tutorial": "Hướng Dẫn",
+    "logs": "Nhật Ký",
     "adm": "Quản trị viên",
     "it": "IT",
     "expat": "Chuyên gia",
@@ -48,7 +49,8 @@
     },
     "routes": "Lộ Trình",
     "reports": "Báo Cáo",
-    "tutorial": "Hướng Dẫn"
+    "tutorial": "Hướng Dẫn",
+    "logs": "Nhật Ký"
   },
   "routes": {
     "cancel": "Hủy",
@@ -73,6 +75,21 @@
     "not-found": "Chưa có báo cáo",
     "no-data": "Tính năng báo cáo đang được phát triển hoặc chưa có dữ liệu.",
     "go-home": "Quay lại trang chủ"
+  },
+  "logs": {
+    "not-found": "Không có nhật ký ca trực nào đang chờ đồng bộ.",
+    "go-home": "Quay lại trang chủ",
+    "filter-date": "Lọc theo ngày giờ ca trực",
+    "filter-date-placeholder": "Chọn ngày giờ (24h)",
+    "retry-sync": "Thử gửi lại",
+    "attempts": "Số lần thử",
+    "status-draft": "Đang đi",
+    "status-ready": "Chờ gửi",
+    "status-failed": "Gửi lỗi",
+    "status-invalid": "Không hợp lệ",
+    "delete-all-logs": "Xóa tất cả nhật ký",
+    "delete-confirm-title": "Xác nhận xóa",
+    "delete-confirm-msg": "Bạn có chắc muốn xóa toàn bộ nhật ký ca trực trên máy? Thao tác này không hoàn tác được."
   },
   "areas": {
     "index": {
