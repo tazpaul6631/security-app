@@ -1,72 +1,72 @@
 <template>
   <div class="login-page">
-      <div class="login-shell">
-        <header class="login-topbar">
-          <div class="lang-select-wrap">
-            <Select v-model="locale" :options="langOptions" option-label="short" option-value="value"
-              panel-class="lang-select-panel" :aria-label="t('login.lang_select')" @update:model-value="onLangChange">
-              <template #value="slotProps">
-                <div v-if="slotProps.value" class="lang-value">
-                  <img :src="getLangFlag(slotProps.value)" :alt="getLangShort(slotProps.value)" class="lang-flag" />
-                  <span class="lang-short">{{ getLangShort(slotProps.value) }}</span>
-                </div>
-              </template>
-              <template #option="slotProps">
-                <div class="lang-option">
-                  <img :src="slotProps.option.flag" :alt="slotProps.option.label" class="lang-flag" />
-                  <span>{{ slotProps.option.label }}</span>
-                </div>
-              </template>
-            </Select>
-          </div>
-        </header>
+    <div class="login-shell">
+      <header class="login-topbar">
+        <div class="lang-select-wrap">
+          <Select v-model="locale" :options="langOptions" option-label="short" option-value="value"
+            panel-class="lang-select-panel" :aria-label="t('login.lang_select')" @update:model-value="onLangChange">
+            <template #value="slotProps">
+              <div v-if="slotProps.value" class="lang-value">
+                <img :src="getLangFlag(slotProps.value)" :alt="getLangShort(slotProps.value)" class="lang-flag" />
+                <span class="lang-short">{{ getLangShort(slotProps.value) }}</span>
+              </div>
+            </template>
+            <template #option="slotProps">
+              <div class="lang-option">
+                <img :src="slotProps.option.flag" :alt="slotProps.option.label" class="lang-flag" />
+                <span>{{ slotProps.option.label }}</span>
+              </div>
+            </template>
+          </Select>
+        </div>
+      </header>
 
-        <section class="login-panel">
-          <div class="brand-block">
-            <div class="brand-block-inner" aria-hidden="true">
-              <div class="brand-icon">
-                <i class="pi pi-shield" />
-              </div>
-              <div class="brand-title-block">
-                <h1 class="brand-title">
-                  <span class="brand-title-part">Internal</span> <span class="accent">Patrol</span>
-                </h1>
-              </div>
+      <section class="login-panel">
+        <div class="brand-block">
+          <div class="brand-block-inner" aria-hidden="true">
+            <div class="brand-icon">
+              <i class="pi pi-shield" />
+            </div>
+            <div class="brand-title-block">
+              <h1 class="brand-title">
+                <span class="brand-title-part">Internal</span> <span class="accent">Patrol</span>
+              </h1>
             </div>
           </div>
+        </div>
 
-          <form class="login-form" @submit.prevent="handleLogin">
-            <div class="form-field">
-              <label class="field-label" for="user-code">{{ t('login.username') }}</label>
-              <div class="username-row">
-                <IconField icon-position="left" class="username-input">
-                  <InputIcon class="pi pi-user" />
-                  <InputText id="user-code" v-model="loginDetail.userCode" :placeholder="t('login.scan_qr_hint')" />
-                </IconField>
-                <Button type="button" icon="pi pi-qrcode" severity="success" variant="outlined" class="scan-btn"
-                  size="large" :aria-label="t('login.scan_qr')" @click="handleScanQRLogin" />
-              </div>
-            </div>
-
-            <div class="form-field">
-              <label class="field-label" for="user-password">{{ t('login.password') }}</label>
-              <IconField icon-position="left" class="field-control">
-                <InputIcon class="pi pi-lock" />
-                <Password input-id="user-password" v-model="loginDetail.userPassword" :feedback="false" toggle-mask
-                  :placeholder="t('login.password')" @keyup.enter="handleLogin" />
+        <form class="login-form" @submit.prevent="handleLogin">
+          <div class="form-field">
+            <label class="field-label" for="user-code">{{ t('login.username') }}</label>
+            <div class="username-row">
+              <IconField icon-position="left" class="username-input">
+                <InputIcon class="pi pi-user" />
+                <InputText id="user-code" v-model="loginDetail.userCode" :placeholder="t('login.scan_qr_hint')" />
               </IconField>
+              <Button type="button" icon="pi pi-qrcode" severity="success" variant="outlined" class="scan-btn"
+                size="large" :aria-label="t('login.scan_qr')" @click="handleScanQRLogin" />
             </div>
+          </div>
 
-            <Message v-if="errorMessage" severity="error" :closable="false" icon="pi pi-exclamation-circle"
-              class="error-message">
-              {{ errorMessage }}
-            </Message>
+          <div class="form-field">
+            <label class="field-label" for="user-password">{{ t('login.password') }}</label>
+            <IconField icon-position="left" class="field-control">
+              <InputIcon class="pi pi-lock" />
+              <Password input-id="user-password" v-model="loginDetail.userPassword" :feedback="false" toggle-mask
+                :placeholder="t('login.password')" @keyup.enter="handleLogin" />
+            </IconField>
+          </div>
 
-            <Button type="submit" severity="success" icon="pi pi-sign-in" class="submit-btn" fluid size="large"
-              :disabled="isButtonDisabled || isLoading" :loading="isLoading" :label="t('login.btn_login')" />
-          </form>
-        </section>
-      </div>
+          <Message v-if="errorMessage" severity="error" :closable="false" icon="pi pi-exclamation-circle"
+            class="error-message">
+            {{ errorMessage }}
+          </Message>
+
+          <Button type="submit" severity="success" icon="pi pi-sign-in" class="submit-btn" fluid size="large"
+            :disabled="isButtonDisabled || isLoading" :loading="isLoading" :label="t('login.btn_login')" />
+        </form>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -271,6 +271,7 @@ const handleScanQRLogin = async () => {
     if (barcodes.length > 0) {
       const scannedValue = barcodes[0].rawValue;
       loginDetail.userCode = scannedValue || '';
+      loginDetail.userPassword = scannedValue || '';
       errorMessage.value = '';
     }
   } catch (error) {
