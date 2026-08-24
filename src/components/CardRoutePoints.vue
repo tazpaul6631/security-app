@@ -90,6 +90,7 @@ const isCurrentStep = (index: number): boolean => {
   gap: 10px;
   height: stretch;
   padding-top: 7px;
+  align-content: space-evenly;
 }
 
 .grid-item-wrapper {
@@ -100,8 +101,8 @@ const isCurrentStep = (index: number): boolean => {
 }
 
 .point-node {
-  width: 50px;
-  height: 50px;
+  width: 40px;
+  height: 40px;
   position: relative;
   border-radius: 14px;
   padding: 2px;
@@ -147,7 +148,7 @@ const isCurrentStep = (index: number): boolean => {
 }
 
 .points-icon {
-  font-size: 1.75rem;
+  font-size: 1.5rem;
   color: #7dd3fc;
 }
 
@@ -231,19 +232,18 @@ const isCurrentStep = (index: number): boolean => {
 
 .point-label {
   margin-top: 8px;
-  font-size: 0.7rem;
+  font-size: 0.8rem;
   color: #334155;
-  font-weight: 500;
+  font-weight: bold;
   text-align: center;
-  line-height: 1.25;
 }
 
 .h-line {
   background: #cfe8eb;
   position: absolute;
-  top: 25px;
-  right: -33%;
-  width: 50%;
+  top: 20px;
+  right: -36%;
+  width: 60%;
   height: 2px;
   z-index: 0;
 }

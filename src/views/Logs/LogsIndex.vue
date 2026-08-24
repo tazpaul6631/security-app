@@ -1,5 +1,5 @@
 <template>
-  <ion-page class="log-page">
+  <div class="log-page">
     <header class="route-header">
       <button type="button" class="route-back-btn" :aria-label="$t('routes.go-home')" @click="router.replace('/home')">
         <i class="pi pi-arrow-left route-back-icon" aria-hidden="true" />
@@ -7,7 +7,7 @@
       </button>
     </header>
 
-    <ion-content class="log-content ion-padding">
+    <AppPageContent class="log-content">
       <div class="log-bg" aria-hidden="true">
         <span class="log-blob log-blob-green" />
         <span class="log-blob log-blob-purple" />
@@ -19,14 +19,15 @@
           <template #content>
             <label for="filterDate" class="log-filter-label">{{ $t('logs.filter-date') }}</label>
             <DatePicker inputId="filterDate" v-model="filterDate" dateFormat="dd/mm/yy" showTime hourFormat="24" fluid
-              showIcon iconDisplay="input" :placeholder="$t('logs.filter-date-placeholder')" />
+              showIcon iconDisplay="input" showClear :placeholder="$t('logs.filter-date-placeholder')" />
+            <p class="log-filter-hint">{{ $t('logs.filter-hint') }}</p>
           </template>
           <template #footer>
             <div class="log-filter-card-footer-buttons">
-              <Button class="log-delete-btn" :label="$t('logs.delete-all-logs')" icon="pi pi-trash" severity="danger"
-                size="large" :disabled="logs.length === 0" @click="openDeleteConfirm" />
+              <Button v-if="canDeleteLogs" class="log-delete-btn" :label="$t('logs.delete-all-logs')" icon="pi pi-trash"
+                severity="danger" size="large" :disabled="logs.length === 0" @click="openDeleteConfirm" />
               <Button class="log-retry-btn" :label="$t('logs.retry-sync')" icon="pi pi-sync" severity="success"
-                size="large" :loading="isSyncing" :disabled="isSyncing || !isOnline || filteredLogs.length === 0"
+                size="large" :loading="isSyncing" :disabled="isSyncing || !isOnline || pendingSyncCount === 0"
                 @click="handleRetrySync" />
             </div>
           </template>
@@ -47,7 +48,7 @@
                 {{ item.areaName }} · {{ item.reportName }}
                 · {{ item.completedCount }}/{{ item.pointCount }}
               </p>
-              <p v-if="item.lastSyncError" class="log-item-error">{{ item.lastSyncError }}</p>
+              <p v-if="item.lastSyncError && item.status !== 'synced'" class="log-item-error">{{ item.lastSyncError }}</p>
               <p class="log-item-sub">
                 {{ $t('logs.attempts') }}: {{ item.syncAttempts || 0 }}
                 <template v-if="item.lastSyncAt"> · {{ formatTime(item.lastSyncAt) }}</template>
@@ -65,7 +66,7 @@
           </div>
         </div>
       </div>
-    </ion-content>
+    </AppPageContent>
 
     <Dialog v-model:visible="isDeleteConfirmOpen" modal :header="$t('logs.delete-confirm-title')"
       class="log-delete-dialog" :style="{ width: 'min(92vw, 24rem)' }" :draggable="false" :closable="false">
@@ -77,12 +78,13 @@
           :loading="isDeleting" @click="confirmDeleteAllLogs" />
       </template>
     </Dialog>
-  </ion-page>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { IonPage, IonContent, useBackButton, onIonViewWillEnter } from '@ionic/vue';
+import { computed, onActivated, onMounted, ref } from 'vue';
+import AppPageContent from '@/components/AppPageContent.vue';
+import { useHardwareBackButton } from '@/composables/useHardwareBackButton';
 import { useI18n } from 'vue-i18n';
 import { useStore } from 'vuex';
 import router from '@/router';
@@ -105,23 +107,54 @@ const isDeleteConfirmOpen = ref(false);
 const isDeleting = ref(false);
 const isOnline = computed(() => store.state.isOnline);
 
+const LOG_DELETE_USER_CODES = ['R39557', 'R39558', 'R39559'] as const;
+
+const canDeleteLogs = computed(() => {
+  const user = store.state.dataUser;
+  const userCode = user?.userCode || user?.data?.userCode;
+  return !!userCode && (LOG_DELETE_USER_CODES as readonly string[]).includes(userCode);
+});
+
+const LOG_DEFAULT_DAYS = 30;
+
+const logShiftTime = (item: PatrolShiftLogRecord) =>
+  new Date(
+    Number(item.psYear),
+    Number(item.psMonth) - 1,
+    Number(item.psDay),
+    Number(item.psHourFrom) || 0
+  ).getTime();
+
+const pendingSyncCount = computed(() =>
+  logs.value.filter((l) => l.status === 'ready' || l.status === 'failed').length
+);
+
 const filteredLogs = computed(() => {
-  if (!filterDate.value) return logs.value;
-  const d = filterDate.value;
-  const hour = d.getHours();
-  const minute = d.getMinutes();
+  let list = logs.value;
 
-  return logs.value.filter((item) => {
-    const sameDay =
-      Number(item.psDay) === d.getDate() &&
-      Number(item.psMonth) === d.getMonth() + 1 &&
-      Number(item.psYear) === d.getFullYear();
-    if (!sameDay) return false;
+  if (filterDate.value) {
+    const d = filterDate.value;
+    const hour = d.getHours();
+    const minute = d.getMinutes();
 
-    // Có chọn giờ (khác 00:00) → lọc theo psHourFrom
-    if (hour === 0 && minute === 0) return true;
-    return Number(item.psHourFrom) === hour;
-  });
+    list = list.filter((item) => {
+      const sameDay =
+        Number(item.psDay) === d.getDate() &&
+        Number(item.psMonth) === d.getMonth() + 1 &&
+        Number(item.psYear) === d.getFullYear();
+      if (!sameDay) return false;
+      if (hour === 0 && minute === 0) return true;
+      return Number(item.psHourFrom) === hour;
+    });
+  } else {
+    const cutoff = new Date();
+    cutoff.setHours(0, 0, 0, 0);
+    cutoff.setDate(cutoff.getDate() - LOG_DEFAULT_DAYS);
+    const cutoffMs = cutoff.getTime();
+    list = list.filter((item) => logShiftTime(item) >= cutoffMs);
+  }
+
+  return [...list].sort((a, b) => logShiftTime(b) - logShiftTime(a));
 });
 
 const statusLabel = (status: PatrolShiftLogStatus) => {
@@ -130,11 +163,13 @@ const statusLabel = (status: PatrolShiftLogStatus) => {
     ready: t('logs.status-ready'),
     failed: t('logs.status-failed'),
     invalid: t('logs.status-invalid'),
+    synced: t('logs.status-synced'),
   };
   return map[status] || status;
 };
 
 const statusSeverity = (status: PatrolShiftLogStatus) => {
+  if (status === 'synced') return 'success';
   if (status === 'ready') return 'warn';
   if (status === 'failed' || status === 'invalid') return 'danger';
   return 'secondary';
@@ -163,11 +198,12 @@ const handleRetrySync = async () => {
 };
 
 const openDeleteConfirm = () => {
-  if (logs.value.length === 0) return;
+  if (!canDeleteLogs.value || logs.value.length === 0) return;
   isDeleteConfirmOpen.value = true;
 };
 
 const confirmDeleteAllLogs = async () => {
+  if (!canDeleteLogs.value) return;
   isDeleting.value = true;
   try {
     await storageService.remove(PATROL_SHIFT_LOGS_KEY);
@@ -178,7 +214,11 @@ const confirmDeleteAllLogs = async () => {
   }
 };
 
-useBackButton(10, () => {
+useHardwareBackButton(10, () => {
+  if (isDeleteConfirmOpen.value && !isDeleting.value) {
+    isDeleteConfirmOpen.value = false;
+    return;
+  }
   router.replace('/home');
 });
 
@@ -186,7 +226,7 @@ onMounted(() => {
   void refreshLogs();
 });
 
-onIonViewWillEnter(() => {
+onActivated(() => {
   void refreshLogs();
 });
 </script>
@@ -243,9 +283,7 @@ onIonViewWillEnter(() => {
 }
 
 .log-content {
-  flex: 1;
-  min-height: 0;
-  --background: #d1e5e6;
+  padding: 16px;
 }
 
 .log-body {
@@ -253,11 +291,10 @@ onIonViewWillEnter(() => {
   z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
   padding: 10px;
   background: #ffffff;
   border-radius: 10px;
-  min-height: calc(100% - 8px);
+  min-height: 73dvh;
 }
 
 .log-bg {
@@ -310,6 +347,13 @@ onIonViewWillEnter(() => {
   font-size: 0.875rem;
   font-weight: 600;
   color: #334155;
+}
+
+.log-filter-hint {
+  margin: 8px 0 0;
+  font-size: 0.75rem;
+  color: #64748b;
+  line-height: 1.4;
 }
 
 .log-retry-btn {

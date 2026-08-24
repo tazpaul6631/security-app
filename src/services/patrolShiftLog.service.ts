@@ -24,7 +24,7 @@ export interface PatrolShiftLogPayload {
   routeDetails: PatrolLogRouteDetail[];
 }
 
-export type PatrolShiftLogStatus = 'draft' | 'ready' | 'failed' | 'invalid';
+export type PatrolShiftLogStatus = 'draft' | 'ready' | 'failed' | 'invalid' | 'synced';
 
 /** Bản ghi local — giữ metadata để Logs / sync an toàn */
 export interface PatrolShiftLogRecord extends PatrolShiftLogPayload {
@@ -135,6 +135,7 @@ function findLogIndex(
 function dedupePatrolShiftLogs(logs: PatrolShiftLogRecord[]): PatrolShiftLogRecord[] {
   const map = new Map<string, PatrolShiftLogRecord>();
   const statusRank: Record<PatrolShiftLogStatus, number> = {
+    synced: 5,
     ready: 4,
     failed: 3,
     invalid: 2,
@@ -179,6 +180,11 @@ function refreshStatus(record: PatrolShiftLogRecord): PatrolShiftLogRecord {
   record.pointCount = pointCount;
   record.completedCount = completedCount;
   record.isComplete = isComplete;
+
+  if (record.status === 'synced') {
+    record.savedAt = new Date().toISOString();
+    return record;
+  }
 
   if (!isValidForSync(record)) {
     record.status = 'invalid';
@@ -369,7 +375,7 @@ export async function finalizePatrolShiftLog(input: UpsertPointInput): Promise<P
       lastSyncError: null,
       status: 'draft',
     });
-    if (isValidForSync(record) && record.status !== 'failed') {
+    if (isValidForSync(record) && record.status !== 'failed' && record.status !== 'synced') {
       record.status = 'ready';
     }
     logs.push(record);
@@ -402,7 +408,7 @@ export async function finalizePatrolShiftLog(input: UpsertPointInput): Promise<P
     psYear: Number(input.psYear ?? existing.psYear),
     psHourFrom: Number(input.psHourFrom ?? existing.psHourFrom),
   });
-  if (isValidForSync(record) && record.status !== 'failed') {
+  if (isValidForSync(record) && record.status !== 'failed' && record.status !== 'synced') {
     record.status = 'ready';
   }
   logs[idx] = record;
@@ -427,7 +433,7 @@ function evaluateSyncResponse(payload: any): 'success' | 'failed' {
 
 /**
  * Gửi từng ca ready/failed lên syncPatrolLog.
- * success → xóa local; fail → giữ + cập nhật metadata. Không throw ra UI.
+ * success → giữ local với status synced; fail → giữ + cập nhật metadata. Không throw ra UI.
  */
 let isSyncingPatrolLogs = false;
 
@@ -456,8 +462,8 @@ export async function syncPatrolShiftLogs(): Promise<{
     for (const item of logs) {
       const key = shiftKey(item);
 
-      // Ca đang đi (chưa finalize) — chưa gửi
-      if (item.status === 'draft') {
+      // Ca đang đi / đã gửi — không gọi API
+      if (item.status === 'draft' || item.status === 'synced') {
         kept.push(item);
         continue;
       }
@@ -475,6 +481,7 @@ export async function syncPatrolShiftLogs(): Promise<{
 
       // Tránh gửi 2 lần cùng một ca trong 1 vòng sync
       if (sentKeys.has(key)) {
+        kept.push(item);
         continue;
       }
       sentKeys.add(key);
@@ -486,8 +493,14 @@ export async function syncPatrolShiftLogs(): Promise<{
         const evalStatus = evaluateSyncResponse(envelope);
 
         if (evalStatus === 'success') {
+          kept.push({
+            ...item,
+            status: 'synced',
+            lastSyncAt: new Date().toISOString(),
+            lastSyncError: null,
+          });
           removed++;
-          continue; // không push vào kept → xóa
+          continue;
         }
 
         kept.push({

@@ -1,11 +1,11 @@
 <template>
-  <ion-page class="area-page">
+  <div class="area-page">
     <header class="area-header">
       <h1 class="area-title">{{ $t('page.areas.report') }}</h1>
       <OfflineSyncHeaderButton :count="syncBadgeCount" @click="isOfflineSyncModalOpen = true" />
     </header>
 
-    <ion-content class="area-content">
+    <AppPageContent class="area-content">
       <div class="area-bg" aria-hidden="true">
         <span class="area-blob area-blob-green" />
         <span class="area-blob area-blob-purple" />
@@ -74,13 +74,13 @@
             </div>
 
             <div v-else class="checkin-confirmed">
-              <div class="mandatory-img-container">
-                <img :src="mandatoryPhoto.preview" class="mandatory-preview-img" alt="" />
-              </div>
               <strong class="accept-img">
                 <i class="pi pi-check-circle" aria-hidden="true" />
                 {{ $t('areas.report.status_photo_confirmed') }}
               </strong>
+              <div class="mandatory-img-container">
+                <img :src="mandatoryPhoto.preview" class="mandatory-preview-img" alt="" />
+              </div>
             </div>
           </template>
         </Card>
@@ -105,16 +105,14 @@
       </Dialog>
 
       <OfflineSyncModal v-model:visible="isOfflineSyncModalOpen" :get-checkpoint-name="getCheckpointName" />
-    </ion-content>
-  </ion-page>
+    </AppPageContent>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, onMounted, watch, markRaw } from 'vue';
-import {
-  IonPage, IonContent, onIonViewWillEnter,
-  onIonViewDidLeave, useBackButton
-} from '@ionic/vue';
+import { computed, reactive, ref, onMounted, onActivated, onDeactivated, watch, markRaw, nextTick } from 'vue';
+import AppPageContent from '@/components/AppPageContent.vue';
+import { useHardwareBackButton } from '@/composables/useHardwareBackButton';
 import { useStore } from 'vuex';
 import { Button, Card, Checkbox, Dialog, FloatLabel, Textarea } from '@/plugins/primevue.components';
 import { useAppLoading } from '@/composables/useAppLoading';
@@ -434,7 +432,7 @@ const confirmSubmit = async () => {
 };
 
 const onConfirmSubmit = () => {
-  isSubmitConfirmOpen.value = false;
+  if (isSubmitting.value) return;
   void handleSubmit();
 };
 
@@ -450,23 +448,26 @@ const hasValidCheckinNoteGroup = (groups: any[]): boolean => {
 const handleSubmit = async (): Promise<void> => {
   if (isSubmitting.value) return;
   isSubmitting.value = true;
+  showLoading(t('areas.report.message.2'));
+  isSubmitConfirmOpen.value = false;
+  await nextTick();
 
   const now = new Date();
   const currentTimeString = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 19);
 
   if (!dataScanQr.value?.cpId) {
+    hideLoading();
     await showToast(t('areas.report.message.1'), 'danger');
     isSubmitting.value = false;
     return;
   }
 
   if (!mandatoryPhoto.value) {
+    hideLoading();
     await showToast(t('areas.report.msg_capture_before_report'), 'warning');
     isSubmitting.value = false;
     return;
   }
-
-  showLoading(t('areas.report.message.2'));
 
   const blockSubmitWithImageError = async (messageKey: string, resetCheckin = false) => {
     if (resetCheckin) {
@@ -479,7 +480,8 @@ const handleSubmit = async (): Promise<void> => {
 
   try {
     const sourceData: any[] = [];
-    const allBase64ForStorage: string[] = []; // Đây là nơi chứa data ảnh thực tế
+    const allBase64ForStorage: string[] = [];
+    const existingImageFiles: Array<string | null> = [];
 
     // --- GOM NHÓM DỮ LIỆU — nhóm 1 (check-in) luôn bắt buộc ---
     sourceData.push({
@@ -531,97 +533,95 @@ const handleSubmit = async (): Promise<void> => {
       0
     );
 
-    for (const group of sourceData) {
-      const mappedImages: any[] = [];
+    const processPhoto = async (item: any, isCheckin: boolean) => {
+      try {
+        const photoItem = item as Photo;
+        const preview = getDebugSubmitPreview(
+          photoItem.preview,
+          isCheckin ? 'checkin' : 'report'
+        );
+        const useCachedBase64 =
+          !!photoItem.submitBase64 && preview === photoItem.preview;
+        const draftFileName =
+          photoItem.draftFileName?.startsWith('offline_img_') ? photoItem.draftFileName : null;
 
-      for (const item of group.reportImages) {
-        try {
-          const photoItem = item as Photo;
-          const preview = getDebugSubmitPreview(
-            photoItem.preview,
-            group.isCheckin ? 'checkin' : 'report'
-          );
-          // Debug ghi đè preview → không dùng cache; còn lại ưu tiên submitBase64
-          const useCachedBase64 =
-            !!photoItem.submitBase64 && preview === photoItem.preview;
-
-          if (useCachedBase64) {
-            const approxSize = estimateBase64ByteSize(photoItem.submitBase64!);
-            if (approxSize > MAX_IMAGE_SIZE) {
-              await blockSubmitWithImageError(
-                group.isCheckin ? 'areas.report.message.13' : 'areas.report.message.14',
-                group.isCheckin
-              );
-              return;
-            }
-
-            const mimeType = mimeFromPreview(preview);
-            if (!ALLOWED_MIMES.includes(mimeType)) {
-              await blockSubmitWithImageError(
-                group.isCheckin ? 'areas.report.message.13' : 'areas.report.message.14',
-                group.isCheckin
-              );
-              return;
-            }
-
-            allBase64ForStorage.push(photoItem.submitBase64!);
-            const fileExt = mimeType.includes('/') ? mimeType.split('/')[1] : 'jpg';
-            mappedImages.push({
-              priImage: '',
-              priImageType: fileExt === 'jpeg' ? 'jpg' : fileExt
-            });
-            continue;
+        if (useCachedBase64) {
+          const approxSize = estimateBase64ByteSize(photoItem.submitBase64!);
+          if (approxSize > MAX_IMAGE_SIZE) {
+            throw { resetCheckin: isCheckin };
           }
 
-          const blob = await previewToBlob(preview);
-          const mimeType = resolveMimeType(blob, preview);
-
-          // 1. Kiểm tra định dạng (Mime Type)
+          const mimeType = mimeFromPreview(preview);
           if (!ALLOWED_MIMES.includes(mimeType)) {
-            await blockSubmitWithImageError(
-              group.isCheckin ? 'areas.report.message.13' : 'areas.report.message.14',
-              group.isCheckin
-            );
-            return;
+            throw { resetCheckin: isCheckin };
           }
-
-          // 2. Kiểm tra dung lượng ảnh (Size)
-          if (blob.size > MAX_IMAGE_SIZE) {
-            await blockSubmitWithImageError(
-              group.isCheckin ? 'areas.report.message.13' : 'areas.report.message.14',
-              group.isCheckin
-            );
-            return;
-          }
-
-          const base64Data = await previewToBase64(preview, photoItem.submitBase64);
-
-          allBase64ForStorage.push(base64Data);
 
           const fileExt = mimeType.includes('/') ? mimeType.split('/')[1] : 'jpg';
-          mappedImages.push({
-            priImage: "",
-            priImageType: fileExt === 'jpeg' ? 'jpg' : fileExt
-          });
-        } catch (imgError) {
-          console.error("Lỗi xử lý ảnh:", imgError);
-          await blockSubmitWithImageError(
-            group.isCheckin ? 'areas.report.message.13' : 'areas.report.message.14',
-            group.isCheckin
-          );
-          return;
+          return {
+            mapped: {
+              priImage: '',
+              priImageType: fileExt === 'jpeg' ? 'jpg' : fileExt
+            },
+            base64: photoItem.submitBase64!,
+            draftFileName,
+          };
         }
-      }
 
-      const noteGroup: any = {
-        prGroup: group.prGroup,
-        priImageNote: group.priImageNote,
-        reportImages: mappedImages
-      };
-      if (group.rncId) {
-        noteGroup.rncId = group.rncId;
+        const blob = await previewToBlob(preview);
+        const mimeType = resolveMimeType(blob, preview);
+
+        if (!ALLOWED_MIMES.includes(mimeType)) {
+          throw { resetCheckin: isCheckin };
+        }
+
+        if (blob.size > MAX_IMAGE_SIZE) {
+          throw { resetCheckin: isCheckin };
+        }
+
+        const base64Data = await previewToBase64(preview, photoItem.submitBase64);
+        const fileExt = mimeType.includes('/') ? mimeType.split('/')[1] : 'jpg';
+        return {
+          mapped: {
+            priImage: '',
+            priImageType: fileExt === 'jpeg' ? 'jpg' : fileExt
+          },
+          base64: base64Data,
+          draftFileName,
+        };
+      } catch (err: any) {
+        if (err && typeof err === 'object' && 'resetCheckin' in err) throw err;
+        throw { resetCheckin: isCheckin, cause: err };
       }
-      finalNoteGroups.push(noteGroup);
+    };
+
+    try {
+      for (const group of sourceData) {
+        const processed = await Promise.all(
+          (group.reportImages || []).map((item: any) => processPhoto(item, !!group.isCheckin))
+        );
+
+        for (const photo of processed) {
+          allBase64ForStorage.push(photo.base64);
+          existingImageFiles.push(photo.draftFileName);
+        }
+
+        const noteGroup: any = {
+          prGroup: group.prGroup,
+          priImageNote: group.priImageNote,
+          reportImages: processed.map((photo) => photo.mapped)
+        };
+        if (group.rncId) {
+          noteGroup.rncId = group.rncId;
+        }
+        finalNoteGroups.push(noteGroup);
+      }
+    } catch (imgError: any) {
+      console.error("Lỗi xử lý ảnh:", imgError);
+      await blockSubmitWithImageError(
+        imgError?.resetCheckin ? 'areas.report.message.13' : 'areas.report.message.14',
+        !!imgError?.resetCheckin
+      );
+      return;
     }
 
     if (mandatoryPhoto.value && allBase64ForStorage.length === 0) {
@@ -672,7 +672,7 @@ const handleSubmit = async (): Promise<void> => {
       noteGroups: finalNoteGroups,
     };
 
-    // --- Gửi API / ghi queue TRƯỚC khi đánh dấu xong (online & offline) ---
+    // --- Ghi queue (disk + SQLite) TRƯỚC khi đánh dấu xong; mạng sync sau ---
     const firstPreview = mandatoryPhoto.value?.preview ||
       (formData.prHasProblem ? groupedNotes.value[0]?.reportImages[0]?.preview : noProblemImages.value[0]?.preview);
 
@@ -692,8 +692,14 @@ const handleSubmit = async (): Promise<void> => {
       }
     };
 
+    let queuedImageFiles: string[] = [];
     try {
-      await sendData(firstPreview || '', payloadForSend, imagesForSend);
+      queuedImageFiles = await sendData(
+        firstPreview || '',
+        payloadForSend,
+        imagesForSend,
+        existingImageFiles
+      );
     } catch (sendErr: any) {
       await reportSendError(sendErr);
       hideLoading();
@@ -731,7 +737,9 @@ const handleSubmit = async (): Promise<void> => {
     isResetting.value = true;
     const draftFileToRemove = mandatoryPhoto.value?.draftFileName;
     if (draftKey.value) await storageService.remove(draftKey.value);
-    await deleteMandatoryDraftFile(draftFileToRemove);
+    if (draftFileToRemove && !queuedImageFiles.includes(draftFileToRemove)) {
+      await deleteMandatoryDraftFile(draftFileToRemove);
+    }
 
     formData.prHasProblem = false;
     formData.prNote = '';
@@ -836,6 +844,9 @@ const handleSubmit = async (): Promise<void> => {
       await storageService.set('list_route', updatedRoutes);
       hideLoading();
       void finishNavigate();
+      if (isDeviceOnline) {
+        void syncData({ mode: 'silent' });
+      }
     }
 
   } catch (error: any) {
@@ -1146,31 +1157,71 @@ const draftKey = computed(() => {
 });
 
 let draftTimeout: any = null;
+let createPageGen = 0;
 
-watch([formData, groupedNotes, selectedValues, noProblemImages, mandatoryPhoto], async () => {
+const hasDraftContent = () =>
+  !!(
+    formData.prHasProblem ||
+    formData.prNote ||
+    groupedNotes.value.length ||
+    selectedValues.value.length ||
+    noProblemImages.value.length ||
+    mandatoryPhoto.value
+  );
+
+const persistDraftNow = async () => {
+  if (draftTimeout) {
+    clearTimeout(draftTimeout);
+    draftTimeout = null;
+  }
+  if (!draftKey.value || !isReady.value || isResetting.value) return;
+  if (!hasDraftContent()) return;
+
+  await storageService.set(draftKey.value, {
+    prHasProblem: formData.prHasProblem,
+    prNote: formData.prNote,
+    rpLat: formData.rpLat,
+    rpLng: formData.rpLng,
+    groupedNotes: JSON.parse(JSON.stringify(groupedNotes.value)),
+    selectedValues: JSON.parse(JSON.stringify(selectedValues.value)),
+    noProblemImages: JSON.parse(JSON.stringify(noProblemImages.value)),
+    mandatoryPhoto: mandatoryPhoto.value
+      ? {
+        fileName: mandatoryPhoto.value.fileName,
+        draftFileName: mandatoryPhoto.value.draftFileName || null,
+      }
+      : null,
+  });
+};
+
+const waitUntilDraftReady = async (maxMs = 3000) => {
+  const started = Date.now();
+  while ((!draftKey.value || !isReady.value) && Date.now() - started < maxMs) {
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return !!(draftKey.value && isReady.value);
+};
+
+const resetCreateForm = () => {
+  formData.prHasProblem = false;
+  formData.prNote = '';
+  groupedNotes.value = [];
+  selectedValues.value = [];
+  noProblemImages.value = [];
+  mandatoryPhoto.value = null;
+  selectedSubCategory.value = null;
+  openCategoryModal.value = false;
+  openDetailModal.value = false;
+  openNoteModal.value = false;
+};
+
+watch([formData, groupedNotes, selectedValues, noProblemImages, mandatoryPhoto], () => {
   if (isResetting.value) return;
 
   if (draftTimeout) clearTimeout(draftTimeout);
 
-  draftTimeout = setTimeout(async () => {
-    if (draftKey.value && isReady.value) {
-      const draftData = {
-        prHasProblem: formData.prHasProblem,
-        prNote: formData.prNote,
-        rpLat: formData.rpLat,
-        rpLng: formData.rpLng,
-        groupedNotes: JSON.parse(JSON.stringify(groupedNotes.value)),
-        selectedValues: JSON.parse(JSON.stringify(selectedValues.value)),
-        noProblemImages: JSON.parse(JSON.stringify(noProblemImages.value)),
-        mandatoryPhoto: mandatoryPhoto.value
-          ? {
-            fileName: mandatoryPhoto.value.fileName,
-            draftFileName: mandatoryPhoto.value.draftFileName || null,
-          }
-          : null,
-      };
-      await storageService.set(draftKey.value, draftData);
-    }
+  draftTimeout = setTimeout(() => {
+    void persistDraftNow();
   }, 500);
 }, { deep: true });
 
@@ -1233,38 +1284,31 @@ const redirectIfInvalidSession = async (): Promise<boolean> => {
 };
 
 // --- Lifecycle ---
-onIonViewWillEnter(async () => {
+onActivated(async () => {
+  const gen = ++createPageGen;
   if (!(await redirectIfInvalidSession())) return;
+  if (gen !== createPageGen) return;
 
   void loadPendingItems();
 
-  setTimeout(async () => {
-    const hasDraft = await loadDraft();
-    if (!hasDraft) {
-      formData.prNote = '';
-      formData.prHasProblem = false;
-      groupedNotes.value = [];
-      selectedValues.value = [];
-      noProblemImages.value = [];
-    }
-  }, 100);
+  const ready = await waitUntilDraftReady();
+  if (gen !== createPageGen) return;
+  if (!ready) return;
+
+  isResetting.value = true;
+  const hasDraft = await loadDraft();
+  if (gen !== createPageGen) return;
+  if (!hasDraft) {
+    resetCreateForm();
+  }
+  isResetting.value = false;
 });
 
-onIonViewDidLeave(async () => {
+onDeactivated(async () => {
+  createPageGen += 1;
+  await persistDraftNow();
   isResetting.value = true;
-  formData.prHasProblem = false;
-  formData.prNote = '';
-  groupedNotes.value = [];
-  selectedValues.value = [];
-  noProblemImages.value = [];
-
-  selectedSubCategory.value = null;
-
-  openCategoryModal.value = false;
-  openDetailModal.value = false;
-  openNoteModal.value = false;
-
-  setTimeout(() => { isResetting.value = false; }, 300);
+  resetCreateForm();
 });
 
 onMounted(async () => {
@@ -1297,7 +1341,7 @@ onMounted(async () => {
 });
 
 // Chặn nút back vật lý để không rời màn report ngoài ý muốn.
-useBackButton(10000, () => { });
+useHardwareBackButton(10000, () => { });
 </script>
 
 <style scoped>
@@ -1330,15 +1374,8 @@ useBackButton(10000, () => { });
 }
 
 .area-content {
-  --background: #d1e5e6;
-}
-
-.area-content::part(scroll) {
-  height: 100%;
-  min-height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 0
 }
 
 .area-bg {
@@ -1361,7 +1398,7 @@ useBackButton(10000, () => { });
   width: 200px;
   height: 200px;
   background: #e3f7ac;
-  top: 15%;
+  top: 25%;
   right: -50px;
 }
 
@@ -1532,7 +1569,7 @@ useBackButton(10000, () => { });
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-bottom: 10px;
+  margin-top: 10px;
 }
 
 .mandatory-preview-img {

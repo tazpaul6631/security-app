@@ -1,6 +1,6 @@
 <template>
-  <ion-page>
-    <ion-content class="home-content">
+  <div class="home-page">
+    <AppPageContent class="home-content">
       <div class="home-bg" aria-hidden="true">
         <span class="home-blob home-blob-green" />
         <span class="home-blob home-blob-purple" />
@@ -49,7 +49,7 @@
             <span class="menu-label">{{ $t(getAreaData(item.mcId).name) }}</span>
           </button>
 
-          <button v-if="canShowLogMenu" type="button" class="menu-tile" @click="router.replace('/log')">
+          <button type="button" class="menu-tile" @click="router.replace('/log')">
             <span class="menu-icon-wrap tone-slate">
               <i class="pi pi-list menu-icon" />
             </span>
@@ -64,19 +64,20 @@
       </div>
 
       <OfflineSyncModal v-model:visible="isOfflineSyncModalOpen" :get-checkpoint-name="resolveCheckpointName" />
-    </ion-content>
-  </ion-page>
+    </AppPageContent>
+  </div>
 </template>
 
 <script setup lang="ts">
 import router from '@/router';
-import { IonPage, IonContent, onIonViewWillEnter } from '@ionic/vue';
-import { computed, ref } from 'vue';
+import AppPageContent from '@/components/AppPageContent.vue';
+import { computed, onActivated, ref } from 'vue';
 import { useStore } from 'vuex';
 import { useI18n } from 'vue-i18n';
 import { Card, Divider, ProgressSpinner, Tag } from '@/plugins/primevue.components';
 import OfflineSyncHeaderButton from '@/components/OfflineSyncHeaderButton.vue';
 import OfflineSyncModal from '@/components/OfflineSyncModal.vue';
+import { useHardwareBackButton } from '@/composables/useHardwareBackButton';
 import { useSyncBadgeCount } from '@/composables/useOfflineSyncDisplay';
 import { presentAlertToast } from '@/services/toast.service';
 
@@ -87,14 +88,6 @@ const { t } = useI18n();
 const isOnline = computed(() => store.state.isOnline);
 const dataUser = computed(() => store.state.dataUser);
 const allowViews = computed(() => dataUser.value?.allowViews || []);
-
-const HIDDEN_MENU_USER_CODES = ['R39557', 'R39558', 'R39559'] as const;
-
-const canShowLogMenu = computed(() => {
-  const user = dataUser.value;
-  const userCode = user?.userCode || user?.data?.userCode;
-  return !!userCode && (HIDDEN_MENU_USER_CODES as readonly string[]).includes(userCode);
-});
 
 const listAreas = ref([
   { mcId: 1, icon: 'pi-id-card', name: 'home.roles', color: 'tone-orange', router: '/role' },
@@ -150,15 +143,28 @@ const resolveCheckpointName = (cpId: string) => {
   return t('routes.offline-checkpoint-fallback');
 };
 
-onIonViewWillEnter(() => {
+onActivated(() => {
   void loadPendingItems();
+});
+
+useHardwareBackButton(10, () => {
+  if (isOfflineSyncModalOpen.value) {
+    isOfflineSyncModalOpen.value = false;
+  }
 });
 
 </script>
 
 <style scoped>
+.home-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
 .home-content {
-  --background: #d1e5e6;
+  background: #d1e5e6;
 }
 
 .home-bg {
@@ -181,7 +187,7 @@ onIonViewWillEnter(() => {
   width: 300px;
   height: 300px;
   background: #e3f7ac;
-  top: -10%;
+  top: 16%;
   right: -50px;
 }
 
@@ -348,11 +354,6 @@ onIonViewWillEnter(() => {
   box-shadow: none;
 }
 
-.profile-card:hover,
-.profile-card :deep(.p-card:hover) {
-  box-shadow: 0 4px 20px rgba(90, 120, 125, 0.12);
-}
-
 .menu-icon-wrap {
   width: 70px;
   height: 70px;
@@ -365,12 +366,6 @@ onIonViewWillEnter(() => {
   border: 1px solid rgba(255, 255, 255, 0.75);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-}
-
-.menu-icon-wrap:hover {
-  box-shadow: 0 4px 16px rgba(90, 120, 125, 0.1);
-  background: rgba(255, 255, 255, 0.82);
-  border-color: rgba(255, 255, 255, 0.75);
 }
 
 .menu-icon {

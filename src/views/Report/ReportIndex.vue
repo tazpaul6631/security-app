@@ -1,5 +1,5 @@
 <template>
-  <ion-page class="report-page">
+  <div class="report-page">
     <header class="route-header">
       <button type="button" class="route-back-btn" :aria-label="$t('routes.go-home')" @click="router.replace('/home')">
         <i class="pi pi-arrow-left route-back-icon" aria-hidden="true" />
@@ -7,7 +7,7 @@
       </button>
     </header>
 
-    <ion-content class="report-content">
+    <AppPageContent class="report-content">
       <div class="report-bg" aria-hidden="true">
         <span class="report-blob report-blob-green" />
         <span class="report-blob report-blob-purple" />
@@ -26,16 +26,17 @@
           </div>
         </div>
       </div>
-    </ion-content>
-  </ion-page>
+    </AppPageContent>
+  </div>
 </template>
 
 <script setup lang="ts">
 import router from '@/router';
-import { IonPage, IonContent, useBackButton } from '@ionic/vue';
+import AppPageContent from '@/components/AppPageContent.vue';
+import { useHardwareBackButton } from '@/composables/useHardwareBackButton';
 import { Button } from '@/plugins/primevue.components';
 
-useBackButton(10, () => {
+useHardwareBackButton(10, () => {
   router.replace('/home');
 });
 </script>
@@ -101,14 +102,6 @@ useBackButton(10, () => {
 }
 
 .report-content {
-  flex: 1;
-  min-height: 0;
-  --background: #d1e5e6;
-}
-
-.report-content::part(scroll) {
-  height: 100%;
-  min-height: 100%;
   display: flex;
   flex-direction: column;
 }

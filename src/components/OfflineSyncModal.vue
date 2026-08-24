@@ -13,10 +13,9 @@
     <p v-else class="offline-sync-empty">{{ $t('areas.report.offline-sync-empty') }}</p>
 
     <template #footer>
-      <Button :label="$t('areas.report.close')" severity="secondary" variant="outlined" size="large"
-        @click="isOpen = false" />
-      <Button :label="$t('areas.report.sync')" severity="primary" variant="outlined" size="large"
-        :loading="isSyncing" :disabled="!canSync" @click="handleSync" />
+      <Button :label="$t('areas.report.close')" severity="danger" size="large" @click="isOpen = false" />
+      <Button :label="$t('areas.report.sync')" severity="primary" size="large" :loading="isSyncing" :disabled="!canSync"
+        @click="handleSync" />
     </template>
   </Dialog>
 </template>
@@ -28,6 +27,7 @@ import { Button, Dialog, ProgressSpinner } from '@/plugins/primevue.components';
 import OfflineSyncList from '@/components/OfflineSyncList.vue';
 import { useOfflineSyncDisplay } from '@/composables/useOfflineSyncDisplay';
 import { useOfflineManager } from '@/composables/useOfflineManager';
+import { presentAlertToast } from '@/services/toast.service';
 
 const props = defineProps<{
   visible: boolean;
@@ -53,7 +53,7 @@ const {
   getCheckpointName,
 } = useOfflineSyncDisplay((cpId) => props.getCheckpointName(cpId));
 
-const { syncData, isSyncing } = useOfflineManager();
+const { syncData, isSyncing, isOnline } = useOfflineManager();
 
 const canSync = computed(
   () => !isSyncing.value && displayItems.value.length > 0
@@ -61,6 +61,14 @@ const canSync = computed(
 
 const handleSync = async () => {
   if (!canSync.value) return;
+  if (!isOnline.value) {
+    presentAlertToast(
+      t('areas.index.message.5'),
+      '',
+      t('areas.index.message.2')
+    );
+    return;
+  }
   await syncData();
   await refreshDisplayItems();
 };

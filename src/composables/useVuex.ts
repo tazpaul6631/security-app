@@ -744,7 +744,7 @@ const store = createStore({
         await storageService.set('offline_users_dict', offlineUsers);
       }
 
-      // 5. Giữ patrol_shift_logs — chỉ xóa khi syncPatrolLog success:true
+      // 5. Giữ patrol_shift_logs (kể cả ca đã synced)
       if (Array.isArray(patrolShiftLogs) && patrolShiftLogs.length > 0) {
         await storageService.set('patrol_shift_logs', patrolShiftLogs);
       }

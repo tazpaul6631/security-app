@@ -1,5 +1,5 @@
 <template>
-  <ion-page class="user-page">
+  <div class="user-page">
     <header class="route-header">
       <button type="button" class="route-back-btn" :aria-label="$t('routes.go-home')" @click="router.replace('/home')">
         <i class="pi pi-arrow-left route-back-icon" aria-hidden="true" />
@@ -7,69 +7,64 @@
       </button>
     </header>
 
-    <ion-content class="user-content ion-padding">
+    <AppPageContent class="user-content">
       <div class="user-bg" aria-hidden="true">
         <span class="user-blob user-blob-green" />
         <span class="user-blob user-blob-purple" />
       </div>
 
-      <div class="user-body">
-        <div v-if="isLoading" class="ion-text-center ion-margin-top">
+      <div ref="userBodyRef" class="user-body">
+        <div v-if="isLoading" class="list-status">
           <ProgressSpinner stroke-width="2" />
           <p>{{ $t('users.loading') }}</p>
         </div>
 
-        <ion-card v-for="user in displayedUsers" :key="user.userId" class="user-card">
-          <ion-card-header>
+        <Card v-for="user in displayedUsers" :key="user.userId" class="user-card"
+          :pt="{ body: { class: 'user-card-body' }, content: { class: 'user-card-content' } }">
+          <template #content>
             <div class="info-row">
-              <div class="icon-wrapper" :style="{ backgroundColor: getRoleColor(user.userRoleId).bg }">
-                <ion-icon :icon="person" class="dark-icon"
-                  :style="{ color: getRoleColor(user.userRoleId).color }"></ion-icon>
+              <div class="user-code-row">
+                <p class="user-title user-code-text">{{ user.userCode }}</p>
+                <div class="icon-wrapper" :style="{ backgroundColor: getRoleColor(user.userRoleId).bg }">
+                  <i class="pi pi-user dark-icon" :style="{ color: getRoleColor(user.userRoleId).color }" />
+                </div>
               </div>
               <div class="text-content">
-                <ion-card-title class="user-title padding-text">
-                  <span>{{ user.userName }}</span>
-                </ion-card-title>
-                <ion-card-title class="user-title padding-text">
-                  <span>{{ user.userCode }}</span>
-                </ion-card-title>
-                <ion-card-subtitle class="padding-text text-code-roleName">
+                <p class="user-title user-name-text">{{ user.userName }}</p>
+                <div class="text-code-roleName">
                   <p class="badge-it"
                     :style="{ backgroundColor: getRoleColor(user.userRoleId).bg, color: getRoleColor(user.userRoleId).color }">
                     {{ user.userRoleName }}
-                  </p> - {{ user.userRoleCode }}
-                </ion-card-subtitle>
-                <ion-card-subtitle class="padding-text">{{ user.userAreaName }} - {{ user.userAreaCode
-                }}</ion-card-subtitle>
+                  </p>
+                  <span> - {{ user.userRoleCode }}</span>
+                </div>
+                <p class="user-area-text">{{ user.userAreaName }} - {{ user.userAreaCode }}</p>
               </div>
             </div>
-          </ion-card-header>
-        </ion-card>
+          </template>
+        </Card>
 
-        <div v-if="!isLoading && displayedUsers.length === 0" class="ion-text-center ion-margin-top">
+        <div v-if="!isLoading && displayedUsers.length === 0" class="list-status">
           <p>{{ $t('users.no-data') }}</p>
         </div>
 
-        <ion-infinite-scroll @ionInfinite="loadMoreRoles" :disabled="isAllLoaded">
-          <ion-infinite-scroll-content loading-spinner="bubbles" :loading-text="$t('users.loading-more')">
-          </ion-infinite-scroll-content>
-        </ion-infinite-scroll>
+        <div v-if="!isAllLoaded" ref="sentinelRef" class="infinite-sentinel">
+          <ProgressSpinner stroke-width="4" style="width: 28px; height: 28px" />
+          <span>{{ $t('users.loading-more') }}</span>
+        </div>
       </div>
-    </ion-content>
-  </ion-page>
+    </AppPageContent>
+  </div>
 </template>
 
 <script setup lang="ts">
 import router from '@/router';
 import { ref, onMounted, computed } from 'vue';
-import {
-  IonPage, IonContent, IonCard, IonCardHeader, IonCardTitle, IonCardSubtitle,
-  IonIcon, IonInfiniteScroll, IonInfiniteScrollContent,
-  useBackButton
-} from '@ionic/vue';
+import AppPageContent from '@/components/AppPageContent.vue';
+import { useHardwareBackButton } from '@/composables/useHardwareBackButton';
+import { useInfiniteScroll } from '@/composables/useInfiniteScroll';
 import UserView from '@/api/UserView';
-import { person } from 'ionicons/icons';
-import { ProgressSpinner } from '@/plugins/primevue.components';
+import { Card, ProgressSpinner } from '@/plugins/primevue.components';
 
 // --- MẢNG MÀU ĐỊNH SẴN ---
 const colorPalettes = [
@@ -147,16 +142,15 @@ const loadNextBatch = () => {
   currentIndex += itemsPerPage;
 };
 
-// Sự kiện được gọi khi cuộn xuống cuối trang
-const loadMoreRoles = (event: any) => {
-  // Dùng setTimeout nhỏ để tạo cảm giác mượt mà khi hiện loading spinner
-  setTimeout(() => {
-    loadNextBatch();
-    event.target.complete(); // Thông báo cho Ionic biết đã load xong để ẩn spinner
-  }, 500);
+const loadMoreUsers = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  loadNextBatch();
 };
 
-useBackButton(10, () => {
+const userBodyRef = ref<HTMLElement | null>(null);
+const { sentinelRef } = useInfiniteScroll(isAllLoaded, loadMoreUsers, userBodyRef);
+
+useHardwareBackButton(10, () => {
   router.replace('/home');
 });
 
@@ -227,9 +221,25 @@ onMounted(() => {
 }
 
 .user-content {
-  flex: 1;
-  min-height: 0;
-  --background: #d1e5e6;
+  padding: 16px;
+  height: 100%;
+}
+
+.list-status {
+  text-align: center;
+  margin-top: 16px;
+  color: #64748b;
+}
+
+.infinite-sentinel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  color: #64748b;
+  font-size: 0.85rem;
 }
 
 .user-bg {
@@ -267,10 +277,14 @@ onMounted(() => {
 .user-body {
   position: relative;
   z-index: 1;
+  height: 95%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* --- Style cho Card tổng thể --- */
 .user-card {
+  margin-bottom: 12px;
   border-radius: 16px;
   background: #ffffff;
   border: none;
@@ -284,9 +298,8 @@ onMounted(() => {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
-/* Bỏ padding mặc định của header để tự custom */
-ion-card-header {
-  padding: 16px;
+.user-card :deep(.user-card-body) {
+  padding: 10px;
 }
 
 /* --- Layout dòng thông tin --- */
@@ -297,6 +310,12 @@ ion-card-header {
 }
 
 /* --- Avatar / Icon Wrapper --- */
+.user-code-row {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+}
+
 .icon-wrapper {
   width: 64px;
   height: 64px;
@@ -317,28 +336,30 @@ ion-card-header {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 13px;
 }
 
-/* Tên User */
-.user-title:first-child span {
+.user-title {
+  margin: 0;
+}
+
+.user-name-text {
   font-size: 1.1rem;
   font-weight: 700;
   color: #1f2937;
   letter-spacing: -0.02em;
 }
 
-/* Mã User */
-.user-title:nth-child(2) span {
+.user-code-text {
   font-size: 0.85rem;
   font-weight: 500;
   color: #6b7280;
 }
 
-/* Reset margin/padding của Ionic subtitle */
-ion-card-subtitle {
+.user-area-text {
   margin: 0;
-  color: #4b5563;
+  font-size: 0.8rem;
+  color: #9ca3af;
 }
 
 /* --- Cụm Role Name & Code --- */
@@ -348,7 +369,6 @@ ion-card-subtitle {
   flex-wrap: wrap;
   gap: 6px;
   font-size: 0.85rem;
-  margin-top: 2px;
 }
 
 /* Badge của Role (Hạt đậu) */
@@ -363,14 +383,5 @@ ion-card-subtitle {
   align-items: center;
   justify-content: center;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
-}
-
-/* --- Khu vực / Area --- */
-.text-content ion-card-subtitle:last-child {
-  font-size: 0.8rem;
-  color: #9ca3af;
-  display: flex;
-  align-items: center;
-  margin-top: 2px;
 }
 </style>

@@ -2,7 +2,6 @@ import { ref, computed } from 'vue';
 import storage from '@/services/storage.service';
 import { ImageService } from '@/services/image.service';
 import { base64ToBlob } from '@/utils/imagePayload';
-import PointReport from '@/api/PointReport';
 import store from '@/composables/useVuex';
 import { useToast } from 'primevue/usetoast';
 import PatrolShift from '@/api/PatrolShift';
@@ -30,9 +29,6 @@ export async function waitForSendDataIdle(maxMs = 60000): Promise<boolean> {
   }
   return activeSendDataCount.value === 0;
 }
-/** Timeout gửi 1 điểm online — quá hạn thì lưu queue (tránh kẹt loading / mất data) */
-const SUBMIT_TIMEOUT_MS = 30_000;
-
 const HIGH_QUEUE_THRESHOLD = 30;
 const AVG_IMAGE_SIZE_MB = 0.35;
 const HIGH_QUEUE_ESTIMATED_MB = 120;
@@ -81,11 +77,10 @@ export function useOfflineManager() {
     if (!item.imageFiles?.length) return false;
     if (item.imageFiles.length !== expectedImages) return false;
 
-    for (const fileName of item.imageFiles) {
-      const base64 = await ImageService.readImage(fileName);
-      if (!base64) return false;
-    }
-    return true;
+    const checks = await Promise.all(
+      item.imageFiles.map((fileName) => ImageService.imageExists(fileName))
+    );
+    return checks.every(Boolean);
   };
 
   /** Dọn mục zombie: metadata còn nhưng file ảnh mất hoặc payload không hợp lệ */
@@ -301,21 +296,37 @@ export function useOfflineManager() {
     router.replace('/login');
   };
 
-  const persistImagesToDisk = async (imagesBase64: string[]): Promise<string[]> => {
-    const imageFiles: string[] = [];
-    for (const base64 of imagesBase64) {
+  const persistImagesToDisk = async (
+    imagesBase64: string[],
+    existingImageFiles: Array<string | null | undefined> = []
+  ): Promise<string[]> => {
+    const results = await Promise.all(imagesBase64.map(async (base64, index) => {
       try {
+        const existing = existingImageFiles[index];
+        if (typeof existing === 'string' && existing.startsWith('offline_img_')) {
+          const exists = await ImageService.imageExists(existing);
+          if (exists) {
+            return { fileName: existing, created: false as const };
+          }
+        }
         const fileName = await ImageService.saveImage(base64);
-        imageFiles.push(fileName);
+        return { fileName, created: true as const };
       } catch (err) {
         console.error('Lỗi lưu ảnh vật lý:', err);
-        for (const fileName of imageFiles) {
-          await ImageService.deleteImage(fileName).catch(() => { });
-        }
-        throw new Error('IMAGE_FILE_MISMATCH');
+        return { error: true as const };
       }
+    }));
+
+    const created = results
+      .filter((r): r is { fileName: string; created: true } => 'created' in r && r.created === true)
+      .map((r) => r.fileName);
+
+    if (results.some((r) => 'error' in r || !('fileName' in r) || !r.fileName)) {
+      await Promise.all(created.map((fileName) => ImageService.deleteImage(fileName).catch(() => { })));
+      throw new Error('IMAGE_FILE_MISMATCH');
     }
-    return imageFiles;
+
+    return results.map((r) => (r as { fileName: string }).fileName);
   };
 
   const presentToast = (message: string, color: string = 'warning') => {
@@ -389,7 +400,10 @@ export function useOfflineManager() {
     }
   };
 
-  const addToQueue = async (item: PendingItem): Promise<void> => {
+  const addToQueue = async (
+    item: PendingItem,
+    options: { notify?: boolean } = {}
+  ): Promise<void> => {
     // 1. CLONE (Tạo bản sao) để không làm ảnh hưởng data gốc đang gửi trực tiếp
     const itemToSave = JSON.parse(JSON.stringify(item));
 
@@ -429,11 +443,18 @@ export function useOfflineManager() {
       reportImages: []
     };
 
-    presentToast(t('messages.use-offline.saved-to-queue'));
+    if (options.notify !== false) {
+      presentToast(t('messages.use-offline.saved-to-queue'));
+    }
     storeInstance.commit('ADD_OFFLINE_REPORT', mockReport);
   };
 
-  const sendData = async (url: string, data: any, imagesBase64: string[] = []): Promise<void> => {
+  const sendData = async (
+    url: string,
+    data: any,
+    imagesBase64: string[] = [],
+    existingImageFiles: Array<string | null | undefined> = []
+  ): Promise<string[]> => {
     activeSendDataCount.value++;
     try {
       const id = Date.now().toString() + '_' + Math.random().toString(36).substring(2, 9);
@@ -451,63 +472,21 @@ export function useOfflineManager() {
         throw new Error('IMAGE_FILE_MISMATCH');
       }
 
-      const enqueueWithImages = async () => {
-        const imageFiles = await persistImagesToDisk(imagesBase64);
-        await addToQueue({ id, url, data, imageFiles });
-      };
-
-      // Online: FormData từ RAM → API; chỉ ghi disk khi fallback queue
-      if (storeInstance.state.isOnline) {
-        try {
-          const memoryItem: PendingItem = { id, url, data, imageFiles: [] };
-          const bodyFormData = await buildFormData(memoryItem, imagesBase64);
-
-          const result = await PointReport.createPointReport(bodyFormData, SUBMIT_TIMEOUT_MS);
-          const responseData = result?.data || result;
-          const evalResult = evaluatePointReportResponse(responseData);
-
-          if (evalResult.status === 'unauthorized') {
-            await forceLogoutOnExpiredToken();
-            throw new Error('UNAUTHORIZED');
-          }
-
-          if (evalResult.status === 'duplicate') {
-            return;
-          }
-
-          if (evalResult.status === 'success') {
-            applySuccessfulPointReport(evalResult);
-            return;
-          }
-
-          throw {
-            isCustom: true,
-            status: 500,
-            message: evalResult.message,
-            code: 'POINT_REPORT_NOT_SUCCESS',
-          };
-        } catch (error: any) {
-          if (error?.code === 'POINT_REPORT_NOT_SUCCESS' || error?.message === 'UNAUTHORIZED') {
-            throw error;
-          }
-          const reason =
-            error?.code === 'REQUEST_TIMEOUT'
-              ? `timeout ${SUBMIT_TIMEOUT_MS / 1000}s`
-              : 'lỗi mạng/server';
-          console.warn(`Gửi trực tiếp thất bại (${reason}), chuyển vào hàng chờ...`, error);
-          await enqueueWithImages();
-        }
-      } else {
-        await enqueueWithImages();
-      }
+      // Queue-first: ghi disk + SQLite xong mới trả về — mạng sync sau, không giữ RAM.
+      const imageFiles = await persistImagesToDisk(imagesBase64, existingImageFiles);
+      const isOnline = !!storeInstance.state.isOnline;
+      await addToQueue({ id, url, data, imageFiles }, { notify: !isOnline });
+      return imageFiles;
     } finally {
       activeSendDataCount.value--;
     }
   };
 
-  const syncData = async (): Promise<void> => {
+  const syncData = async (options?: { mode?: 'overlay' | 'silent' }): Promise<void> => {
     // Chặn nếu đang xử lý hoặc offline
     if (isProcessing || storeInstance.state.isSyncingOffline || !storeInstance.state.isOnline) return;
+
+    const uiMode = options?.mode === 'silent' ? 'silent' : 'overlay';
 
     isProcessing = true;
     storeInstance.commit('SET_SYNC_OFFLINE_STATUS', true);
@@ -517,7 +496,7 @@ export function useOfflineManager() {
       progress: 0,
       message: t('messages.use-offline.syncing'),
       isSyncing: true,
-      mode: 'overlay'
+      mode: uiMode
     });
 
     const queueSnapshot: PendingItem[] = (await storage.get('offline_api_queue')) || [];
@@ -553,7 +532,7 @@ export function useOfflineManager() {
           progress: 0,
           message: t('messages.use-offline.cleaning'),
           isSyncing: true,
-          mode: 'overlay'
+          mode: uiMode
         });
 
         // Tạo một mảng mới để chứa những cái XÓA THẤT BẠI (để lưu lại lần sau)
@@ -602,10 +581,10 @@ export function useOfflineManager() {
           progress: percent,
           message: t('messages.use-offline.uploading', { processedItems, totalItems }),
           isSyncing: true,
-          mode: 'overlay'
+          mode: uiMode
         });
 
-        // Metadata nhẹ — ảnh đã được sanitize đầu sync; chỉ đọc disk 1 lần bên dưới
+        // Metadata nhẹ — sanitize chỉ stat file; nội dung ảnh đọc lúc buildFormData / POST
         if (!isQueueItemValid(item)) {
           await cleanUpItem(item);
           removedInvalidCount++;
@@ -649,8 +628,8 @@ export function useOfflineManager() {
           const errMsg = error?.message || '';
 
           if (errMsg === 'FORM_DATA_IMAGE_MISMATCH') {
-            await cleanUpItem(item);
-            removedInvalidCount++;
+            // Giữ queue — đọc file fail tạm thời không được coi là mất báo cáo
+            console.warn('[useOffline] FORM_DATA_IMAGE_MISMATCH — giữ item để thử lại:', item.id);
             continue;
           }
 
@@ -727,7 +706,9 @@ export function useOfflineManager() {
             isSyncing: false,
             mode: 'silent'
           });
-          presentToast(t('messages.use-offline.incomplete', { count: remainingCount }), 'warning');
+          if (uiMode !== 'silent') {
+            presentToast(t('messages.use-offline.incomplete', { count: remainingCount }), 'warning');
+          }
 
           if (removedInvalidCount > 0) {
             presentToast(
