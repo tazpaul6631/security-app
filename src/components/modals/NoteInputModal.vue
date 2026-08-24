@@ -18,7 +18,7 @@
 </template>
 
 <script setup lang="ts">
-import { useBackButton } from '@ionic/vue';
+import { useHardwareBackButton } from '@/composables/useHardwareBackButton';
 import { ref, watch } from 'vue';
 import { Button, Dialog, Textarea } from '@/plugins/primevue.components';
 
@@ -45,7 +45,7 @@ const confirm = () => {
 };
 
 // Chặn back vật lý trong lúc modal note đang mở.
-useBackButton(10002, () => {
+useHardwareBackButton(10002, () => {
   if (props.isOpen) return;
 });
 </script>

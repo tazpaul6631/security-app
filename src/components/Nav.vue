@@ -1,55 +1,54 @@
 <template>
-  <ion-page id="main-content">
-    <div class="ion-page" id="main-app-content">
-      <header class="nav-topbar">
-        <button type="button" class="nav-brand-btn" :aria-label="'Internal Patrol'" @click="goBackAndClearHistory">
-          <span class="nav-brand-logo" aria-hidden="true">
-            <img class="logo-company" src="/assets/icon.png" alt="" />
-          </span>
-          <span class="nav-brand-title">
-            <span class="brand-title-part">Internal</span>
-            <span class="accent">Patrol</span>
-          </span>
-        </button>
+  <div id="main-content" class="nav-page">
+    <header class="nav-topbar">
+      <button type="button" class="nav-brand-btn" :aria-label="'Internal Patrol'" @click="goBackAndClearHistory">
+        <span class="nav-brand-logo" aria-hidden="true">
+          <img class="logo-company" src="/assets/icon.png" alt="" />
+        </span>
+        <span class="nav-brand-title">
+          <span class="brand-title-part">Internal</span>
+          <span class="accent">Patrol</span>
+        </span>
+      </button>
 
-        <div class="nav-actions">
-          <Tag :value="isOnline ? $t('layout.online') : $t('layout.offline')"
-            :class="isOnline ? 'status-online' : 'status-offline'" class="status-tag" />
-          <Button icon="pi pi-sign-out" severity="secondary" variant="text" rounded class="logout-btn"
-            :aria-label="$t('layout.logout')" size="large" @click="openLogoutModal" />
-        </div>
-      </header>
+      <div class="nav-actions">
+        <Tag :value="isOnline ? $t('layout.online') : $t('layout.offline')"
+          :class="isOnline ? 'status-online' : 'status-offline'" class="status-tag" />
+        <Button icon="pi pi-sign-out" severity="secondary" variant="text" rounded class="logout-btn"
+          :aria-label="$t('layout.logout')" size="large" @click="openLogoutModal" />
+      </div>
+    </header>
 
-      <Dialog v-model:visible="isLogoutModalOpen" modal :header="t('layout.logout_confirm_title')" class="logout-dialog"
-        :style="{ width: 'min(92vw, 22rem)' }" :draggable="false" :close-on-escape="!isLoggingOut" :closable="false"
-        :dismissable-mask="!isLoggingOut" @after-hide="onLogoutModalAfterHide">
-        <p class="logout-dialog-message">{{ t('layout.logout_confirm_message') }}</p>
-        <template #footer>
-          <Button :label="t('layout.cancel')" severity="secondary" variant="outlined" :disabled="isLoggingOut"
-            size="large" @click="isLogoutModalOpen = false" />
-          <Button :label="t('layout.logout')" icon="pi pi-sign-out" severity="danger" :loading="isLoggingOut"
-            size="large" @click="confirmLogout" />
-        </template>
-      </Dialog>
+    <Dialog v-model:visible="isLogoutModalOpen" modal :header="t('layout.logout_confirm_title')" class="logout-dialog"
+      :style="{ width: 'min(92vw, 22rem)' }" :draggable="false" :close-on-escape="!isLoggingOut" :closable="false"
+      :dismissable-mask="!isLoggingOut" @after-hide="onLogoutModalAfterHide">
+      <p class="logout-dialog-message">{{ t('layout.logout_confirm_message') }}</p>
+      <template #footer>
+        <Button :label="t('layout.cancel')" severity="secondary" variant="outlined" :disabled="isLoggingOut"
+          size="large" @click="isLogoutModalOpen = false" />
+        <Button :label="t('layout.logout')" icon="pi pi-sign-out" severity="danger" :loading="isLoggingOut"
+          size="large" @click="confirmLogout" />
+      </template>
+    </Dialog>
 
-      <ion-content>
-        <ion-router-outlet></ion-router-outlet>
-      </ion-content>
+    <div class="nav-main">
+      <router-view v-slot="{ Component, route }">
+        <keep-alive>
+          <component :is="Component" :key="String(route.name)" />
+        </keep-alive>
+      </router-view>
     </div>
-  </ion-page>
+  </div>
 </template>
 
 <script setup lang="ts">
-import {
-  IonContent, IonPage, IonRouterOutlet,
-  alertController, useIonRouter,
-} from '@ionic/vue';
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import router from '@/router';
 import { useStore } from 'vuex';
 import { useOfflineManager } from '@/composables/useOfflineManager';
 import { watchLogoutPrompt, clearAwaitingLogoutAfterSync } from '@/composables/useLogoutPrompt';
+import { useHardwareBackButton } from '@/composables/useHardwareBackButton';
 import storageService from '@/services/storage.service';
 import Logout from '@/api/Logout';
 import { useRouteTimer } from '@/composables/useRouteTimer';
@@ -83,9 +82,15 @@ const { t } = useI18n();
 const { pendingItems, loadPendingItems, isOnline, isSendDataBusy, waitForSendDataIdle } = useOfflineManager();
 
 ///////////////////////////////
-// Khởi tạo router riêng của Ionic
-const ionRouter = useIonRouter();
 const isRouteUnfinished = computed(() => store.getters.isRouteUnfinished);
+
+useHardwareBackButton(20, (processNextHandler) => {
+  if (isLogoutModalOpen.value && !isLoggingOut.value) {
+    isLogoutModalOpen.value = false;
+    return;
+  }
+  processNextHandler();
+});
 
 const warnSendInProgress = () => {
   void speakImportantText(t('messages.nav.send-in-progress'));
@@ -109,7 +114,7 @@ const goBackAndClearHistory = async () => {
     });
     return;
   }
-  ionRouter.navigate('/home', 'root', 'replace');
+  router.replace('/home');
 };
 
 const openLogoutModal = async () => {
@@ -239,19 +244,39 @@ const performLogout = async () => {
       return;
     }
 
-    // CHỐT CHẶN CUỐI CÙNG: Nếu SQLite bị khóa hoặc code gãy
-    const alert = await alertController.create({
-      header: 'Lỗi hệ thống',
-      message: 'Hệ thống tạm thời bận. Vui lòng đợi vài giây và thử lại!',
-      buttons: ['OK']
+    toast.add({
+      severity: 'error',
+      summary: t('messages.nav.unable-to-logout'),
+      detail: t('messages.nav.system-busy'),
+      life: 8000,
+      closable: false,
     });
-    await alert.present();
   }
 };
 ////////////////////////////////////////////
 </script>
 
 <style scoped>
+.nav-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.nav-main {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.nav-main > :deep(*) {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
 .nav-topbar {
   display: flex;
   align-items: center;

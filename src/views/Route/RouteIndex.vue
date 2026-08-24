@@ -1,5 +1,5 @@
 <template>
-  <ion-page class="route-page">
+  <div class="route-page">
     <header class="route-header">
       <button type="button" class="route-back-btn" :aria-label="$t('routes.go-home')" @click="router.replace('/home')">
         <i class="pi pi-arrow-left route-back-icon" aria-hidden="true" />
@@ -8,7 +8,7 @@
       <OfflineSyncHeaderButton :count="syncBadgeCount" @click="isOfflineSyncModalOpen = true" />
     </header>
 
-    <ion-content class="route-content" :class="{ 'route-content--locked': !isLoading && !!currentActiveRoute }">
+    <AppPageContent class="route-content" :locked="!isLoading && !!displayRoute">
       <div class="route-bg" aria-hidden="true">
         <span class="route-blob route-blob-green" />
         <span class="route-blob route-blob-purple" />
@@ -20,20 +20,27 @@
       </div>
 
       <transition v-else name="fade-route" mode="out-in">
-        <div v-if="currentActiveRoute" :key="currentActiveRoute.routeId" class="route-body">
+        <div v-if="displayRoute"
+          :key="`${displayRoute.routeId}-${displayRoute.psId}-${isShiftCompleted ? 'done' : 'active'}`"
+          class="route-body">
           <Card class="route-card"
             :pt="{ body: { class: 'route-card-body' }, content: { class: 'route-card-content' } }">
             <template #title>
-              <span class="route-name">{{ currentActiveRoute.routeName }}</span>
+              <div class="route-title-row">
+                <span class="route-name">
+                  {{ displayRoute.routeName }}
+                  <i class="pi pi-check-circle route-done-icon" v-if="isShiftCompleted" />
+                </span>
+              </div>
             </template>
             <template #subtitle>
               <div class="route-meta">
                 <span>
-                  {{ $t('routes.code') }} {{ currentActiveRoute.routeCode }} |
-                  {{ $t('routes.shift') }} {{ currentActiveRoute.psHourFrom }}h -
-                  {{ currentActiveRoute.psDay }}/{{ currentActiveRoute.psMonth }}/{{ currentActiveRoute.psYear }}
+                  {{ $t('routes.code') }} {{ displayRoute.routeCode }} |
+                  {{ $t('routes.shift') }} {{ displayRoute.psHourFrom }}h -
+                  {{ displayRoute.psDay }}/{{ displayRoute.psMonth }}/{{ displayRoute.psYear }}
                 </span>
-                <span v-show="formattedTime" class="timer-display" :class="timerColorClass">
+                <span v-show="formattedTime && !isShiftCompleted" class="timer-display" :class="timerColorClass">
                   <i class="pi pi-clock icon-clock" />
                   {{ $t('routes.countdown') }} {{ formattedTime }}
                 </span>
@@ -41,7 +48,7 @@
             </template>
             <template #content>
               <div class="route-points-scroll">
-                <card-route-points ref="cardRoutePointsRef" :details="currentActiveRoute.routeDetails" />
+                <card-route-points :details="displayRoute.routeDetails" />
               </div>
             </template>
           </Card>
@@ -51,14 +58,8 @@
           <div class="no-route-content">
             <i class="pi pi-calendar big-icon" />
 
-            <div v-if="hasDataButFinished">
-              <h3>{{ $t('routes.txt-info', { currentHour: currentHour }) }}</h3>
-              <p>{{ $t('routes.all-scanned') }}</p>
-            </div>
-            <div v-else>
-              <h3>{{ $t('routes.route-not-found', { currentHour: currentHour }) }}</h3>
-              <p>{{ $t('routes.no-shift-data') }}</p>
-            </div>
+            <h3>{{ $t('routes.route-not-found', { currentHour: currentHour }) }}</h3>
+            <p>{{ $t('routes.no-shift-data') }}</p>
             <Button :label="$t('routes.go-home')" severity="secondary" variant="outlined" icon="pi pi-home"
               class="go-home-btn" size="large" @click="router.replace('/home')" />
           </div>
@@ -88,28 +89,36 @@
       </Dialog>
 
       <OfflineSyncModal v-model:visible="isOfflineSyncModalOpen" :get-checkpoint-name="resolveCheckpointName" />
-    </ion-content>
+    </AppPageContent>
 
-    <footer v-if="!isLoading && currentActiveRoute" class="route-footer">
-      <div class="active-controls">
+    <footer v-if="!isLoading && (currentActiveRoute || isShiftCompleted)" class="route-footer">
+      <div v-if="currentActiveRoute" class="active-controls">
         <Button v-if="canCancelRoute" :label="$t('routes.cancel')" icon="pi pi-trash" severity="danger"
           class="btn-cancel" size="large" @click="confirmCancelRoute" />
         <Button :label="isScanning ? $t('routes.opening-camera') : $t('routes.scan')" icon="pi pi-qrcode"
           severity="success" class="btn-continue" :loading="isScanning" :disabled="isScanning" size="large"
           @click="handleContinueScanning(currentActiveRoute.routeId)" />
       </div>
+
+      <div v-else class="shift-done-banner" :class="isShiftAwaitingSync ? 'is-pending' : 'is-synced'">
+        <i :class="isShiftAwaitingSync ? 'pi pi-cloud-upload' : 'pi pi-check-circle'" class="shift-done-icon"
+          aria-hidden="true" />
+        <div class="shift-done-copy">
+          <strong>
+            {{ isShiftAwaitingSync ? $t('routes.shift-done-pending-title') : $t('routes.shift-done-synced-title') }}
+          </strong>
+        </div>
+      </div>
     </footer>
-  </ion-page>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onUnmounted, onMounted, watch } from 'vue';
+import { ref, computed, onActivated, onDeactivated, onUnmounted, watch } from 'vue';
 import { useStore } from 'vuex';
 import { useRouter } from 'vue-router';
-import {
-  IonPage, IonContent, onIonViewWillEnter,
-  useBackButton
-} from '@ionic/vue';
+import AppPageContent from '@/components/AppPageContent.vue';
+import { useHardwareBackButton } from '@/composables/useHardwareBackButton';
 import CardRoutePoints from '@/components/CardRoutePoints.vue';
 import OfflineSyncModal from '@/components/OfflineSyncModal.vue';
 import OfflineSyncHeaderButton from '@/components/OfflineSyncHeaderButton.vue';
@@ -172,7 +181,6 @@ let timer: any = null;
 const lockedRouteId = computed(() => store.state.unfinishedRouteId);
 const { t } = useI18n();
 const { show: showLoading, hide: hideLoading } = useAppLoading();
-const cardRoutePointsRef = ref<any>(null);
 const { pendingItems, loadPendingItems, cleanUpItem, purgeStaleShiftQueue } = useOfflineManager();
 const { syncBadgeCount } = useSyncBadgeCount();
 
@@ -185,6 +193,45 @@ const canCancelRoute = computed(() => {
 // ==========================================
 // 1. KHAI BÁO LỘ TRÌNH HIỆN TẠI
 // ==========================================
+const isRouteFinished = (r: Route) =>
+  !!(r.isComplete || r.routeDetails.every((p) => p.rdIsComplete));
+
+const isUserRoute = (r: Route, uArea: number, uRole: number) =>
+  Number(r.areaId) === uArea && Number(r.roleId) === uRole;
+
+const isRouteInCurrentWindow = (r: Route) => {
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const currentDay = now.getDate();
+  const hNow = currentHour.value;
+
+  const f = Number(r.psHourFrom);
+  const t = Number(r.psHourTo);
+
+  const isToday = (
+    Number(r.psYear) === currentYear &&
+    Number(r.psMonth) === currentMonth &&
+    Number(r.psDay) === currentDay
+  );
+
+  if (f <= t) {
+    return isToday && (hNow >= f && hNow <= t);
+  }
+
+  if (hNow >= f) return isToday;
+  if (hNow <= t) {
+    const yesterday = new Date(now);
+    yesterday.setDate(now.getDate() - 1);
+    return (
+      Number(r.psYear) === yesterday.getFullYear() &&
+      Number(r.psMonth) === yesterday.getMonth() + 1 &&
+      Number(r.psDay) === yesterday.getDate()
+    );
+  }
+  return false;
+};
+
 const currentActiveRoute = computed(() => {
   const routes = shiftDataList.value;
   const userData = store.state.dataUser;
@@ -194,13 +241,6 @@ const currentActiveRoute = computed(() => {
 
   const uRole = Number(userData.userRoleId);
   const uArea = Number(userData.userAreaId);
-
-  // --- LẤY NGÀY GIỜ HỆ THỐNG HIỆN TẠI ---
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
-  const currentDay = now.getDate();
-  const hNow = currentHour.value; // Biến giờ bạn đã theo dõi bằng setInterval
 
   // ƯU TIÊN 1: Lộ trình đang làm dở (Bị khóa - Không quan tâm quá giờ)
   if (lockedRouteId.value !== null) {
@@ -212,64 +252,47 @@ const currentActiveRoute = computed(() => {
       );
     }
 
-    if (lockedRoute) {
-      const isFinished = lockedRoute.routeDetails.every((p: any) => p.rdIsComplete);
-      if (!isFinished) return { ...lockedRoute };
-    }
+    if (lockedRoute && !isRouteFinished(lockedRoute)) return { ...lockedRoute };
   }
 
-  // ƯU TIÊN 2: Tìm lộ trình mới theo KHUNG GIỜ VÀ NGÀY THÁNG hiện tại
-  const foundRoute = routes.find((r: any) => {
-    // Sai Khu vực hoặc Sai Quyền -> Bỏ qua
-    if (Number(r.areaId) !== uArea || Number(r.roleId) !== uRole) return false;
-
-    const f = Number(r.psHourFrom);
-    const t = Number(r.psHourTo);
-
-    // Kiểm tra xem ca trực này có thuộc "Ngày Hôm Nay" không
-    const isToday = (
-      Number(r.psYear) === currentYear &&
-      Number(r.psMonth) === currentMonth &&
-      Number(r.psDay) === currentDay
-    );
-
-    let isMatchDateAndHour = false;
-
-    // TRƯỜNG HỢP 1: Ca trong ngày (psHourFrom <= psHourTo, vd: 8h->16h hoặc 23h->23h)
-    if (f <= t) {
-      isMatchDateAndHour = isToday && (hNow >= f && hNow <= t);
-    }
-    // TRƯỜNG HỢP 2: Ca qua đêm (psHourFrom > psHourTo, vd: 22h->06h)
-    else {
-      if (hNow >= f) {
-        // Nếu đang là 23h đêm (trước 00:00), thì nó phải thuộc ngày hôm nay
-        isMatchDateAndHour = isToday;
-      } else if (hNow <= t) {
-        // Nếu đang là 2h sáng (sau 00:00), thì ca trực này bản chất được bắt đầu từ NGÀY HÔM QUA
-        const yesterday = new Date(now);
-        yesterday.setDate(now.getDate() - 1);
-
-        const isYesterday = (
-          Number(r.psYear) === yesterday.getFullYear() &&
-          Number(r.psMonth) === yesterday.getMonth() + 1 &&
-          Number(r.psDay) === yesterday.getDate()
-        );
-        isMatchDateAndHour = isYesterday;
-      }
-    }
-
-    // Kiểm tra xem ca đã hoàn thành chưa
-    const isFinished = r.routeDetails.every((p: any) => p.rdIsComplete);
-
-    // Bắt buộc phải khớp (Ngày + Giờ) và chưa hoàn thành
-    return isMatchDateAndHour && !isFinished && !r.isComplete;
-  });
+  // ƯU TIÊN 2: Ca khớp ngày + giờ và chưa hoàn thành
+  const foundRoute = routes.find((r: any) =>
+    isUserRoute(r, uArea, uRole) && isRouteInCurrentWindow(r) && !isRouteFinished(r)
+  );
 
   return foundRoute ? { ...foundRoute } : null;
 });
 
+const completedRouteThisHour = computed(() => {
+  const routes = shiftDataList.value;
+  const userData = store.state.dataUser;
+  if (!userData || !Array.isArray(routes)) return null;
+
+  const uRole = Number(userData.userRoleId);
+  const uArea = Number(userData.userAreaId);
+
+  const foundRoute = routes.find((r: any) =>
+    isUserRoute(r, uArea, uRole) && isRouteInCurrentWindow(r) && isRouteFinished(r)
+  );
+
+  return foundRoute ? { ...foundRoute } : null;
+});
+
+const displayRoute = computed(() => currentActiveRoute.value || completedRouteThisHour.value);
+const isShiftCompleted = computed(() => !currentActiveRoute.value && !!completedRouteThisHour.value);
+
+const pendingForDisplayShift = computed(() => {
+  const psId = displayRoute.value?.psId;
+  if (!psId) return 0;
+  return pendingItems.value.filter((item) => Number(item.data?.psId) === Number(psId)).length;
+});
+
+const isShiftAwaitingSync = computed(() =>
+  isShiftCompleted.value && pendingForDisplayShift.value > 0
+);
+
 const resolveCheckpointName = (cpId: string) => {
-  const cp = currentActiveRoute.value?.routeDetails?.find(
+  const cp = displayRoute.value?.routeDetails?.find(
     (d: RouteDetail) => String(d.cpId) === String(cpId)
   );
   return cp ? cp.cpName : t('routes.offline-checkpoint-fallback');
@@ -370,49 +393,6 @@ const handleContinueScanning = async (routeId: number) => {
   }
 };
 
-const hasDataButFinished = computed(() => {
-  const routes = shiftDataList.value;
-  if (!Array.isArray(routes)) return false;
-
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
-  const currentDay = now.getDate();
-  const hNow = currentHour.value;
-
-  const routeInHour = routes.find((r: any) => {
-    const f = Number(r.psHourFrom);
-    const t = Number(r.psHourTo);
-
-    const isToday = (
-      Number(r.psYear) === currentYear &&
-      Number(r.psMonth) === currentMonth &&
-      Number(r.psDay) === currentDay
-    );
-
-    if (f <= t) {
-      return isToday && (hNow >= f && hNow <= t);
-    } else {
-      if (hNow >= f) return isToday;
-      if (hNow <= t) {
-        const yesterday = new Date(now);
-        yesterday.setDate(now.getDate() - 1);
-        return (
-          Number(r.psYear) === yesterday.getFullYear() &&
-          Number(r.psMonth) === yesterday.getMonth() + 1 &&
-          Number(r.psDay) === yesterday.getDate()
-        );
-      }
-      return false;
-    }
-  });
-
-  if (routeInHour) {
-    return routeInHour.isComplete || routeInHour.routeDetails.every((p: any) => p.rdIsComplete);
-  }
-  return false;
-});
-
 // ==========================================
 // 4. LIFECYCLE VÀ API
 // ==========================================
@@ -475,7 +455,26 @@ const loadRouteData = async (options: { silent?: boolean } = {}) => {
   }
 };
 
-onIonViewWillEnter(async () => {
+const startRouteClock = () => {
+  stopRouteClock();
+  updateSystemTime();
+  window.addEventListener('visibilitychange', handleAppWakeUp);
+  window.addEventListener('focus', updateSystemTime);
+  timer = setInterval(updateSystemTime, 15000);
+};
+
+const stopRouteClock = () => {
+  if (timer) {
+    clearInterval(timer);
+    timer = null;
+  }
+  window.removeEventListener('visibilitychange', handleAppWakeUp);
+  window.removeEventListener('focus', updateSystemTime);
+};
+
+onActivated(async () => {
+  startRouteClock();
+
   // Đảm bảo Store đã khôi phục dữ liệu từ SQLite
   if (!store.state.isHydrated) {
     await store.dispatch('initApp');
@@ -490,28 +489,21 @@ onIonViewWillEnter(async () => {
   if (hasRouteCache()) {
     isLoading.value = false;
     void loadRouteData().finally(() => {
-      cardRoutePointsRef.value?.loadOfflineQueue();
+      void loadPendingItems();
     });
     return;
   }
 
   await loadRouteData();
-  cardRoutePointsRef.value?.loadOfflineQueue();
+  void loadPendingItems();
 });
 
-onMounted(async () => {
-  updateSystemTime();
-  window.addEventListener('visibilitychange', handleAppWakeUp);
-  window.addEventListener('focus', updateSystemTime);
-
-  // Check đổi giờ — không cần 5s (giảm wake/API thừa)
-  timer = setInterval(updateSystemTime, 15000);
+onDeactivated(() => {
+  stopRouteClock();
 });
 
 onUnmounted(() => {
-  if (timer) clearInterval(timer);
-  window.removeEventListener('visibilitychange', handleAppWakeUp);
-  window.removeEventListener('focus', updateSystemTime);
+  stopRouteClock();
 });
 
 // ==========================================
@@ -579,14 +571,26 @@ const handleCancelConfirm = async () => {
   }
 };
 
-useBackButton(10, () => {
+useHardwareBackButton(10, () => {
+  if (isCancelAlertOpen.value) {
+    if (!isCancelling.value) isCancelAlertOpen.value = false;
+    return;
+  }
+  if (isWrongOrderOpen.value) {
+    isWrongOrderOpen.value = false;
+    return;
+  }
+  if (isOfflineSyncModalOpen.value) {
+    isOfflineSyncModalOpen.value = false;
+    return;
+  }
   router.replace('/home');
 });
 
 watch(() => store.state.isSyncing, (isSyncingNow) => {
   // Khi isSyncing chuyển từ true -> false (nghĩa là vừa đồng bộ xong)
-  if (!isSyncingNow && cardRoutePointsRef.value) {
-    cardRoutePointsRef.value.loadOfflineQueue(); // Bắt đếm lại liền!
+  if (!isSyncingNow) {
+    void loadPendingItems(); // pendingItems reactive → CardRoutePoints tự đếm lại
   }
 });
 </script>
@@ -657,25 +661,9 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
 }
 
 .route-content {
-  flex: 1;
-  min-height: 0;
-  --background: #d1e5e6;
-}
-
-.route-content::part(scroll) {
-  height: 100%;
-  min-height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 0
-}
-
-.route-content--locked {
-  --overflow: hidden;
-}
-
-.route-content--locked::part(scroll) {
-  overflow: hidden;
+  padding: 0;
 }
 
 .route-bg {
@@ -769,6 +757,7 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
 .route-card :deep(.p-card-caption) {
   flex-shrink: 0;
   padding: 0 10px;
+  gap: 0;
 }
 
 .route-card :deep(.route-card-content) {
@@ -799,17 +788,78 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
   color: #0f172a;
 }
 
+.route-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 .route-name {
   line-height: 1.3;
+}
+
+.shift-done-banner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: #ecfdf5;
+  border: 1px solid #86efac;
+
+  &.is-pending {
+    background: #fff3c7;
+    border-color: #ffc700;
+  }
+
+  &.is-synced {
+    background: #f5f5f5;
+    border-color: #86efac;
+  }
+}
+
+.route-done-icon {
+  flex-shrink: 0;
+  margin-left: 10px;
+  font-size: 1rem;
+  color: #16a34a;
+}
+
+.shift-done-icon {
+  flex-shrink: 0;
+  font-size: 2rem;
+  color: #16a34a;
+}
+
+.shift-done-copy {
+  min-width: 0;
+}
+
+.shift-done-copy strong {
+  display: block;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #14532d;
+  line-height: 1.35;
+}
+
+.shift-done-copy p {
+  margin: 4px 0 0;
+  font-size: 0.875rem;
+  color: #166534;
+  line-height: 1.4;
 }
 
 .route-meta {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   font-size: 0.875rem;
   color: #64748b;
-  line-height: 1.45;
 }
 
 .timer-display {

@@ -1,5 +1,5 @@
 <template>
-  <ion-page class="area-detail-page">
+  <div class="area-detail-page">
     <header class="route-header">
       <button type="button" class="route-back-btn" :aria-label="$t('page.areas.index')"
         @click="router.replace('/area')">
@@ -8,135 +8,159 @@
       </button>
     </header>
 
-    <ion-content>
-      <div v-if="!getPrIdData" class="ion-padding ion-text-center no-route-container">
-        <ion-icon :icon="calendarOutline" style="font-size: 64px; color: #ccc;"></ion-icon>
-        <h3>{{ $t('areas.detail.emty-data') }}</h3>
-        <ion-button fill="clear" @click="goHome">{{ $t('areas.detail.go-home') }}</ion-button>
+    <AppPageContent class="area-detail-content" locked>
+      <div class="detail-bg" aria-hidden="true">
+        <span class="detail-blob detail-blob-green" />
+        <span class="detail-blob detail-blob-purple" />
       </div>
 
-      <ion-card v-else>
-        <ion-modal :is-open="isModalOpen" @didDismiss="closeModal" class="image-modal" :animated="false">
-          <div class="modal-wrapper">
-            <ion-button fill="clear" color="light" class="close-modal-btn" @click.stop="closeModal">
-              {{ $t('areas.detail.cancel') }}
-            </ion-button>
+      <div v-if="!getPrIdData" class="empty-wrap">
+        <div class="empty-state">
+          <i class="pi pi-calendar empty-icon" />
+          <h3>{{ $t('areas.detail.emty-data') }}</h3>
+          <Button :label="$t('areas.detail.go-home')" severity="secondary" variant="outlined" icon="pi pi-home"
+            class="empty-home-btn" size="large" @click="goHome" />
+        </div>
+      </div>
 
-            <swiper :initial-slide="currentSlideIndex" :centered-slides="true" :space-between="20"
-              style="width: 100%; height: 100%;">
-              <swiper-slide v-for="(img, idx) in allImagesFlat" :key="idx" class="swiper-slide-content">
-                <div class="slide-inner">
-                  <ion-img :src="img.url"></ion-img>
-                  <p class="image-caption">{{ img.note }}</p>
-                </div>
-              </swiper-slide>
-            </swiper>
-          </div>
-        </ion-modal>
-
-        <ion-card-header>
-          <ion-card-title>{{ $t('areas.detail.area') }} {{ getPrIdData.areaName }} <div class="status-badge"
-              :class="getPrIdData.prHasProblem && getPrIdData.prStatus === 0 ? 'problem1' : getPrIdData.prHasProblem && getPrIdData.prStatus === 1 ? 'problem2' : 'normal'">
-              {{ getPrIdData.prHasProblem && getPrIdData.prStatus === 0 ? $t('areas.detail.stt-pending') :
-                getPrIdData.prHasProblem &&
-                  getPrIdData.prStatus === 1 ? $t('areas.detail.stt-processing') : getPrIdData.prStatus === 2 ?
-                  $t('areas.detail.stt-completed') : $t('areas.detail.stt-no-issue') }}
-            </div></ion-card-title>
-          <ion-card-subtitle>{{ $t('areas.detail.position') }} {{ getPrIdData.cpName }}</ion-card-subtitle>
-        </ion-card-header>
-
-        <ion-card-content>
-          <ion-list lines="none">
-            <ion-item>
-              <ion-label>
-                <h2>{{ $t('areas.detail.estimated-time') }} <strong>{{ getPrIdData.planHours ?
-                  `${getPrIdData.planHours}h` : '' }} {{
-                      getPrIdData.planMinutes ? `${getPrIdData.planMinutes}m` : '' }} {{ getPrIdData.planSeconds ?
-                      `${getPrIdData.planSeconds}s` : '' }}</strong></h2>
-                <h3 :class="getPrIdData.timeProblem ? 'time-problem' : ''">{{ $t('areas.detail.actual-time') }} {{
-                  getPrIdData.realityHours ? `${getPrIdData.realityHours}h` : '' }} {{
-                    getPrIdData.realityMinutes ? `${getPrIdData.realityMinutes}m` : '' }} {{
-                    getPrIdData.realitySeconds ? `${getPrIdData.realitySeconds}s` : '' }}
-                </h3>
-              </ion-label>
-            </ion-item>
-
-            <ion-item>
-              <ion-label>
-                <h2>{{ $t('areas.detail.user-report') }} <strong>{{ getPrIdData.reportName }}</strong></h2>
-                <h3 :class="getPrIdData.shiftProblem ? 'shift-problem' : ''">{{ $t('areas.detail.date-report') }} {{
-                  formatDate(getPrIdData.reportAt) }}</h3>
-              </ion-label>
-            </ion-item>
-
-            <ion-item v-if="getPrIdData.prHasProblem">
-              <ion-label>
-                <h2>{{ $t('areas.detail.user-update') }} <strong>{{ getPrIdData.updatedName }}</strong></h2>
-                <h3>{{ $t('areas.detail.date-update') }} {{ formatDate(getPrIdData.updatedAt) }}</h3>
-              </ion-label>
-            </ion-item>
-
-            <ion-item v-if="getPrIdData.cpDescription">
-              <ion-label>
-                <h3>{{ $t('areas.detail.cp-desc') }}</h3>
-                <p class="description-text">{{ getPrIdData.cpDescription }}</p>
-              </ion-label>
-            </ion-item>
-
-            <ion-item class="note-item">
-              <ion-label>
-                <h3>{{ $t('areas.detail.general-notes') }}</h3>
-                <div class="note-content">
-                  {{ getProblemData(getPrIdData.prNote).name ? $t(getProblemData(getPrIdData.prNote).name) :
-                    getPrIdData.prNote }}
-                </div>
-              </ion-label>
-            </ion-item>
-          </ion-list>
-
-          <div v-if="listGroups.length > 0" class="groups-container">
-            <h2 class="group-section-title">{{ $t('areas.detail.pic-rp') }}</h2>
-
-            <div v-for="(group, index) in listGroups" :key="index" class="group-box">
-              <div class="group-header">
-                <ion-icon :icon="documentTextOutline" class="group-icon"></ion-icon>
-                <span class="group-note-text">{{ group.note }}</span>
+      <div v-else class="detail-body">
+        <Card class="detail-card"
+          :pt="{ body: { class: 'detail-card-body' }, content: { class: 'detail-card-content' } }">
+          <template #title>
+            <div class="detail-title-row">
+              <span class="detail-area-name">{{ $t('areas.detail.area') }} {{ getPrIdData.areaName }}</span>
+              <span class="status-badge"
+                :class="getPrIdData.prHasProblem && getPrIdData.prStatus === 0 ? 'problem1' : getPrIdData.prHasProblem && getPrIdData.prStatus === 1 ? 'problem2' : 'normal'">
+                {{ getPrIdData.prHasProblem && getPrIdData.prStatus === 0 ? $t('areas.detail.stt-pending') :
+                  getPrIdData.prHasProblem &&
+                    getPrIdData.prStatus === 1 ? $t('areas.detail.stt-processing') : getPrIdData.prStatus === 2 ?
+                    $t('areas.detail.stt-completed') : $t('areas.detail.stt-no-issue') }}
+              </span>
+            </div>
+          </template>
+          <template #subtitle>
+            <span class="detail-subtitle">
+              {{ $t('areas.detail.position') }}
+              <span class="detail-value">{{ getPrIdData.cpName }}</span>
+            </span>
+          </template>
+          <template #content>
+            <div class="detail-info">
+              <div class="detail-block">
+                <p class="detail-label">
+                  {{ $t('areas.detail.estimated-time') }}
+                  <span class="detail-value">
+                    {{ getPrIdData.planHours ? `${getPrIdData.planHours}h` : '' }}
+                    {{ getPrIdData.planMinutes ? `${getPrIdData.planMinutes}m` : '' }}
+                    {{ getPrIdData.planSeconds ? `${getPrIdData.planSeconds}s` : '' }}
+                  </span>
+                </p>
+                <p class="detail-label" :class="{ 'is-problem': getPrIdData.timeProblem }">
+                  {{ $t('areas.detail.actual-time') }}
+                  <span class="detail-value">
+                    {{ getPrIdData.realityHours ? `${getPrIdData.realityHours}h` : '' }}
+                    {{ getPrIdData.realityMinutes ? `${getPrIdData.realityMinutes}m` : '' }}
+                    {{ getPrIdData.realitySeconds ? `${getPrIdData.realitySeconds}s` : '' }}
+                  </span>
+                </p>
               </div>
 
-              <ion-grid class="image-grid">
-                <ion-row>
-                  <ion-col v-for="(img, imgIndex) in group.images" :key="imgIndex" size="4" size-md="3">
-                    <div class="thumbnail-wrapper" @click="openModal(img)">
-                      <ion-img :src="img.url" class="thumb-img"></ion-img>
-                    </div>
-                  </ion-col>
-                </ion-row>
-              </ion-grid>
-            </div>
-          </div>
+              <div class="detail-block">
+                <p class="detail-label">
+                  {{ $t('areas.detail.user-report') }}
+                  <span class="detail-value">{{ getPrIdData.reportName }}</span>
+                </p>
+                <p class="detail-label" :class="{ 'is-problem': getPrIdData.shiftProblem }">
+                  {{ $t('areas.detail.date-report') }}
+                  <span class="detail-value">{{ formatDate(getPrIdData.reportAt) }}</span>
+                </p>
+              </div>
 
-        </ion-card-content>
-      </ion-card>
-    </ion-content>
-  </ion-page>
+              <div v-if="getPrIdData.prHasProblem" class="detail-block">
+                <p class="detail-label">
+                  {{ $t('areas.detail.user-update') }}
+                  <span class="detail-value">{{ getPrIdData.updatedName }}</span>
+                </p>
+                <p class="detail-label">
+                  {{ $t('areas.detail.date-update') }}
+                  <span class="detail-value">{{ formatDate(getPrIdData.updatedAt) }}</span>
+                </p>
+              </div>
+
+              <div v-if="getPrIdData.cpDescription" class="detail-block">
+                <p class="detail-label">
+                  {{ $t('areas.detail.cp-desc') }}
+                  <span class="description-text">{{ getPrIdData.cpDescription }}</span>
+                </p>
+              </div>
+
+              <div class="detail-block">
+                <p class="detail-label">{{ $t('areas.detail.general-notes') }}
+                  <span class="note-content">
+                    {{ getProblemData(getPrIdData.prNote).name ? $t(getProblemData(getPrIdData.prNote).name) :
+                      getPrIdData.prNote }}
+                  </span>
+                </p>
+              </div>
+            </div>
+
+            <div v-if="listGroups.length > 0" class="groups-container">
+              <p class="group-section-title">{{ $t('areas.detail.pic-rp') }}</p>
+
+              <div v-for="(group, index) in listGroups" :key="index" class="group-box">
+                <div class="group-header">
+                  <i class="pi pi-image group-icon" />
+                  <span class="group-note-text">{{ group.note }}</span>
+                </div>
+
+                <div class="image-grid">
+                  <button v-for="(img, imgIndex) in group.images" :key="imgIndex" type="button"
+                    class="thumbnail-wrapper" @click="openModal(img)">
+                    <img :src="img.url" class="thumb-img" alt="" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </template>
+        </Card>
+      </div>
+
+      <Dialog v-model:visible="isModalOpen" modal :show-header="false" class="image-viewer-dialog"
+        :style="{ width: 'min(96vw, 40rem)' }" :draggable="false" :dismissable-mask="true" :pt="{
+          mask: { class: 'image-viewer-mask' },
+          root: { class: 'image-viewer-root' },
+          content: { class: 'image-viewer-content' },
+        }" @hide="closeModal">
+        <div class="modal-wrapper">
+          <swiper v-if="isModalOpen" :initial-slide="currentSlideIndex" :centered-slides="true" :space-between="20"
+            :auto-height="true" class="viewer-swiper">
+            <swiper-slide v-for="(img, idx) in allImagesFlat" :key="idx" class="swiper-slide-content">
+              <div class="slide-inner">
+                <img :src="img.url" class="slide-img" alt="" />
+                <p class="image-caption">{{ img.note }}</p>
+              </div>
+            </swiper-slide>
+          </swiper>
+        </div>
+      </Dialog>
+    </AppPageContent>
+  </div>
 </template>
+
 
 <script setup lang="ts">
 import router from '@/router';
-import {
-  IonCard, IonCardHeader, IonCardTitle,
-  IonCardSubtitle, IonCardContent, IonCol, IonGrid, IonRow, IonPage,
-  IonContent, IonLabel, IonImg, IonModal,
-  IonList, IonItem, IonIcon, IonButton, useBackButton, onIonViewWillEnter
-} from '@ionic/vue'
-import { calendarOutline, documentTextOutline } from 'ionicons/icons';
-import { ref, computed, watch } from 'vue';
+import AppPageContent from '@/components/AppPageContent.vue';
+import { useHardwareBackButton } from '@/composables/useHardwareBackButton';
+import { Button, Card, Dialog } from '@/plugins/primevue.components';
+import { computed, onActivated, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n';
 import { useStore } from 'vuex';
 import { Swiper, SwiperSlide } from 'swiper/vue';
 import 'swiper/css';
-import '@ionic/vue/css/ionic-swiper.css';
 
 const store = useStore();
+const { t } = useI18n();
 
 // State cho Modal ảnh
 const isModalOpen = ref(false);
@@ -188,8 +212,8 @@ watch(() => getPrIdData.value, async (data) => {
       }));
 
       return {
-        note: group.priImageNote || 'Không có tiêu đề',
-        images: processedImages
+        note: group.priImageNote || t('areas.detail.no-title'),
+        images: processedImages.filter((img: { url: string }) => img.url)
       };
     }));
 
@@ -199,7 +223,7 @@ watch(() => getPrIdData.value, async (data) => {
   }
 }, { immediate: true });
 
-onIonViewWillEnter(() => {
+onActivated(() => {
   if (!store.state.isOnline || !getPrIdData.value) {
     // Không có mạng hoặc không có data API → để empty state / về Areas
     if (!store.state.isOnline) {
@@ -252,20 +276,16 @@ const getProblemData = (text: string) => {
   return problem ? problem : { name: '' };
 };
 
-useBackButton(10, () => {
+useHardwareBackButton(10, () => {
+  if (isModalOpen.value) {
+    closeModal();
+    return;
+  }
   router.replace('/area');
 });
 </script>
 
 <style scoped>
-ion-card-content {
-  padding: 0;
-
-  & ion-list {
-    padding: 0;
-  }
-}
-
 .area-detail-page {
   display: flex;
   flex-direction: column;
@@ -325,31 +345,217 @@ ion-card-content {
   line-height: 1.3;
 }
 
-.image-grid {
-  padding: 10px;
-}
-
-.thumbnail-wrapper {
-  aspect-ratio: 1/1;
-  border-radius: 8px;
+.area-detail-content {
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  border: 1px solid #e0e0e0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
 }
 
-.thumb-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+.detail-bg {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.detail-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(40px);
+  -webkit-filter: blur(40px);
+  opacity: 0.9;
+}
+
+.detail-blob-green {
+  width: 250px;
+  height: 250px;
+  background: #e3f7ac;
+  top: 20%;
+  right: -50px;
+}
+
+.detail-blob-purple {
+  width: 250px;
+  height: 250px;
+  background: #cac2e9;
+  bottom: 10%;
+  left: -80px;
+}
+
+.detail-body,
+.empty-wrap {
+  position: relative;
+  z-index: 1;
+  flex: 1;
+  min-height: 0;
+}
+
+.detail-body {
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.empty-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.empty-state {
+  max-width: 360px;
+  text-align: center;
+  color: #475569;
+}
+
+.empty-state h3 {
+  margin: 0 0 16px;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  color: #cbd5e1;
+  margin-bottom: 16px;
+}
+
+.empty-home-btn {
+  border-radius: 12px;
+}
+
+.detail-card {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  box-shadow: 0 4px 20px rgba(90, 120, 125, 0.12);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.detail-card :deep(.detail-card-body) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 0;
+}
+
+.detail-card :deep(.p-card-caption) {
+  flex-shrink: 0;
+  padding: 16px 16px 0;
+}
+
+.detail-card :deep(.detail-card-content) {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 0 16px 16px;
+}
+
+.detail-card:has(.groups-container) :deep(.detail-card-content) {
+  overflow: hidden;
+}
+
+.detail-info {
+  flex-shrink: 0;
+}
+
+.detail-card:has(.groups-container) .detail-info {
+  flex-shrink: 1;
+  min-height: 0;
+  max-height: 55%;
+  overflow-y: auto;
+}
+
+.detail-title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.detail-area-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.35;
+}
+
+.detail-subtitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.detail-block {
+  margin-bottom: 4px;
+}
+
+.detail-label {
+  display: block !important;
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #64748b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.detail-value {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #0ea5e9;
+  line-height: 1.4;
+  text-transform: none;
+}
+
+.detail-label.is-problem,
+.detail-label.is-problem .detail-value {
+  color: #dc2626;
+  font-weight: 600;
+}
+
+.description-text {
+  margin: 0;
+  color: #0ea5e9;
+  font-size: 0.9rem;
+}
+
+.note-content {
+  color: #0ea5e9;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  text-transform: none;
 }
 
 .status-badge {
   width: fit-content;
-  display: inline-block;
-  padding: 4px 12px;
-  border-radius: 16px;
-  font-size: 12px;
-  font-weight: bold;
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
@@ -364,156 +570,162 @@ ion-card-content {
 }
 
 .status-badge.problem2 {
-  background: #FFB86A;
+  background: #ffb86a;
   color: #7a1b1b;
 }
 
-.note-content {
-  background: #f4f5f8;
-  padding: 12px;
-  border-radius: 8px;
-  margin-top: 8px;
-  color: #444;
-  font-style: italic;
-  white-space: pre-wrap;
-}
-
-.description-text {
-  color: #666;
-  font-size: 0.9rem;
-  line-height: 1.4;
-}
-
-.image-modal {
-  --width: 100%;
-  --height: 100%;
-  --background: rgba(0, 0, 0, 0.9);
-}
-
-.modal-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  padding: 20px;
-}
-
-.modal-wrapper ion-img {
-  max-width: 100%;
-  max-height: 90vh;
-}
-
-h3 {
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: #888;
-  margin-bottom: 4px;
-}
-
-/* Style cho container chứa các nhóm */
 .groups-container {
-  padding: 0 16px;
+  flex: 1;
+  min-height: 0;
+  padding-top: 12px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  border-top: 1px solid #e2e8f0;
 }
 
 .group-section-title {
-  font-size: 1.1rem;
-  font-weight: bold;
-  color: #333;
-  margin-bottom: 15px;
-  border-bottom: 2px solid #eee;
-  padding-bottom: 8px;
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f172a;
 }
 
-/* Style cho từng khối nhóm */
 .group-box {
-  background: #fff;
-  border: 1px solid #e0e0e0;
-  border-radius: 8px;
-  margin-bottom: 15px;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  margin-bottom: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+.group-box:last-child {
+  margin-bottom: 0;
 }
 
 .group-header {
-  background: #f8f9fa;
-  padding: 10px 15px;
+  background: #f8fafc;
+  padding: 10px 12px;
   display: flex;
   align-items: center;
-  border-bottom: 1px solid #e0e0e0;
+  gap: 8px;
+  border-bottom: 1px solid #e2e8f0;
 }
 
 .group-icon {
-  font-size: 1.2rem;
-  color: #3880ff;
-  /* Màu xanh Ionic */
-  margin-right: 8px;
+  font-size: 1rem;
+  color: #0ea5e9;
 }
 
 .group-note-text {
+  flex: 1;
+  min-width: 0;
   font-weight: 600;
-  color: #444;
-  font-size: 0.95rem;
+  color: #334155;
+  font-size: 0.9rem;
+  word-break: break-word;
 }
 
-/* Xóa padding thừa của grid bên trong box */
-.group-box .image-grid {
+.image-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
   padding: 10px;
 }
 
-/* CSS cho Modal và Swiper */
-.image-modal {
-  --width: 100%;
-  --height: 100%;
-  --background: rgba(0, 0, 0, 0.95);
-  /* Làm nền đen sâu hơn một chút */
+.thumbnail-wrapper {
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f1f5f9;
+  cursor: pointer;
+}
+
+.thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.image-viewer-dialog :deep(.p-dialog),
+.image-viewer-dialog :deep(.image-viewer-root) {
+  width: min(96vw, 40rem);
+  height: auto;
+  max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 1.5rem);
+  margin: 0;
+  background: #0f172a;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.image-viewer-dialog :deep(.p-dialog-content),
+.image-viewer-dialog :deep(.image-viewer-content) {
+  padding: 0;
+  height: auto;
+  overflow: hidden;
+  background: transparent;
 }
 
 .modal-wrapper {
   position: relative;
   width: 100%;
-  height: 100%;
+  height: auto;
   display: flex;
   flex-direction: column;
+  margin-top: 24px;
 }
 
 .close-modal-btn {
-  position: absolute;
-  top: 25px;
-  right: 10px;
-  z-index: 10;
-  font-weight: bold;
+  color: #ffffff !important;
+}
+
+.viewer-swiper {
+  width: 100%;
+  height: auto;
+}
+
+.viewer-swiper :deep(.swiper),
+.viewer-swiper :deep(.swiper-wrapper),
+.viewer-swiper :deep(.swiper-slide) {
+  height: auto;
 }
 
 .swiper-slide-content {
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  height: auto;
 }
 
 .slide-inner {
   width: 100%;
   text-align: center;
-  padding: 20px;
+  padding: 0 10px 0;
 }
 
-.slide-inner ion-img {
+.slide-img {
   max-width: 100%;
-  max-height: 80vh;
-  /* Chừa không gian cho Text */
+  width: auto;
+  height: auto;
+  max-height: min(62dvh, calc(100dvh - 10rem));
   object-fit: contain;
+  display: block;
+  margin: 0 auto;
 }
 
 .image-caption {
-  color: white;
-  margin-top: 15px;
-  font-size: 1.1rem;
-  padding: 0 20px;
-  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+  color: #000000;
+  margin: 12px 0 0;
+  font-size: 1rem;
 }
+</style>
 
-.time-problem,
-.shift-problem {
-  color: red;
+<style>
+.image-viewer-mask.p-dialog-mask {
+  padding: 0;
+  background: rgba(15, 23, 42, 0.96);
 }
 </style>

@@ -63,7 +63,7 @@
 </template>
 
 <script setup lang="ts">
-import { useBackButton } from '@ionic/vue';
+import { useHardwareBackButton } from '@/composables/useHardwareBackButton';
 import { computed } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useCameraHandler } from '@/composables/useCameraHandler';
@@ -127,7 +127,7 @@ const handleClose = async () => {
 };
 
 // Khi modal mở, chặn back vật lý để tránh thoát flow đang nhập liệu.
-useBackButton(10001, () => {
+useHardwareBackButton(10001, () => {
   if (props.isOpen) return;
 });
 </script>

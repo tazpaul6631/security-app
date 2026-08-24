@@ -1,6 +1,5 @@
 <template>
-  <ion-page>
-    <div class="login-page">
+  <div class="login-page">
       <div class="login-shell">
         <header class="login-topbar">
           <div class="lang-select-wrap">
@@ -68,13 +67,12 @@
           </form>
         </section>
       </div>
-    </div>
-  </ion-page>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { IonPage, useBackButton } from '@ionic/vue';
 import { useRouter } from 'vue-router';
+import { useHardwareBackButton } from '@/composables/useHardwareBackButton';
 import { reactive, ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
 import CryptoJS from 'crypto-js';
@@ -99,6 +97,7 @@ import CheckPointScanQr from '@/api/CheckPointScanQr';
 import AreaBU from '@/api/AreaBU';
 import ReportNoteCategory from '@/api/ReportNoteCategory';
 import PatrolShiftView from '@/api/PatrolShiftView';
+import { syncPatrolShiftLogs } from '@/services/patrolShiftLog.service';
 
 interface LangOption {
   label: string;
@@ -206,6 +205,14 @@ const handleLogin = async () => {
         };
 
         await store.dispatch('syncAllData', { apiList: apiList, mode: 'overlay' });
+
+        // Sync tóm tắt ca đã hoàn thành (giữ nếu fail — không chặn vào Home)
+        try {
+          await syncPatrolShiftLogs();
+        } catch (patrolLogErr) {
+          console.warn('[Login] syncPatrolShiftLogs thất bại (giữ SQLite):', patrolLogErr);
+        }
+
         router.replace('/home');
 
       } else {
@@ -281,8 +288,8 @@ const onLangChange = async (lang: string) => {
   await storageService.set('app_language', lang);
 };
 
-useBackButton(10, () => {
-  App.exitApp();
+useHardwareBackButton(10, () => {
+  void App.exitApp();
 });
 
 onMounted(async () => {
@@ -296,6 +303,7 @@ onMounted(async () => {
 <style scoped>
 .login-page {
   position: relative;
+  height: 100%;
   min-height: 100%;
   display: flex;
   justify-content: center;
@@ -389,7 +397,6 @@ onMounted(async () => {
   align-items: center;
   gap: 0.625rem;
   color: #0f172a;
-  padding: 0.5rem 0;
 }
 
 .login-panel {

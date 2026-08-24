@@ -1,5 +1,5 @@
 <template>
-  <ion-page class="role-page">
+  <div class="role-page">
     <header class="route-header">
       <button type="button" class="route-back-btn" :aria-label="$t('routes.go-home')" @click="router.replace('/home')">
         <i class="pi pi-arrow-left route-back-icon" aria-hidden="true" />
@@ -7,78 +7,70 @@
       </button>
     </header>
 
-    <ion-content class="role-content ion-padding">
+    <AppPageContent class="role-content">
       <div class="role-bg" aria-hidden="true">
         <span class="role-blob role-blob-green" />
         <span class="role-blob role-blob-purple" />
       </div>
 
       <div class="role-body">
-        <div v-if="isLoading" class="ion-text-center ion-margin-top">
+        <div v-if="isLoading" class="list-status">
           <ProgressSpinner stroke-width="2" />
           <p>{{ $t('role.load-data') }}</p>
         </div>
 
-        <ion-card v-for="role in displayedRoles" :key="role.roleId" class="role-card">
-          <ion-card-header>
-            <ion-card-title class="role-title">
-              <div class="role-name-code" style="display: grid;">
-                <ion-label>{{ role.roleName }}</ion-label>
-                <ion-label>{{ role.roleCode }}</ion-label>
+        <Card v-for="role in displayedRoles" :key="role.roleId" class="role-card"
+          :pt="{ body: { class: 'role-card-body' }, content: { class: 'role-card-content' } }">
+          <template #title>
+            <div class="role-title">
+              <div class="role-name-code">
+                <span>{{ role.roleName }}</span>
+                <span>{{ role.roleCode }}</span>
               </div>
-              <div class="role-admin">
-                <ion-badge :color="role.roleIsAdmin ? 'success' : 'primary'" class="ion-float-right">
-                  {{ role.roleIsAdmin ? 'Admin' : role.roleHourReport ? 'Hour Report' : '' }}
-                </ion-badge>
-              </div>
-            </ion-card-title>
-          </ion-card-header>
-
-          <div class="divider"></div>
-
-          <ion-card-content>
-            <div class="info-row">
-              <strong>{{ $t('role.role-menu') }}</strong>
-              <div v-for="menu in role.roleMenus">
-                <ion-icon :icon="checkmarkDoneOutline" color="success"></ion-icon> {{ menu.mcName }} - {{
-                  menu.mcCode }}
+              <div v-if="role.roleIsAdmin || role.roleHourReport" class="role-admin">
+                <Tag :value="role.roleIsAdmin ? 'Admin' : 'Hour Report'"
+                  :severity="role.roleIsAdmin ? 'success' : 'info'" />
               </div>
             </div>
+          </template>
+          <template #content>
+            <div class="divider"></div>
             <div class="info-row">
+              <strong>{{ $t('role.role-menu') }}</strong>
+              <div v-for="menu in role.roleMenus" :key="menu.mcId || menu.mcCode">
+                <i class="pi pi-check-circle menu-check" /> {{ menu.mcName }} - {{ menu.mcCode }}
+              </div>
+            </div>
+            <!-- <div class="info-row">
               <strong>{{ $t('role.created-date') }}</strong> {{ formatDate(role.createdAt) }}
             </div>
             <div class="info-row">
               <strong>{{ $t('role.updated-date') }}</strong> {{ formatDate(role.updatedAt) }}
-            </div>
-          </ion-card-content>
-        </ion-card>
+            </div> -->
+          </template>
+        </Card>
 
-        <div v-if="!isLoading && displayedRoles.length === 0" class="ion-text-center ion-margin-top">
+        <div v-if="!isLoading && displayedRoles.length === 0" class="list-status">
           <p>{{ $t('role.no-role-data') }}</p>
         </div>
 
-        <ion-infinite-scroll @ionInfinite="loadMoreRoles" :disabled="isAllLoaded">
-          <ion-infinite-scroll-content loading-spinner="bubbles" :loading-text="$t('role.loading-more')">
-          </ion-infinite-scroll-content>
-        </ion-infinite-scroll>
+        <div v-if="!isAllLoaded" ref="sentinelRef" class="infinite-sentinel">
+          <ProgressSpinner stroke-width="4" style="width: 28px; height: 28px" />
+          <span>{{ $t('role.loading-more') }}</span>
+        </div>
       </div>
-
-    </ion-content>
-  </ion-page>
+    </AppPageContent>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
-import {
-  IonPage, IonContent, IonCard, IonCardHeader, IonCardTitle, IonIcon, IonLabel, useBackButton,
-  IonCardContent, IonBadge, IonInfiniteScroll, IonInfiniteScrollContent
-} from '@ionic/vue';
+import AppPageContent from '@/components/AppPageContent.vue';
+import { useHardwareBackButton } from '@/composables/useHardwareBackButton';
+import { useInfiniteScroll } from '@/composables/useInfiniteScroll';
 import router from '@/router';
-
-// Import file api của bạn (điều chỉnh đường dẫn cho đúng với project)
 import Role from '@/api/Role';
-import { checkmarkDoneOutline } from 'ionicons/icons';
-import { ProgressSpinner } from '@/plugins/primevue.components';
+import { Card, ProgressSpinner, Tag } from '@/plugins/primevue.components';
 
 // --- STATE ---
 const allRoles = ref<any[]>([]); // Lưu toàn bộ data từ API
@@ -137,16 +129,14 @@ const loadNextBatch = () => {
   currentIndex += itemsPerPage;
 };
 
-// Sự kiện được gọi khi cuộn xuống cuối trang
-const loadMoreRoles = (event: any) => {
-  // Dùng setTimeout nhỏ để tạo cảm giác mượt mà khi hiện loading spinner
-  setTimeout(() => {
-    loadNextBatch();
-    event.target.complete(); // Thông báo cho Ionic biết đã load xong để ẩn spinner
-  }, 500);
+const loadMoreRoles = async () => {
+  await new Promise((resolve) => setTimeout(resolve, 300));
+  loadNextBatch();
 };
 
-useBackButton(10, () => {
+const { sentinelRef } = useInfiniteScroll(isAllLoaded, loadMoreRoles);
+
+useHardwareBackButton(10, () => {
   router.replace('/home');
 });
 
@@ -217,9 +207,23 @@ onMounted(() => {
 }
 
 .role-content {
-  flex: 1;
-  min-height: 0;
-  --background: #d1e5e6;
+  padding: 16px;
+}
+
+.list-status {
+  text-align: center;
+  margin-top: 16px;
+  color: #64748b;
+}
+
+.infinite-sentinel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 0;
+  color: #64748b;
+  font-size: 0.85rem;
 }
 
 .role-bg {
@@ -273,13 +277,21 @@ onMounted(() => {
   align-items: center;
 }
 
-.ion-float-right {
-  color: white;
+.role-name-code {
+  display: grid;
+}
+
+.menu-check {
+  color: #16a34a;
+  margin-right: 4px;
 }
 
 .info-row {
   margin-bottom: 6px;
   font-size: 0.95rem;
+  display: flex;
+  gap: 8px;
+  flex-direction: column;
 }
 
 .divider {

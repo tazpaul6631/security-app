@@ -1,5 +1,5 @@
 <template>
-  <ion-page class="area-index-page">
+  <div class="area-index-page">
     <header class="route-header">
       <button type="button" class="route-back-btn" :aria-label="$t('routes.go-home')" @click="router.replace('/home')">
         <i class="pi pi-arrow-left route-back-icon" aria-hidden="true" />
@@ -7,206 +7,159 @@
       </button>
     </header>
 
-    <ion-content class="area-content">
+    <AppPageContent class="area-content">
       <div class="area-bg" aria-hidden="true">
         <span class="area-blob area-blob-green" />
         <span class="area-blob area-blob-purple" />
       </div>
 
-      <div slot="fixed" style="width: 100%; background: var(--ion-background-color, #fff); z-index: 10;">
-        <ion-segment :value="activeSegment" mode="md">
-          <ion-segment-button v-for="([parent, children, id]) in datalistNav" :key="parent" :value="parent"
-            @click="openSelect(parent, children, id)">
-            <ion-label>{{ parent }} ▾</ion-label>
-          </ion-segment-button>
-        </ion-segment>
+      <div class="area-tabs">
+        <button v-for="([parent, children, id]) in datalistNav" :key="parent" type="button" class="area-tab"
+          :class="{ active: activeSegment === parent }" @click="openSelect(parent, children, id)">
+          {{ parent }} ▾
+        </button>
       </div>
 
-      <ion-modal :is-open="isModalOpen" @didDismiss="isModalOpen = false" class="fixed-bottom-modal">
-        <ion-header>
-          <ion-toolbar class="none-padding">
-            <ion-title>{{ $t('areas.index.selected') }} {{ activeSegment }}</ion-title>
-            <ion-buttons slot="end">
-              <ion-button @click="isModalOpen = false">{{ $t('areas.index.cancel') }}</ion-button>
-            </ion-buttons>
-          </ion-toolbar>
-          <ion-toolbar v-if="isCurrentUserAdmin">
-            <ion-item lines="none" class="filter-dropdown-item">
-              <ion-icon :icon="funnelOutline" slot="start" size="small" color="medium"></ion-icon>
-              <ion-select v-model="filterStatus" @ionChange="handleFilterChange" interface="popover" mode="ios"
-                aria-label="Filter" class="full-width-select">
-                <ion-select-option v-for="opt in filterRoleOptions" :key="opt.value" :value="opt.value">
-                  {{ opt.label }}
-                </ion-select-option>
-              </ion-select>
-            </ion-item>
-          </ion-toolbar>
-          <ion-progress-bar v-show="isLoading" type="indeterminate" color="primary"></ion-progress-bar>
-        </ion-header>
+      <Dialog v-model:visible="isModalOpen" modal position="center" class="area-shift-dialog"
+        :style="{ width: 'min(98vw, 100dvw)', height: '80%' }" :draggable="false" :dismissable-mask="false"
+        :close-on-escape="!isFilterPickerOpen" :closable="false" :pt="{
+          mask: {
+            class: 'area-shift-dialog-mask',
+            onMousedown: onShiftDialogMaskMouseDown,
+            onMouseup: onShiftDialogMaskMouseUp,
+          },
+          root: { class: 'area-shift-dialog-root' },
+          content: { class: 'area-shift-dialog-content' },
+        }">
+        <template #header>
+          <div class="filter-row">
+            <span class="filter-title">{{ $t('areas.index.selected') }} {{ activeSegment }}</span>
+            <DatePicker ref="filterPickerRef" v-model="filterDateTime" dateFormat="dd/mm/yy" showTime hourFormat="24"
+              hideOnDateTimeSelect fluid showIcon iconDisplay="input" showClear class="filter-select"
+              panelClass="area-filter-datepicker-panel" :placeholder="$t('areas.index.filter-datetime')"
+              @show="isFilterPickerOpen = true" @hide="isFilterPickerOpen = false" />
+          </div>
+        </template>
+        <div v-if="isFilterPickerOpen" class="filter-picker-catcher" @pointerdown.prevent.stop="closeFilterPicker" />
+        <ProgressBar v-show="isLoading" mode="indeterminate" class="shift-progress" />
 
-        <ion-content class="ion-padding">
+        <div ref="shiftModalBodyRef" class="shift-modal-body">
           <template v-if="modalDisplayedItems.length > 0">
-            <ion-list lines="full">
-              <ion-item v-for="(item, index) in modalDisplayedItems" :key="item.psId || item.routeId || index"
-                :button="true" @click="handleModalSelection(item)">
-                <ion-grid>
-                  <ion-row class="ion-align-items-center">
-                    <ion-col>
-                      <ion-label>
-                        <strong
-                          :style="(item.isOfflineDone || item.realityPoint > 0) ? 'color: var(--ion-color-primary)' : ''">
-                          {{ item.routeCode }}
-                        </strong>
-                        <p style="font-size: 0.9em; color: var(--ion-color-step-600);">{{
-                          item.routeName }}</p>
-
-                        <div v-if="item.isOfflineDone">
-                          <ion-badge color="warning" mode="ios" style="font-size: 0.7em;">
-                            {{ $t('areas.index.await-sync') }}
-                          </ion-badge>
-                        </div>
-
-                        <div style="margin-top: 5px;">
-                          <ion-icon class="icon-1" :icon="idCardOutline"
-                            :color="item.pointProblem ? 'danger' : 'success'">
-                          </ion-icon>
-                          <ion-icon class="icon-2"
-                            :icon="item.timeFastProblem || item.timeSlowProblem ? rocketOutline : timeOutline"
-                            :color="item.timeFastProblem || item.timeSlowProblem ? 'danger' : 'success'">
-                          </ion-icon>
-                          <ion-icon class="icon-2" :icon="walkOutline"
-                            :color="item.shiftProblem ? 'danger' : 'success'">
-                          </ion-icon>
-                        </div>
-                      </ion-label>
-                    </ion-col>
-
-                    <ion-col size="6" class="ion-text-end">
-                      <div class="note-container">
-                        <ion-label class="labelItem" color="medium">{{ item.reportName
-                        }}</ion-label>
-                        <ion-badge :color="item.realityPoint >= item.planPoint ? 'success' : 'medium'"
-                          style="margin-top: 4px; color: white;">
-                          {{ item.realityPoint || 0 }}/{{ item.planPoint || 0 }} {{
-                            $t('areas.index.points') }}
-                        </ion-badge>
-
-                        <p v-if="item.realityHours || item.realityMinutes" class="timer-total">
-                          <ion-icon :icon="timeOutline" style="font-size: 10px;"></ion-icon>
-                          {{ item.realityHours ? `${item.realityHours}h` : '' }}
-                          {{ item.realityMinutes ? `${item.realityMinutes}m` : '' }}
-                          {{ item.realitySeconds ? `${item.realitySeconds}s` : '' }}
-                        </p>
-                      </div>
-                    </ion-col>
-                  </ion-row>
-                  <ion-row>
-                    <ion-col size="6" class="pad-0">
-                      <ion-label class="labelItem" color="secondary">{{
-                        item.shiftStart?.replace('T', ' ').slice(0, 16) }}</ion-label>
-                    </ion-col>
-                    <ion-col size="6" class="ion-text-end pad-0">
-                      <ion-label class="labelItem" color="secondary">{{
-                        item.shiftEnd?.replace('T', ' ').slice(0, 16) }}</ion-label>
-                    </ion-col>
-                  </ion-row>
-                </ion-grid>
-              </ion-item>
-            </ion-list>
-            <ion-infinite-scroll @ionInfinite="loadMoreModalData($event)" :disabled="isModalInfiniteDisabled">
-              <ion-infinite-scroll-content :loading-text="$t('areas.index.load-more')"
-                loading-spinner="bubbles"></ion-infinite-scroll-content>
-            </ion-infinite-scroll>
+            <button v-for="(item, index) in modalDisplayedItems" :key="item.psId || item.routeId || index" type="button"
+              class="shift-row" @click="handleModalSelection(item)"
+              :class="{ 'shift-row-completed': item.isCompleted }">
+              <div class="shift-row-top">
+                <div class="shift-row-main">
+                  <strong :class="{ 'shift-done': item.isOfflineDone || item.realityPoint > 0 }"
+                    :style="{ color: item.isComplete ? '' : '#FF0000' }">
+                    {{ item.routeCode }}
+                  </strong>
+                  <p class="shift-route-name" :style="{ color: item.isComplete ? '' : '#FF0000' }">{{ item.routeName }}
+                  </p>
+                  <Tag v-if="item.isOfflineDone" :value="$t('areas.index.await-sync')" severity="warn"
+                    class="offline-tag" />
+                  <div class="shift-icons">
+                    <i class="pi pi-share-alt icon-1" :class="item.pointProblem ? 'icon-danger' : 'icon-success'" />
+                    <i class="pi icon-2"
+                      :class="item.timeFastProblem || item.timeSlowProblem ? 'pi-bolt icon-danger' : 'pi-clock icon-success'" />
+                    <i class="pi pi-map icon-2" :class="item.shiftProblem ? 'icon-danger' : 'icon-success'" />
+                  </div>
+                </div>
+                <div class="note-container">
+                  <span class="labelItem" :style="{ color: item.isComplete ? '' : '#FF0000' }">
+                    {{ item.reportName }}
+                  </span>
+                  <Tag :value="`${item.realityPoint || 0}/${item.planPoint || 0} ${$t('areas.index.points')}`"
+                    :severity="item.realityPoint >= item.planPoint ? 'success' : 'danger'" />
+                  <p v-if="item.realityHours || item.realityMinutes" class="timer-total">
+                    <i class="pi pi-clock" />
+                    {{ item.realityHours ? `${item.realityHours}h` : '' }}
+                    {{ item.realityMinutes ? `${item.realityMinutes}m` : '' }}
+                    {{ item.realitySeconds ? `${item.realitySeconds}s` : '' }}
+                  </p>
+                </div>
+              </div>
+              <div class="shift-row-times">
+                <span>
+                  {{ item.shiftStart?.replace('T', ' ').slice(0, 16) }}
+                </span>
+                <span>
+                  {{ item.shiftEnd?.replace('T', ' ').slice(0, 16) }}
+                </span>
+              </div>
+            </button>
+            <div v-if="!isModalInfiniteDisabled" ref="sentinelRef" class="infinite-sentinel">
+              <template v-if="isLoadingMore">
+                <ProgressSpinner stroke-width="4" style="width: 28px; height: 28px" />
+                <span>{{ $t('areas.index.load-more') }}</span>
+              </template>
+            </div>
           </template>
-          <div v-else-if="!isLoading" class="ion-padding ion-text-center">
-            <ion-icon :icon="calendarOutline" style="font-size: 64px; color: #ccc;"></ion-icon>
+          <div v-else-if="!isLoading" class="empty-state">
+            <i class="pi pi-calendar empty-icon" />
             <p>{{ $t('areas.index.emty-data') }}</p>
           </div>
-        </ion-content>
-      </ion-modal>
+        </div>
+      </Dialog>
 
       <div class="area-body">
         <div class="list-container report-list-scroll">
-          <ion-list v-if="isLoading">
-            <ion-item v-for="i in 5" :key="i">
-              <ion-grid>
-                <ion-row class="ion-align-items-center">
-                  <ion-col size="auto">
-                    <ion-skeleton-text animated
-                      style="width: 24px; height: 24px; border-radius: 50%;"></ion-skeleton-text>
-                  </ion-col>
-                  <ion-col>
-                    <ion-skeleton-text animated style="width: 70%; height: 16px;"></ion-skeleton-text>
-                  </ion-col>
-                </ion-row>
-              </ion-grid>
-            </ion-item>
-          </ion-list>
+          <div v-if="isLoading" class="skeleton-list">
+            <div v-for="i in 5" :key="i" class="skeleton-row">
+              <Skeleton shape="circle" size="24px" />
+              <Skeleton width="70%" height="16px" />
+            </div>
+          </div>
 
-          <div v-else-if="dataPR.details.length === 0" class="ion-padding ion-text-center no-route-container">
-            <ion-icon :icon="calendarOutline" style="font-size: 64px; color: #ccc;"></ion-icon>
+          <div v-else-if="dataPR.details.length === 0" class="empty-state no-route-container">
+            <i class="pi pi-calendar empty-icon" />
             <p>{{ $t('areas.index.emty-data') }}: <strong class="empty-hint">
                 {{ $t('areas.index.please-route') }}
               </strong></p>
-            <ion-button fill="outline" @click="router.replace('/home')" class="ion-margin-top">
-              {{ $t('areas.index.go-home') }}
-            </ion-button>
+            <Button :label="$t('areas.index.go-home')" severity="secondary" variant="outlined" class="empty-home-btn"
+              size="large" @click="router.replace('/home')" />
           </div>
 
-          <ion-list v-else>
-            <ion-item v-for="item in dataPR.details" :key="item.prId" :button="true"
-              @click="handleSelectedRow(Number(item.prId), $event)"
-              :class="item.prHasProblem || item.shiftProblem || item.timeProblem ? 'custom-item-false' : 'custom-item-true'">
-              <ion-grid>
-                <ion-row class="ion-align-items-center">
-                  <ion-col>
-                    <ion-label>
-                      <strong>{{ item.cpName }}</strong>
-                      <div style="margin-top: 5px;">
-                        <ion-icon :icon="newspaperOutline" :color="item.prHasProblem ? 'danger' : 'success'"></ion-icon>
-                        <ion-icon class="icon-2" :icon="timeOutline"
-                          :color="item.shiftProblem || item.timeProblem ? 'danger' : 'success'">
-                        </ion-icon>
-                      </div>
-                      <ion-text color="warning" v-if="item.isOfflineMock" style="font-size: 0.8em; display: block;">
-                        <ion-text color="danger">* </ion-text> {{ $t('areas.index.await-sync') }}...
-                      </ion-text>
-                    </ion-label>
-                  </ion-col>
-                  <ion-col size="auto" class="ion-text-end">
-                    <ion-label class="labelItem">{{ item.reportName }}</ion-label>
-                    <ion-note class="labelItem">{{ item.reportAt?.replace('T', ' ').slice(0, 16)
-                    }}</ion-note>
-                  </ion-col>
-                </ion-row>
-              </ion-grid>
-            </ion-item>
-          </ion-list>
+          <template v-else>
+            <button v-for="item in dataPR.details" :key="item.prId" type="button" class="report-row"
+              :class="item.prHasProblem || item.shiftProblem || item.timeProblem ? 'custom-item-false' : 'custom-item-true'"
+              @click="handleSelectedRow(Number(item.prId), $event)">
+              <div class="report-row-main">
+                <strong class="shift-done">{{ item.cpName }}</strong>
+                <div class="shift-icons">
+                  <i class="pi pi-file" :class="item.prHasProblem ? 'icon-danger' : 'icon-success'" />
+                  <i class="pi pi-clock icon-2"
+                    :class="item.shiftProblem || item.timeProblem ? 'icon-danger' : 'icon-success'" />
+                </div>
+                <span v-if="item.isOfflineMock" class="offline-hint">
+                  <span class="note-star">*</span> {{ $t('areas.index.await-sync') }}...
+                </span>
+              </div>
+              <div class="note-container">
+                <span class="labelItem">{{ item.reportName }}</span>
+                <span class="shift-row-times">{{ item.reportAt?.replace('T', ' ').slice(0, 16) }}</span>
+              </div>
+            </button>
+          </template>
         </div>
       </div>
-    </ion-content>
-  </ion-page>
+    </AppPageContent>
+  </div>
 </template>
 
 <script setup lang="ts">
 import PointReport from '@/api/PointReport';
 import router from '@/router';
-import {
-  IonPage, IonHeader, IonToolbar, IonButtons, IonTitle, IonLabel,
-  IonSegment, IonSegmentButton, IonContent, IonIcon, IonGrid, IonRow, IonCol,
-  IonText, IonNote, IonItem, IonList,
-  onIonViewWillEnter, IonProgressBar, IonSkeletonText, IonInfiniteScroll,
-  IonInfiniteScrollContent, IonButton, IonModal, IonBadge, IonSelect, IonSelectOption,
-  useBackButton
-} from '@ionic/vue';
-import { calendarOutline, newspaperOutline, timeOutline, funnelOutline, rocketOutline, walkOutline, idCardOutline } from "ionicons/icons";
-import { computed, ref, watch } from 'vue';
+import AppPageContent from '@/components/AppPageContent.vue';
+import { useHardwareBackButton } from '@/composables/useHardwareBackButton';
+import { useInfiniteScroll } from '@/composables/useInfiniteScroll';
+import { computed, onActivated, ref, watch } from 'vue';
 import { useStore } from 'vuex';
 import { presentAlertToast } from '@/services/toast.service';
 import AreaBU from '@/api/AreaBU';
-import Role from '@/api/Role';
 import { useI18n } from 'vue-i18n';
 import { useAppLoading } from '@/composables/useAppLoading';
+import { Button, DatePicker, Dialog, ProgressBar, ProgressSpinner, Skeleton, Tag } from '@/plugins/primevue.components';
 
 const store = useStore();
 const { show: showLoading, hide: hideLoading } = useAppLoading();
@@ -216,13 +169,48 @@ const isReturningFromDetail = ref(false);
 const activeSegment = ref<string>('');
 const selectedItem = ref<any>(null);
 const isModalOpen = ref(false);
+const shiftModalBodyRef = ref<HTMLElement | null>(null);
 const isLoading = ref(false);
 const { t } = useI18n();
 
 const areasCache = ref<any[]>([]);
-const listRoles = ref<any[]>([]);
-const filterStatus = ref<string | number>('all');
+const filterDateTime = ref<Date | null>(null);
+const filterPickerRef = ref<{ overlayVisible?: boolean } | null>(null);
+const isFilterPickerOpen = ref(false);
 const currentActiveAreaId = ref<number | null>(null);
+
+const closeFilterPicker = () => {
+  const picker = filterPickerRef.value;
+  if (picker) picker.overlayVisible = false;
+  isFilterPickerOpen.value = false;
+};
+
+let maskMouseDownOnMask = false;
+let maskDownClosedPicker = false;
+
+const isShiftDialogMask = (el: EventTarget | null) =>
+  el instanceof HTMLElement && el.classList.contains('area-shift-dialog-mask');
+
+const onShiftDialogMaskMouseDown = (event: MouseEvent) => {
+  maskMouseDownOnMask = isShiftDialogMask(event.target);
+  maskDownClosedPicker = isFilterPickerOpen.value;
+  if (maskMouseDownOnMask && isFilterPickerOpen.value) {
+    closeFilterPicker();
+  }
+};
+
+const onShiftDialogMaskMouseUp = (event: MouseEvent) => {
+  if (!maskMouseDownOnMask || !isShiftDialogMask(event.target)) return;
+  if (maskDownClosedPicker) {
+    maskDownClosedPicker = false;
+    return;
+  }
+  isModalOpen.value = false;
+};
+
+watch(isModalOpen, (open) => {
+  if (!open) closeFilterPicker();
+});
 
 const currentOptions = ref<any[]>([]);
 const modalDisplayedItems = ref<any[]>([]);
@@ -278,12 +266,46 @@ const dataPR = computed(() => {
 });
 ////////////////////////////////////////////////////////////
 
+const shiftTimeMs = (iso?: string) => {
+  if (!iso) return NaN;
+  const t = new Date(iso).getTime();
+  return Number.isNaN(t) ? NaN : t;
+};
+
+const filteredShifts = computed(() => {
+  const all = currentOptions.value;
+  const picked = filterDateTime.value;
+  if (!picked) return all;
+
+  const hour = picked.getHours();
+  const minute = picked.getMinutes();
+
+  if (hour === 0 && minute === 0) {
+    const dayStart = new Date(picked.getFullYear(), picked.getMonth(), picked.getDate()).getTime();
+    const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+    return all.filter((item) => {
+      const start = shiftTimeMs(item.shiftStart);
+      const end = shiftTimeMs(item.shiftEnd);
+      if (Number.isNaN(start) || Number.isNaN(end)) return false;
+      return start < dayEnd && end > dayStart;
+    });
+  }
+
+  const t = picked.getTime();
+  return all.filter((item) => {
+    const start = shiftTimeMs(item.shiftStart);
+    const end = shiftTimeMs(item.shiftEnd);
+    if (Number.isNaN(start) || Number.isNaN(end)) return false;
+    return t >= start && t <= end;
+  });
+});
+
 // --- WATCHERS ---
-watch(() => currentOptions.value, (newVal) => {
+watch(filteredShifts, (newVal) => {
   modalCurrentPage.value = 1;
   modalDisplayedItems.value = newVal.slice(0, modalItemsPerPage);
   isModalInfiniteDisabled.value = modalDisplayedItems.value.length >= newVal.length;
-}, { deep: true, immediate: true });
+}, { immediate: true });
 //////////////////////////////////////////////
 
 // --- METHODS TẢI DỮ LIỆU ---
@@ -316,17 +338,6 @@ const loadAreasCache = async () => {
   }
 };
 
-const fetchRoles = async () => {
-  try {
-    const res = await Role.postBaseRole();
-    if (res?.data) {
-      listRoles.value = Array.isArray(res.data) ? res.data : (res.data.data || []);
-    }
-  } catch (error) {
-    console.error("Lỗi fetchRoles:", error);
-  }
-};
-
 const fetchAreasData = async (areaId: number) => {
   isLoading.value = true;
   currentActiveAreaId.value = areaId;
@@ -342,12 +353,9 @@ const fetchAreasData = async (areaId: number) => {
       return;
     }
 
-    // Đổi tab khác / filter role: gọi API theo areaId của tab
     const payload: any = { areaId };
 
-    if (isCurrentUserAdmin.value && filterStatus.value !== 'all' && filterStatus.value !== 'admin') {
-      payload.roleId = Number(filterStatus.value);
-    } else if (!isCurrentUserAdmin.value) {
+    if (!isCurrentUserAdmin.value) {
       payload.reportBy = currentUserId.value;
     }
 
@@ -363,29 +371,7 @@ const fetchAreasData = async (areaId: number) => {
     isLoading.value = false;
   }
 };
-////////////////////////////////////////////
 
-// --- METHODS FILTER LABEL ---
-const labelName = ref([
-  { id: 3, label: 'areas.index.expat' },
-  { id: 4, label: 'areas.index.security' }
-])
-
-const getLabelData = (roleId: number): string => {
-  const item = labelName.value.find(r => r.id === roleId);
-  return item ? item.label : '';
-};
-
-const filterRoleOptions = computed(() => {
-  const normalRoles = listRoles.value.filter(r => r.roleIsAdmin === false);
-  return [
-    { value: 'all', label: t('areas.index.all') },
-    ...normalRoles.map(r => ({ value: r.roleId, label: t(getLabelData(r.roleId)) }))
-  ];
-});
-//////////////////////////////////////
-
-// --- METHODS TƯƠNG TÁC GIAO DIỆN ---
 const applyTabFromCache = (areaId: number) => {
   currentActiveAreaId.value = areaId;
   const found = areasCache.value.find(
@@ -397,17 +383,16 @@ const applyTabFromCache = (areaId: number) => {
 const initDefaultTab = async () => {
   if (datalistNav.value.length === 0) return;
 
-  filterStatus.value = 'all';
+  filterDateTime.value = null;
   const firstTab = datalistNav.value[0];
   activeSegment.value = firstTab[0];
   const firstAreaId = firstTab[2];
   isModalOpen.value = true;
 
-  // Focus tab đầu — dùng data đã có từ loadAreasCache (không gọi API thêm)
   applyTabFromCache(firstAreaId);
 };
 
-onIonViewWillEnter(async () => {
+onActivated(async () => {
   if (!isOnline.value) {
     areasCache.value = [];
     currentOptions.value = [];
@@ -421,11 +406,6 @@ onIonViewWillEnter(async () => {
     return;
   }
 
-  if (isCurrentUserAdmin.value) {
-    void fetchRoles();
-  }
-
-  // 1 lần API khi vào trang → focus tab đầu từ cache; tab khác mới fetchAreasData
   void (async () => {
     await loadAreasCache();
 
@@ -435,26 +415,17 @@ onIonViewWillEnter(async () => {
       selectedItem.value = null;
       activeSegment.value = '';
       currentActiveAreaId.value = null;
-
       await initDefaultTab();
     }
   })();
 });
 
 const openSelect = async (parent: string, _children: any[], id: number) => {
-  filterStatus.value = 'all';
+  filterDateTime.value = null;
   activeSegment.value = parent;
   isModalOpen.value = true;
   currentOptions.value = [];
-  // Đổi tab → luôn gọi API với areaId của tab đó
   await fetchAreasData(id);
-};
-
-const handleFilterChange = async () => {
-  if (isModalOpen.value && currentActiveAreaId.value !== null) {
-    modalDisplayedItems.value = [];
-    await fetchAreasData(currentActiveAreaId.value);
-  }
 };
 
 const handleModalSelection = async (item: any) => {
@@ -534,21 +505,34 @@ const handleSelectedRow = async (prId: number, event?: any) => {
 ///////////////////////////////////////////////////
 
 // --- METHODS INFINITE SCROLL (modal chọn ca) ---
-const loadMoreModalData = (event: any) => {
-  setTimeout(() => {
-    const nextStart = modalCurrentPage.value * modalItemsPerPage;
-    const nextBatch = currentOptions.value.slice(nextStart, nextStart + modalItemsPerPage);
-    if (nextBatch.length > 0) {
-      modalDisplayedItems.value.push(...nextBatch);
-      modalCurrentPage.value++;
-    }
-    event.target.complete();
-    isModalInfiniteDisabled.value = modalDisplayedItems.value.length >= currentOptions.value.length;
-  }, 500);
+const loadMoreModalData = async () => {
+  const list = filteredShifts.value;
+  const nextStart = modalCurrentPage.value * modalItemsPerPage;
+  const nextBatch = list.slice(nextStart, nextStart + modalItemsPerPage);
+  if (nextBatch.length > 0) {
+    modalDisplayedItems.value.push(...nextBatch);
+    modalCurrentPage.value++;
+    isModalInfiniteDisabled.value = modalDisplayedItems.value.length >= list.length;
+  } else {
+    isModalInfiniteDisabled.value = true;
+  }
 };
-///////////////////////////////////////////////
 
-useBackButton(10, () => {
+const { sentinelRef, isLoadingMore } = useInfiniteScroll(
+  isModalInfiniteDisabled,
+  loadMoreModalData,
+  shiftModalBodyRef,
+);
+
+useHardwareBackButton(10, () => {
+  if (isFilterPickerOpen.value) {
+    closeFilterPicker();
+    return;
+  }
+  if (isModalOpen.value) {
+    isModalOpen.value = false;
+    return;
+  }
   router.replace('/home');
 });
 </script>
@@ -614,9 +598,34 @@ useBackButton(10, () => {
 }
 
 .area-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.area-tabs {
+  position: relative;
+  z-index: 10;
+  display: flex;
+  width: 100%;
+  background: #ffffff;
+  border-bottom: 0.5px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+}
+
+.area-tab {
   flex: 1;
-  min-height: 0;
-  --background: #d1e5e6;
+  min-height: 44px;
+  border: none;
+  background: transparent;
+  font: inherit;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+}
+
+.area-tab.active {
+  color: #0ea5e9;
+  box-shadow: inset 0 -2px 0 #0ea5e9;
 }
 
 .area-bg {
@@ -661,7 +670,7 @@ useBackButton(10, () => {
 }
 
 .list-container.report-list-scroll {
-  margin-top: 50px;
+  margin-top: 0;
   flex: 1;
   min-height: 0;
   max-height: calc(100vh - 140px);
@@ -693,20 +702,15 @@ useBackButton(10, () => {
   margin: 4px 0 0 0;
   display: flex;
   align-items: center;
+
+  .pi {
+    margin-right: 4px;
+  }
 }
 
 .labelItem-time {
   font-size: 10px;
   display: block;
-}
-
-.labelItem {
-  font-size: 0.9em;
-  display: block;
-}
-
-ion-segment {
-  margin-bottom: 5px;
 }
 
 .icon-1 {
@@ -718,9 +722,9 @@ ion-segment {
 }
 
 .labelItem {
-  font-size: 0.85em;
+  font-size: 0.9em;
   display: block;
-  line-height: 1.4;
+  font-weight: bold;
 }
 
 .note-container {
@@ -728,12 +732,7 @@ ion-segment {
   flex-direction: column;
   align-items: flex-end;
   justify-content: center;
-}
-
-.icon-group {
-  margin-top: 8px;
-  display: flex;
-  gap: 8px;
+  gap: 4px;
 }
 
 .icon-1,
@@ -742,52 +741,230 @@ ion-segment {
   filter: drop-shadow(0px 1px 1px rgba(0, 0, 0, 0.1));
 }
 
-ion-badge[color="warning"] {
-  --color: #000;
-  font-weight: bold;
-  letter-spacing: 0.3px;
+.icon-danger {
+  color: #eb445a;
+}
+
+.icon-success {
+  color: #2dd36f;
 }
 
 .custom-item-false {
-  --background: #fff5f5;
+  background: #fff5f5;
 }
 
-div[slot="fixed"] {
-  border-bottom: 0.5px solid #e0e0e0;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+.shift-done {
+  color: #0ea5e9;
 }
 
-/* Custom CSS để ép Modal nằm sát đáy và cố định chiều cao */
-ion-modal.fixed-bottom-modal {
-  --height: 75vh;
-  /* Set cứng chiều cao (ví dụ 50% chiều cao màn hình) */
-  --border-radius: 16px 16px 0 0;
-  /* Bo tròn 2 góc trên cho đẹp */
-  align-items: flex-end;
-  /* Căn chỉnh Modal nằm sát dưới đáy */
+.shift-route-name {
+  margin: 2px 0 0;
+  font-size: 0.9em;
+  color: #49b6e9;
+  font-weight: bold;
 }
 
-ion-modal.fixed-bottom-modal::part(backdrop) {
-  opacity: 0.3;
-  /* Độ mờ tùy chỉnh */
+.offline-tag {
+  margin-top: 4px;
+  font-size: 0.7em;
 }
 
-.filter-dropdown-item {
-  --min-height: 38px;
-  --background: var(--ion-color-light);
-  margin: 0 10px 8px 10px;
-  border-radius: 8px;
-  font-size: 14px;
-  width: fit-content;
+.shift-icons {
+  margin-top: 5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.full-width-select {
+.filter-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
   width: 100%;
-  --placeholder-color: var(--ion-color-medium);
-  --placeholder-opacity: 1;
 }
 
-ion-icon[slot="start"] {
-  margin-inline-end: 8px;
+.filter-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.filter-row :deep(.p-datepicker),
+.filter-row :deep(.p-inputtext) {
+  width: 100%;
+}
+
+.shift-progress {
+  height: 6px;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.shift-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.shift-row,
+.report-row {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+  text-align: left;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.shift-row {
+  padding: 12px 0;
+}
+
+.shift-row-completed {
+  opacity: 0.5;
+  background: #c9ee9f;
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: none;
+  border-bottom: 1px solid #e2e8f0;
+  background: #ffffff;
+  text-align: left;
+  font: inherit;
+  cursor: pointer;
+}
+
+.report-row {
+  padding: 12px;
+}
+
+.shift-row-top {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+}
+
+.shift-row-times {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  color: #0ea5e9;
+  font-size: 1rem;
+}
+
+.report-row {
+  align-items: flex-start;
+}
+
+.report-row-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.offline-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.8em;
+  color: #d97706;
+}
+
+.note-star {
+  color: #ef4444;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 24px 16px;
+  color: #64748b;
+}
+
+.empty-icon {
+  font-size: 4rem;
+  color: #ccc;
+}
+
+.empty-home-btn {
+  margin-top: 12px;
+}
+
+.skeleton-list {
+  padding: 8px;
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+}
+
+.infinite-sentinel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0;
+  color: #64748b;
+  font-size: 0.85rem;
+}
+
+.area-shift-dialog :deep(.p-dialog),
+.area-shift-dialog :deep(.area-shift-dialog-root) {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-width: 100%;
+  max-height: 100%;
+  margin: 0;
+  border-radius: 16px;
+}
+
+.area-shift-dialog :deep(.p-dialog-header) {
+  flex-shrink: 0;
+}
+
+.area-shift-dialog :deep(.p-dialog-content),
+.area-shift-dialog :deep(.area-shift-dialog-content) {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.filter-picker-catcher {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  background: transparent;
+}
+</style>
+
+<style>
+.area-shift-dialog-mask.p-dialog-mask {
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+}
+
+.p-dialog.area-shift-dialog .p-dialog-content,
+.area-shift-dialog-content.p-dialog-content {
+  padding: 0 10px !important;
+}
+
+.area-filter-datepicker-panel.p-datepicker-panel {
+  z-index: 1300 !important;
 }
 </style>

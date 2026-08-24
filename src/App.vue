@@ -1,5 +1,5 @@
 <template>
-  <ion-app>
+  <div class="app-root">
     <div v-if="isAppLoading" class="app-loading-overlay">
       <div class="app-loading-box">
         <ProgressSpinner stroke-width="2" />
@@ -7,7 +7,7 @@
       </div>
     </div>
 
-    <div v-if="store.state.isSyncing" class="sync-overlay">
+    <div v-if="store.state.isSyncing && store.state.syncMode === 'overlay'" class="sync-overlay">
       <div class="sync-box">
         <div class="sync-header">
           <span class="sync-label">
@@ -22,15 +22,14 @@
       </div>
     </div>
 
-    <ion-router-outlet v-if="isAppReady" />
+    <router-view v-if="isAppReady" />
     <Toast position="top-center" :pt="{
       root: { class: 'app-toast' }
     }" />
-  </ion-app>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { IonApp, IonRouterOutlet } from '@ionic/vue';
 import { ProgressBar, ProgressSpinner, Toast } from '@/plugins/primevue.components';
 import { computed, onMounted, ref } from 'vue';
 import { useSQLite } from '@/composables/useSQLite';
@@ -276,6 +275,20 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.app-root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.app-root > :deep(.nav-page),
+.app-root > :deep(.login-page) {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
 .app-loading {
   display: flex;
   flex-direction: column;

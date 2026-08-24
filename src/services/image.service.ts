@@ -33,6 +33,22 @@ export const ImageService = {
   },
 
   /**
+   * Kiểm tra file còn trên disk (không đọc nội dung — dùng cho sanitize/queue).
+   */
+  async imageExists(fileName: string): Promise<boolean> {
+    if (!fileName) return false;
+    try {
+      const info = await Filesystem.stat({
+        path: fileName,
+        directory: Directory.Data,
+      });
+      return (info.size ?? 0) > 0;
+    } catch {
+      return false;
+    }
+  },
+
+  /**
    * Đọc file ra Base64 để gửi API
    * @param fileName Tên file cần đọc
    * @returns Chuỗi base64 sạch hoặc null nếu lỗi

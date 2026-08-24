@@ -32,6 +32,7 @@
     "routes": "Routes",
     "reports": "Reports",
     "tutorial": "Tutorial",
+    "logs": "Logs",
     "adm": "Administrator",
     "it": "IT",
     "expat": "Expatriate",
@@ -48,7 +49,8 @@
     },
     "routes": "Routes",
     "reports": "Reports",
-    "tutorial": "Tutorial"
+    "tutorial": "Tutorial",
+    "logs": "Logs"
   },
   "routes": {
     "cancel": "Cancel",
@@ -60,6 +62,8 @@
     "loading-route": "Loading route...",
     "txt-info": "The {currentHour}h route is completed",
     "all-scanned": "You have completed all checkpoints for this time slot.",
+    "shift-done-pending-title": "Shift completed — waiting to sync",
+    "shift-done-synced-title": "Shift completed — all reports sent",
     "route-not-found": "{currentHour}h route not found",
     "no-shift-data": "Shift data is not loaded or there is no shift in this time slot.",
     "go-home": "Back to Home",
@@ -74,6 +78,23 @@
     "no-data": "The reports feature is under development or no data is available yet.",
     "go-home": "Back to Home"
   },
+  "logs": {
+    "not-found": "No patrol shift logs in the selected range.",
+    "go-home": "Back to Home",
+    "filter-date": "Filter by shift date & time",
+    "filter-date-placeholder": "Select date & time (24h)",
+    "filter-hint": "Showing the last 30 days by default. Pick a date to view older shifts.",
+    "retry-sync": "Retry sync",
+    "attempts": "Attempts",
+    "status-draft": "In progress",
+    "status-ready": "Pending sync",
+    "status-failed": "Sync failed",
+    "status-invalid": "Invalid",
+    "status-synced": "Synced",
+    "delete-all-logs": "Delete all",
+    "delete-confirm-title": "Confirm delete",
+    "delete-confirm-msg": "Are you sure you want to delete all patrol shift logs on this device? This cannot be undone."
+  },
   "areas": {
     "index": {
       "selected": "Selected:",
@@ -84,6 +105,7 @@
       "please-route": "Please select a route",
       "go-home": "Back to Home",
       "load-more": "Loading more...",
+      "filter-datetime": "Pick shift date & time",
       "expat": "Expatriate",
       "security": "Security",
       "all": "All",
@@ -110,6 +132,7 @@
       "cp-desc": "Checkpoint description:",
       "general-notes": "General Notes:",
       "pic-rp": "Report photos",
+      "no-title": "Untitled",
       "stt-pending": "Pending",
       "stt-processing": "In Progress",
       "stt-completed": "Completed",
@@ -188,6 +211,7 @@
       "warning": "Warning",
       "incomplete-route": "The patrol route is incomplete. You cannot return to the homepage at this time!",
       "unable-to-logout": "Unable to log out",
+      "system-busy": "The system is busy. Please wait a few seconds and try again.",
       "incomplete-patrol": "You are currently on patrol and have not completed the route. Please complete the route before logging out!",
       "data-loss": "Data loss warning!",
       "pending-reports": "You have {pendingItems.value.length} unsynchronized reports. Please connect to the network to synchronize before logging out!",
