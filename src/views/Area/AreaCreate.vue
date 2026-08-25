@@ -239,6 +239,7 @@ const buildPatrolLogInput = (
     psHourFrom: Number(activeRoute.psHourFrom ?? 0),
     routeName: String(activeRoute.routeName || ''),
     areaName: String(scan?.areaName || userData?.userAreaName || ''),
+    userAreaName: String(userData?.userAreaName || ''),
     reportBy: String(userData?.userId || ''),
     reportName: String(userData?.fullName || userData?.userName || userData?.userCode || ''),
     source,

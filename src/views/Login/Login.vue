@@ -75,7 +75,6 @@ import { useRouter } from 'vue-router';
 import { useHardwareBackButton } from '@/composables/useHardwareBackButton';
 import { reactive, ref, computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
-import CryptoJS from 'crypto-js';
 import { useI18n } from 'vue-i18n';
 import { BarcodeScanner } from '@capacitor-mlkit/barcode-scanning';
 import { App } from '@capacitor/app';
@@ -98,6 +97,7 @@ import AreaBU from '@/api/AreaBU';
 import ReportNoteCategory from '@/api/ReportNoteCategory';
 import PatrolShiftView from '@/api/PatrolShiftView';
 import { syncPatrolShiftLogs } from '@/services/patrolShiftLog.service';
+import { presentAlertToast } from '@/services/toast.service';
 
 interface LangOption {
   label: string;
@@ -135,10 +135,6 @@ const getLangFlag = (value: string) => {
   return langOptions.find((item) => item.value === value)?.flag ?? '';
 };
 
-const hashPassword = (password: string) => {
-  return CryptoJS.SHA256(password).toString();
-};
-
 const getDynamicAreaIds = (userAreaId: number) => {
   const areaMapping: Record<number, number[]> = {
     1: [1, 2],
@@ -150,105 +146,63 @@ const getDynamicAreaIds = (userAreaId: number) => {
 const handleLogin = async () => {
   if (isButtonDisabled.value) return;
 
+  if (!store.state.isOnline) {
+    presentAlertToast(t('layout.warning'), '', t('login.message.offline'));
+    return;
+  }
+
   isLoading.value = true;
   errorMessage.value = '';
 
   try {
-    const isOnline = store.state.isOnline;
+    const responseBU = await Login.postUserValidate(loginDetail);
+    const result = responseBU.data;
 
-    if (isOnline) {
-      const responseBU = await Login.postUserValidate(loginDetail);
-      const result = responseBU.data;
+    if (result?.success && result.data) {
+      const userData = {
+        ...result.data
+      };
 
-      if (result?.success && result.data) {
-        const userData = {
-          ...result.data
-        };
+      store.commit('SET_DATAUSER', userData);
+      store.commit('SET_TOKEN', userData.accessToken);
+      await storageService.set('user_data', userData);
+      await storageService.set('user_token', userData.accessToken);
 
-        store.commit('SET_DATAUSER', userData);
-        store.commit('SET_TOKEN', userData.accessToken);
-        await storageService.set('user_data', userData);
-        await storageService.set('user_token', userData.accessToken);
+      await store.dispatch('initApp');
 
-        let offlineUsers = await storageService.get('offline_users_dict') || {};
-        offlineUsers[loginDetail.userCode] = {
-          profile: userData,
-          hashedPassword: hashPassword(loginDetail.userPassword)
-        };
-        await storageService.set('offline_users_dict', offlineUsers);
+      await loadPendingItems();
+      const deleteQueue = (await storageService.get('offline_delete_queue')) || [];
+      const wrongScanQueue = (await storageService.get('offline_wrong_scan_queue')) || [];
 
-        await store.dispatch('initApp');
-
-        await loadPendingItems();
-        const deleteQueue = (await storageService.get('offline_delete_queue')) || [];
-        const wrongScanQueue = (await storageService.get('offline_wrong_scan_queue')) || [];
-
-        // Tắt sync offline
-        if (pendingItems.value.length > 0 || deleteQueue.length > 0 || wrongScanQueue.length > 0) {
-          await syncData();
-        }
-        //
-
-        const checkpointPayload = {
-          areaIds: getDynamicAreaIds(userData.userAreaId),
-          roleIdStr: String(userData.userRoleId)
-        };
-
-        const apiList = {
-          checkpoints: () => CheckPointScanQr.postCheckPointView(checkpointPayload),
-          // area_bu: () => AreaBU.postAreaBU({ areaId: userData.userAreaId }),
-          list_route: () => PatrolShiftView.postPatrolShiftView({
-            getOfflineData: true,
-            areaId: userData.userAreaId,
-          }),
-          report_note_category: () => ReportNoteCategory.postReportNoteCategory(),
-        };
-
-        await store.dispatch('syncAllData', { apiList: apiList, mode: 'overlay' });
-
-        // Sync tóm tắt ca đã hoàn thành (giữ nếu fail — không chặn vào Home)
-        try {
-          await syncPatrolShiftLogs();
-        } catch (patrolLogErr) {
-          console.warn('[Login] syncPatrolShiftLogs thất bại (giữ SQLite):', patrolLogErr);
-        }
-
-        router.replace('/home');
-
-      } else {
-        errorMessage.value = result?.message || t('login.message.1');
+      if (pendingItems.value.length > 0 || deleteQueue.length > 0 || wrongScanQueue.length > 0) {
+        await syncData();
       }
 
+      const checkpointPayload = {
+        areaIds: getDynamicAreaIds(userData.userAreaId),
+        roleIdStr: String(userData.userRoleId)
+      };
+
+      const apiList = {
+        checkpoints: () => CheckPointScanQr.postCheckPointView(checkpointPayload),
+        list_route: () => PatrolShiftView.postPatrolShiftView({
+          getOfflineData: true,
+          areaId: userData.userAreaId,
+        }),
+        report_note_category: () => ReportNoteCategory.postReportNoteCategory(),
+      };
+
+      await store.dispatch('syncAllData', { apiList: apiList, mode: 'overlay' });
+
+      try {
+        await syncPatrolShiftLogs();
+      } catch (patrolLogErr) {
+        console.warn('[Login] syncPatrolShiftLogs thất bại (giữ SQLite):', patrolLogErr);
+      }
+
+      router.replace('/home');
     } else {
-      const offlineUsers = await storageService.get('offline_users_dict');
-
-      if (!offlineUsers || !offlineUsers[loginDetail.userCode]) {
-        errorMessage.value = t('login.message.2');
-        isLoading.value = false;
-        return;
-      }
-
-      const savedAccount = offlineUsers[loginDetail.userCode];
-      const inputHashed = hashPassword(loginDetail.userPassword);
-
-      if (inputHashed === savedAccount.hashedPassword) {
-
-        if (!savedAccount.profile.accessToken) {
-          errorMessage.value = 'Phiên làm việc đã kết thúc. Vui lòng kết nối mạng để đăng nhập lại!';
-          isLoading.value = false;
-          return;
-        }
-
-        store.commit('SET_DATAUSER', savedAccount.profile);
-        store.commit('SET_TOKEN', savedAccount.profile.accessToken);
-        await storageService.set('user_data', savedAccount.profile);
-        await storageService.set('user_token', savedAccount.profile.accessToken);
-
-        await store.dispatch('initApp');
-        router.replace('/home');
-      } else {
-        errorMessage.value = t('login.message.3');
-      }
+      errorMessage.value = result?.message || t('login.message.1');
     }
   } catch (err: any) {
     errorMessage.value = t('login.message.4');

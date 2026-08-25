@@ -30,6 +30,8 @@ export type PatrolShiftLogStatus = 'draft' | 'ready' | 'failed' | 'invalid' | 's
 export interface PatrolShiftLogRecord extends PatrolShiftLogPayload {
   localId: string;
   routeId?: number;
+  /** userAreaName của người đi ca lúc ghi — dùng khi gửi, không lấy session hiện tại */
+  userAreaName?: string;
   savedAt: string;
   source: 'online' | 'offline';
   pointCount: number;
@@ -49,6 +51,8 @@ export interface UpsertPointInput {
   psHourFrom: number;
   routeName: string;
   areaName: string;
+  /** Snapshot userAreaName lúc người đi login — không lấy từ user đang mở app */
+  userAreaName?: string;
   reportBy: string;
   reportName: string;
   source: 'online' | 'offline';
@@ -222,7 +226,7 @@ export function toApiPayload(record: PatrolShiftLogRecord): PatrolShiftLogPayloa
     psYear: Number(record.psYear),
     psHourFrom: Number(record.psHourFrom),
     routeName: record.routeName,
-    areaName: record.areaName,
+    areaName: String(record.userAreaName || record.areaName || ''),
     isComplete: !!record.isComplete,
     reportBy: String(record.reportBy),
     reportName: record.reportName,
@@ -281,6 +285,7 @@ export async function upsertPointInPatrolShiftLog(input: UpsertPointInput): Prom
       psHourFrom: Number(input.psHourFrom),
       routeName: input.routeName,
       areaName: input.areaName,
+      userAreaName: input.userAreaName || '',
       isComplete: false,
       reportBy: input.reportBy,
       reportName: input.reportName,
@@ -322,9 +327,10 @@ export async function upsertPointInPatrolShiftLog(input: UpsertPointInput): Prom
     }
     record.routeDetails = details;
     record.source = input.source;
-    // Giữ reportBy ban đầu của người đi ca
+    // Giữ người đi ca ban đầu (kể cả khi user khác login rồi sync)
     if (!record.reportBy) record.reportBy = input.reportBy;
     if (!record.reportName) record.reportName = input.reportName;
+    if (!record.userAreaName) record.userAreaName = input.userAreaName;
   }
 
   record = refreshStatus(record);
@@ -362,6 +368,7 @@ export async function finalizePatrolShiftLog(input: UpsertPointInput): Promise<P
       psHourFrom: Number(input.psHourFrom),
       routeName: input.routeName,
       areaName: input.areaName,
+      userAreaName: input.userAreaName || '',
       isComplete: false,
       reportBy: input.reportBy,
       reportName: input.reportName,
@@ -402,6 +409,7 @@ export async function finalizePatrolShiftLog(input: UpsertPointInput): Promise<P
     routeDetails: merged,
     routeName: input.routeName || existing.routeName,
     areaName: input.areaName || existing.areaName,
+    userAreaName: existing.userAreaName || input.userAreaName,
     source: input.source,
     psDay: Number(input.psDay ?? existing.psDay),
     psMonth: Number(input.psMonth ?? existing.psMonth),
