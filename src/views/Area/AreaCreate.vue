@@ -211,8 +211,6 @@ const isOfflineSyncModalOpen = ref(false);
 
 const pendingNoteId = ref<string | null>(null);
 
-const currentIssues = computed(() => selectedSubCategory.value?.childs || []);
-
 // --- Offline Manager ---
 const { sendData, loadPendingItems, pendingItems, syncData } = useOfflineManager();
 const { syncBadgeCount } = useSyncBadgeCount();

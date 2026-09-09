@@ -6,14 +6,19 @@ const baseURL: string = baseURLMixin.url;
 
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
+/** Header requestKey cố định (chỉ gửi khi withRequestBy: true). */
+const REQUEST_BY_KEY = 'key_666ttp10tyuio72612aqzvntnmyt1r2y9y3tre7823';
+
 export interface RequestConfig {
   timeoutMs?: number;
+  /** true → gắn header requestKey = REQUEST_BY_KEY */
+  withRequestBy?: boolean;
 }
 
 const request = {
   async send(method: HttpMethod, url: string, data: any = null, config?: RequestConfig): Promise<any> {
     const token = await storageService.get('user_token');
-    const headers: HeadersInit = {};
+    const headers: Record<string, string> = {};
 
     if (!(data instanceof FormData)) {
       headers['Content-Type'] = 'application/json';
@@ -21,6 +26,20 @@ const request = {
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    const rawUser: any = store.state.dataUser;
+    const userData = rawUser?.data ? rawUser.data : rawUser;
+    const requestBy =
+      String(userData?.userId ?? '').trim() ||
+      (typeof token === 'string' ? token : '');
+
+    if (requestBy) {
+      headers['requestBy'] = requestBy;
+    }
+
+    if (config?.withRequestBy) {
+      headers['requestKey'] = REQUEST_BY_KEY;
     }
 
     const controller = new AbortController();
@@ -103,24 +122,24 @@ const request = {
     }
   },
 
-  get(url: string) {
-    return this.send('GET', url);
+  get(url: string, config?: RequestConfig) {
+    return this.send('GET', url, null, config);
   },
 
   post(url: string, data?: any, config?: RequestConfig) {
     return this.send('POST', url, data, config);
   },
 
-  put(url: string, data?: any) {
-    return this.send('PUT', url, data);
+  put(url: string, data?: any, config?: RequestConfig) {
+    return this.send('PUT', url, data, config);
   },
 
-  delete(url: string) {
-    return this.send('DELETE', url);
+  delete(url: string, config?: RequestConfig) {
+    return this.send('DELETE', url, null, config);
   },
 
-  patch(url: string, data?: any) {
-    return this.send('PATCH', url, data);
+  patch(url: string, data?: any, config?: RequestConfig) {
+    return this.send('PATCH', url, data, config);
   }
 };
 

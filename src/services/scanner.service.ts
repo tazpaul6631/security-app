@@ -152,7 +152,9 @@ export const scannerService = {
     }
 
     const isIdMismatch = String(listScanQr.cpwId) !== String(nextPointRequired.cpId);
-    const isCodeMismatch = String(listScanQr.cpwCode) !== String(nextPointRequired.cpCode);
+    const qrCode = String(listScanQr.cpwCode || '').trim();
+    const pointCode = String(nextPointRequired.cpCode || '').trim();
+    const isCodeMismatch = !!qrCode && !!pointCode && qrCode !== pointCode;
 
     if (isIdMismatch || isCodeMismatch) {
       const userData = store.state.dataUser?.data || store.state.dataUser;
@@ -231,6 +233,19 @@ export const scannerService = {
           }
           finalData = allCheckpoints.find((item: any) => String(item.cpId) === String(listScanQr.cpwId));
         }
+      }
+
+      // QR đã khớp điểm tiếp theo trên list_route — đủ để vào Create khi scanqr/cache thiếu
+      if (!finalData) {
+        const userData = store.state.dataUser?.data || store.state.dataUser;
+        finalData = {
+          cpId: nextPointRequired.cpId,
+          cpCode: nextPointRequired.cpCode || listScanQr.cpwCode,
+          cpName: nextPointRequired.cpName,
+          areaName: currentRoute.areaName || userData?.userAreaName || '',
+          areaId: currentRoute.areaId,
+        };
+        await storageService.set(`checkpoint_${listScanQr.cpwId}`, finalData);
       }
 
       if (finalData) {
