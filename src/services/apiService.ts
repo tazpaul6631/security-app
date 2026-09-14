@@ -7,7 +7,7 @@ const baseURL: string = baseURLMixin.url;
 type HttpMethod = 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
 
 /** Header requestKey cố định (chỉ gửi khi withRequestBy: true). */
-const REQUEST_BY_KEY = 'key_666ttp10tyuio72612aqzvntnmyt1r2y9y3tre7823';
+const REQUEST_BY_KEY = 'key_666ttp10tyuio72612aqzvntnmyt1r2y9y3tre78';
 
 export interface RequestConfig {
   timeoutMs?: number;
