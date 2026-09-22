@@ -163,7 +163,7 @@ export function useOfflineSyncDisplay(getCheckpointName: (cpId: string) => strin
     const item = queue.find((i: any) => i.id === id);
     if (!item) return;
 
-    await cleanUpItem(item);
+    await cleanUpItem(item, { revertIfUnacked: true });
     await refreshDisplayItems();
   };
 

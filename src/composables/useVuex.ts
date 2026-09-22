@@ -302,8 +302,15 @@ const store = createStore({
     },
 
     // Thêm vào trong mutations
-    UPDATE_POINT_STATUS(state: any, { routeId, cpId, status }) {
+    UPDATE_POINT_STATUS(state: any, { routeId, cpId, status, psId }: {
+      routeId: any;
+      cpId: any;
+      status: number;
+      psId?: any;
+    }) {
       if (!state.dataListRoute) return;
+
+      const targetPsId = psId != null && psId !== '' ? psId : state.psId;
 
       if (!state.unfinishedRouteId && status === 1) {
         state.unfinishedRouteId = routeId;
@@ -312,7 +319,7 @@ const store = createStore({
 
       state.dataListRoute = state.dataListRoute.map((route: any) => {
         // QUAN TRỌNG: Cập nhật status điểm quét phải khớp CẢ routeId VÀ psId
-        if (Number(route.routeId) !== Number(routeId) || Number(route.psId) !== Number(state.psId)) {
+        if (Number(route.routeId) !== Number(routeId) || Number(route.psId) !== Number(targetPsId)) {
           return route;
         }
 

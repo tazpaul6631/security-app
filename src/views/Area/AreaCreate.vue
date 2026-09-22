@@ -726,7 +726,7 @@ const handleSubmit = async (): Promise<void> => {
       }
     }
 
-    store.commit('UPDATE_POINT_STATUS', { routeId, cpId: currentCpId, status: 1 });
+    store.commit('UPDATE_POINT_STATUS', { routeId, cpId: currentCpId, psId: finalPsId, status: 1 });
     const updatedRoutes = [...store.state.dataListRoute];
     const rIdx = updatedRoutes.findIndex((r: Route) => Number(r.routeId) === Number(routeId) && Number(r.psId) === Number(finalPsId));
     const allDone = rIdx >= 0
