@@ -25,7 +25,7 @@ const emit = defineEmits<{
   justify-content: center;
   width: 2.5rem;
   height: 2.5rem;
-  margin: 0;
+  margin: 0 0 0 10px;
   padding: 0;
   border: 1px solid #e7b343;
   border-radius: 10px;

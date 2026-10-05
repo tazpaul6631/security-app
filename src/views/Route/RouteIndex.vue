@@ -5,10 +5,12 @@
         <i class="pi pi-arrow-left route-back-icon" aria-hidden="true" />
         <span class="route-title">{{ $t('page.routes') }}</span>
       </button>
+      <Button v-if="showHeaderCancel" :label="$t('routes.cancel')" icon="pi pi-trash" severity="danger"
+        class="header-cancel-btn" @click="confirmCancelRoute" />
       <OfflineSyncHeaderButton :count="syncBadgeCount" @click="isOfflineSyncModalOpen = true" />
     </header>
 
-    <AppPageContent class="route-content" :locked="!isLoading && !!displayRoute">
+    <AppPageContent class="route-content" :locked="!isLoading && (isRouteAdmin || !!displayRoute)">
       <div class="route-bg" aria-hidden="true">
         <span class="route-blob route-blob-green" />
         <span class="route-blob route-blob-purple" />
@@ -20,7 +22,57 @@
       </div>
 
       <transition v-else name="fade-route" mode="out-in">
-        <div v-if="displayRoute"
+        <div v-if="isRouteAdmin" class="route-body admin-route-body" :key="'admin-routes'">
+          <Tabs v-model:value="activeAdminArea" class="admin-route-tabs">
+            <TabList>
+              <Tab v-for="area in ADMIN_AREAS" :key="area.id" :value="area.id">
+                {{ area.name }}
+              </Tab>
+            </TabList>
+            <TabPanels>
+              <TabPanel v-for="area in ADMIN_AREAS" :key="area.id" :value="area.id">
+                <div v-if="area.id === activeAdminArea && adminLoading" class="loading-state">
+                  <ProgressSpinner stroke-width="2" />
+                  <p>{{ $t('routes.loading-route') }}</p>
+                </div>
+                <Card v-else-if="area.id === activeAdminArea && selectedAdminRoute" class="route-card"
+                  :pt="{ body: { class: 'route-card-body' }, content: { class: 'route-card-content' } }">
+                  <template #title>
+                    <div class="route-title-row">
+                      <span class="route-name">
+                        {{ selectedAdminRoute.routeName }}
+                        <i class="pi pi-check-circle route-done-icon" v-if="isRouteFinished(selectedAdminRoute)" />
+                      </span>
+                    </div>
+                  </template>
+                  <template #subtitle>
+                    <div class="route-meta">
+                      <span>
+                        {{ $t('routes.code') }} {{ selectedAdminRoute.routeCode }} |
+                        {{ $t('routes.shift') }} {{ selectedAdminRoute.psHourFrom }}h -
+                        {{ selectedAdminRoute.psDay }}/{{ selectedAdminRoute.psMonth }}/{{ selectedAdminRoute.psYear }}
+                      </span>
+                    </div>
+                  </template>
+                  <template #content>
+                    <div class="route-points-scroll">
+                      <card-route-points :details="selectedAdminRoute.routeDetails" />
+                    </div>
+                  </template>
+                </Card>
+                <div v-else-if="area.id === activeAdminArea" class="no-route-container">
+                  <div class="no-route-content">
+                    <i class="pi pi-calendar big-icon" />
+                    <h3>{{ $t('routes.route-not-found', { currentHour: currentHour }) }}</h3>
+                    <p>{{ $t('routes.no-shift-data') }}</p>
+                  </div>
+                </div>
+              </TabPanel>
+            </TabPanels>
+          </Tabs>
+        </div>
+
+        <div v-else-if="!isRouteAdmin && displayRoute"
           :key="`${displayRoute.routeId}-${displayRoute.psId}-${isShiftCompleted ? 'done' : 'active'}`"
           class="route-body">
           <Card class="route-card"
@@ -91,10 +143,8 @@
       <OfflineSyncModal v-model:visible="isOfflineSyncModalOpen" :get-checkpoint-name="resolveCheckpointName" />
     </AppPageContent>
 
-    <footer v-if="!isLoading && (currentActiveRoute || isShiftCompleted)" class="route-footer">
+    <footer v-if="!isLoading && showRouteFooter" class="route-footer">
       <div v-if="currentActiveRoute" class="active-controls">
-        <Button v-if="canCancelRoute" :label="$t('routes.cancel')" icon="pi pi-trash" severity="danger"
-          class="btn-cancel" size="large" @click="confirmCancelRoute" />
         <Button :label="isScanning ? $t('routes.opening-camera') : $t('routes.scan')" icon="pi pi-qrcode"
           severity="success" class="btn-continue" :loading="isScanning" :disabled="isScanning" size="large"
           @click="handleContinueScanning(currentActiveRoute.routeId)" />
@@ -122,7 +172,7 @@ import { useHardwareBackButton } from '@/composables/useHardwareBackButton';
 import CardRoutePoints from '@/components/CardRoutePoints.vue';
 import OfflineSyncModal from '@/components/OfflineSyncModal.vue';
 import OfflineSyncHeaderButton from '@/components/OfflineSyncHeaderButton.vue';
-import { Button, Card, Dialog, ProgressSpinner } from '@/plugins/primevue.components';
+import { Button, Card, Dialog, ProgressSpinner, Tab, TabList, TabPanel, TabPanels, Tabs } from '@/plugins/primevue.components';
 import { useAppLoading } from '@/composables/useAppLoading';
 import { scannerService } from '@/services/scanner.service';
 import storageService from '@/services/storage.service';
@@ -162,6 +212,7 @@ interface Route {
   roleId: number;
   psId: number;
   isComplete?: boolean;
+  areaName?: string;
 }
 
 const store = useStore();
@@ -172,7 +223,20 @@ const isOfflineSyncModalOpen = ref(false);
 const wrongOrderPointName = ref('');
 const isLoading = ref(true);
 const isScanning = ref(false);
-const userRoleIsAdmin = ref();
+const ADMIN_AREAS = [
+  { id: '1', name: 'JHV', areaId: 1 },
+  { id: '2', name: 'SHM', areaId: 3 },
+];
+
+const adminRoutes = ref<Route[]>([]);
+const activeAdminArea = ref(ADMIN_AREAS[0].id);
+const adminLoading = ref(false);
+
+const rawUser = computed(() => store.state.dataUser || {});
+const routeUser = computed(() => rawUser.value?.data || rawUser.value || {});
+const isRouteAdmin = computed(() =>
+  rawUser.value.userRoleIsAdmin === true || routeUser.value.userRoleIsAdmin === true
+);
 
 // const shiftDataList = ref<Route[]>([]);
 const shiftDataList = computed<Route[]>(() => store.state.dataListRoute || []);
@@ -185,8 +249,7 @@ const { pendingItems, loadPendingItems, cleanUpItem, purgeStaleShiftQueue } = us
 const { syncBadgeCount } = useSyncBadgeCount();
 
 const canCancelRoute = computed(() => {
-  const user = store.state.dataUser;
-  const userCode = user?.userCode || user?.data?.userCode;
+  const userCode = rawUser.value?.userCode || routeUser.value?.userCode;
   return userCode === 'R39557';
 });
 
@@ -281,6 +344,15 @@ const completedRouteThisHour = computed(() => {
 const displayRoute = computed(() => currentActiveRoute.value || completedRouteThisHour.value);
 const isShiftCompleted = computed(() => !currentActiveRoute.value && !!completedRouteThisHour.value);
 
+const selectedAdminRoute = computed(() => adminRoutes.value[0] || null);
+
+const showHeaderCancel = computed(() => isRouteAdmin.value || canCancelRoute.value);
+
+const showRouteFooter = computed(() => {
+  if (isRouteAdmin.value) return false;
+  return !!(currentActiveRoute.value || isShiftCompleted.value);
+});
+
 const pendingForDisplayShift = computed(() => {
   const psId = displayRoute.value?.psId;
   if (!psId) return 0;
@@ -302,6 +374,7 @@ const resolveCheckpointName = (cpId: string) => {
 // 2. KHÔI PHỤC TIMER KHI RELOAD & CHUYỂN CA
 // ==========================================
 watch(() => currentActiveRoute.value, async (newRoute) => {
+  if (isRouteAdmin.value) return;
   if (newRoute && newRoute.psId) {
     store.commit('SET_PSID', newRoute.psId);
     void storageService.set('current_ps_id', newRoute.psId);
@@ -415,7 +488,58 @@ const handleAppWakeUp = () => {
 const hasRouteCache = () =>
   Array.isArray(store.state.dataListRoute) && store.state.dataListRoute.length > 0;
 
+const mapAdminRoute = (raw: any): Route => ({
+  ...raw,
+  areaId: Number(raw.areaId),
+  areaName: String(raw.areaName || ''),
+  routeDetails: (raw.routeDetails || []).map((detail: any) => ({
+    ...detail,
+    status: detail.rdIsComplete || detail.status === 1 ? 1 : 0,
+    rdIsComplete: !!(detail.rdIsComplete || detail.status === 1),
+  })),
+});
+
+const applyAdminRoutes = (list: Route[]) => {
+  adminRoutes.value = list;
+};
+
+let adminLoadSeq = 0;
+
 const loadRouteData = async (options: { silent?: boolean } = {}) => {
+  if (isRouteAdmin.value) {
+    const silent = options.silent ?? false;
+    const seq = ++adminLoadSeq;
+    if (!silent) adminLoading.value = true;
+    isLoading.value = false;
+    try {
+      if (!store.state.isOnline) {
+        applyAdminRoutes([]);
+        return;
+      }
+      const area = ADMIN_AREAS.find((item) => item.id === activeAdminArea.value) || ADMIN_AREAS[0];
+      const now = new Date();
+      const response: any = await PatrolShiftView.postPatrolShiftView({
+        psDay: now.getDate(),
+        psMonth: now.getMonth() + 1,
+        psYear: now.getFullYear(),
+        psHour: now.getHours(),
+        areaId: area.areaId,
+      });
+      if (seq !== adminLoadSeq) return;
+      const apiDataRaw = response?.data?.data || response?.data || [];
+      const list = Array.isArray(apiDataRaw) ? apiDataRaw.map(mapAdminRoute) : [];
+      applyAdminRoutes(list);
+    } catch (error) {
+      if (seq !== adminLoadSeq) return;
+      console.error('[RouteIndex] Admin loadRouteData lỗi:', error);
+      applyAdminRoutes([]);
+    } finally {
+      if (seq === adminLoadSeq) adminLoading.value = false;
+      isLoading.value = false;
+    }
+    return;
+  }
+
   // Cache-first: chỉ hiện spinner khi chưa có list để render
   const silent = options.silent ?? hasRouteCache();
   if (!silent) {
@@ -472,6 +596,11 @@ const stopRouteClock = () => {
   window.removeEventListener('focus', updateSystemTime);
 };
 
+watch(activeAdminArea, () => {
+  if (!isRouteAdmin.value) return;
+  void loadRouteData({ silent: false });
+});
+
 onActivated(async () => {
   startRouteClock();
 
@@ -483,7 +612,12 @@ onActivated(async () => {
   // Cập nhật giờ trước khi load
   const now = new Date();
   currentHour.value = now.getHours();
-  userRoleIsAdmin.value = store.state.dataUser?.userRoleIsAdmin;
+
+  if (isRouteAdmin.value) {
+    await loadRouteData({ silent: false });
+    void loadPendingItems();
+    return;
+  }
 
   // Có cache từ login → hiện UI ngay, refresh API + queue nền
   if (hasRouteCache()) {
@@ -510,26 +644,38 @@ onUnmounted(() => {
 // 5. CÁC HÀM TIỆN ÍCH KHÁC
 // ==========================================
 const confirmCancelRoute = () => {
+  const currentRoute = isRouteAdmin.value ? selectedAdminRoute.value : currentActiveRoute.value;
+  if (!currentRoute) return;
+  pendingCancelRoute.value = {
+    routeId: currentRoute.routeId,
+    psId: currentRoute.psId,
+  };
   isCancelAlertOpen.value = true;
 };
 
 const isCancelling = ref(false);
+const pendingCancelRoute = ref<{ routeId: number; psId: number } | null>(null);
+
+watch(isCancelAlertOpen, (open) => {
+  if (!open && !isCancelling.value) pendingCancelRoute.value = null;
+});
 
 const handleCancelConfirm = async () => {
   if (isCancelling.value) return;
+  const currentRoute = pendingCancelRoute.value;
+  if (!currentRoute) return;
   isCancelling.value = true;
   try {
-    const currentRoute = currentActiveRoute.value;
-    if (!currentRoute) return;
-
     const removeData = {
       routeId: currentRoute.routeId,
       psId: currentRoute.psId,
-      updatedBy: store.state.dataUser?.userId,
+      updatedBy: store.state.dataUser?.userId || routeUser.value.userId,
       isDeleteAction: true
     };
 
-    await clearTimer(currentRoute.routeId, currentRoute.psId);
+    if (!isRouteAdmin.value) {
+      await clearTimer(currentRoute.routeId, currentRoute.psId);
+    }
     await loadPendingItems();
 
     const itemsToDelete = pendingItems.value.filter(
@@ -563,10 +709,17 @@ const handleCancelConfirm = async () => {
       }
     }
 
+    if (isRouteAdmin.value) {
+      isCancelAlertOpen.value = false;
+      await loadRouteData({ silent: true });
+      return;
+    }
+
     await store.dispatch('resetCurrentRoute');
     isCancelAlertOpen.value = false;
     router.replace('/home');
   } finally {
+    pendingCancelRoute.value = null;
     isCancelling.value = false;
   }
 };
@@ -660,6 +813,19 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
   line-height: 1.3;
 }
 
+.header-cancel-btn {
+  flex-shrink: 0;
+  height: 2.5rem;
+  padding: 0 0.7rem;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.header-cancel-btn :deep(.p-button-icon) {
+  font-size: 0.85rem;
+}
+
 .route-content {
   display: flex;
   flex-direction: column;
@@ -704,10 +870,47 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
   flex: 1;
   min-height: 0;
   height: 100%;
-  padding: 16px;
+  padding: 10px 10px 5px 10px;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+}
+
+.admin-route-body {
+  flex: none;
+  box-sizing: border-box;
+  height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 56px - 56px);
+  margin-bottom: 10px;
+  overflow: hidden;
+  padding-top: 8px;
+}
+
+.admin-route-tabs {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.admin-route-tabs :deep(.p-tablist) {
+  background: transparent;
+  border: none;
+}
+
+.admin-route-tabs :deep(.p-tab) {
+  font-weight: bold;
+  font-size: 1.125rem;
+}
+
+.admin-route-tabs :deep(.p-tabpanels) {
+  background: transparent;
+  padding: 12px 0 0;
+  flex: 1;
+  min-height: 0;
+}
+
+.admin-route-tabs :deep(.p-tabpanel) {
+  height: 100%;
 }
 
 .loading-state {
@@ -737,6 +940,7 @@ watch(() => store.state.isSyncing, (isSyncingNow) => {
   border: 1px solid #e2e8f0;
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
   background: #ffffff;
+  height: 100%;
 }
 
 .route-card :deep(.p-card) {
